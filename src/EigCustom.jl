@@ -14,6 +14,20 @@ module EigCustom
 	
 	export eigenZheevr!, eigenPrework!, eigenWorkThrdInit!, testZheevTime, testZheevTime2, testZheevInside;
 	
+	struct EigWork
+		lwork::BlasInt;
+		lrwork::BlasInt;
+		liwork::BlasInt;
+		
+		workLst::Vector{ComplexF64};
+		rworkLst::Vector{Float64};
+		iworkLst::Vector{BlasInt};
+	end
+	
+	function eigenZheevrStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, eigWork::EigWork; jobz = 'V' )
+		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, jobz = jobz );
+	end
+	
 	function eigenZheevr!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, lwork = BlasInt(-1), lrwork = BlasInt(-1), liwork = BlasInt(-1); work= Vector{ComplexF64}(undef, 1), rwork = Vector{Float64}(undef, 1), iwork = Vector{BlasInt}(undef, 1), jobz = 'V' )
 		laRange = 'A';
 		# jobz = 'V';
@@ -122,6 +136,16 @@ module EigCustom
 		liwork = iwork[1];
 		
 		return lwork, lrwork, liwork;
+	end
+	
+	function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
+		lwork, lrwork, liwork = eigenPrework!( A, w, Z );
+		
+		work = Vector{ComplexF64}(undef,Int64(lwork));
+		rwork = Vector{Float64}(undef,lrwork);
+		iwork = Vector{BlasInt}(undef,liwork);
+		
+		return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
 	end
 	
 	function eigenWorkThrdInit!( HmatLst, Elst, vecLst )
