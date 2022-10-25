@@ -1070,3 +1070,7 @@ function parityAvg_fromFile( N, param_divide, itNum, seed; dim = nothing, fMod =
 	save( oFname, varNameZacAvg, zacAvgArr );
 	# @infiltrate
 end
+
+function locLstCollisionPurify()
+
+end
