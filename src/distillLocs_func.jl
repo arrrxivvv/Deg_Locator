@@ -1089,6 +1089,7 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 	if isnothing(dim)
 		dim = 3;
 	end
+	ratio = ones(dim);
 	
 	locLstPol = [posLocLst, negLocLst];
 	locLstPolOut = [ [ [ zeros(Int64, dim, 0) for m = 1 : nLev ] for it = 1:itNum ] for iPol = 1:2 ];
@@ -1100,7 +1101,7 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 		locLstLst = locLstPol[iPol];
 		NLstLst = NLstPol[iPol];
 		for it = 1 : itNum, m = 1 : nLev
-			HmatFun = ( xLst ->  );
+			HmatFun = ( xLst -> Hmat_3comb_ratio!( getThrInst( HmatThr ), xLst, H_GUE_lst[it], ratio ) );
 			vLstTmp = zeros( ComplexF64, N, 2, NLstLst[it,m] );
 			for iLoc = 1 : NLstLst[it,m]
 				
