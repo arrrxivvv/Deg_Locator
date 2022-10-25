@@ -12,7 +12,7 @@ module EigCustom
 
 	using Base: iszero, require_one_based_indexing
 	
-	export eigenZheevr!, eigenPrework!, eigenWorkThrdInit!, testZheevTime, testZheevTime2, testZheevInside;
+	export eigenZheevr!, eigenZheevrStruct!, eigenPrework!, eigenPreworkStruct!, eigenWorkThrdInit!, testZheevTime, testZheevTime2, testZheevInside;
 	
 	struct EigWork
 		lwork::BlasInt;
