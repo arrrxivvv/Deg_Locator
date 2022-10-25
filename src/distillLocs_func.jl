@@ -1071,6 +1071,153 @@ function parityAvg_fromFile( N, param_divide, itNum, seed; dim = nothing, fMod =
 	# @infiltrate
 end
 
-function locLstCollisionPurify()
+function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing, fMod = "", fExt = jld2Type, alpha = 0 )
+	attrLst, valLst = fAttrValFunc( mSz, param_divide, itNum, seed, dim; alpha = alpha );
+	
+	fMain = fDeg;
+	fExt = jld2Type;
+	
+	fVarName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	posLocLst = load( fVarName, varNamePosLoc );
+	negLocLst = load( fVarName, varNameNegLoc );
+	posNlst = load( fVarName, varNamePosLoc );
+	negNlst = load( fVarName, varNameNegLoc );
+	H_GUE_lst = load( fVarName, "H_GUE_lst" );
+	
+	nLev = size[posNlst[1],2];
+	if isnothing(dim)
+		dim = 3;
+	end
+	
+	locLstPol = [posLocLst, negLocLst];
+	locLstPolOut = [ [ [ zeros(Int64, dim, 0) for m = 1 : nLev ] for it = 1:itNum ] for iPol = 1:2 ];
+	HmatThr = threaded_zeros( ComplexF64, N, N );
+	vLstThr = threaded_zeros( ComplexF64, N, N );
+	eLstThr = threaded_zeros( Float64, N );
+	NLstPol = [posNlst,negNlst];
+	for iPol = 1:2
+		locLstLst = locLstPol[iPol];
+		NLstLst = NLstPol[iPol];
+		for it = 1 : itNum, m = 1 : nLev
+			HmatFun = ( xLst ->  );
+			vLstTmp = zeros( ComplexF64, N, 2, NLstLst[it,m] );
+			for iLoc = 1 : NLstLst[it,m]
+				
+			end
+		end
+		vLstLst = [ [ zeros(ComplexF64,N,2,NLstLst[it,m]) for m = 1 : length[locLstLst[it]] ] for it = 1 : itNum ];
+	end
+end
 
+function collisionPurify!( idHash, locLstLSt, vLstLst, mSz, paramMaxLst, divLst, stepLst; bndThrRat = 0.01, fid1Thr = 0.99999 )
+	locLstLstPure = Vector{Matrix{Float64}}(undef,mSz-1);
+	vLstLstPure = Vector{Array{ComplexF64,3}}(undef,mSz-1);
+	
+	for m = 1 : mSz-1
+		locLstLstPure[m], vLstLstPure[m] = collisionPUrifyPerLevel!( idHash, locLstLst[m], vLstLst[m], paramMaxLst, divLst, stepLst; bndThrRat = bndThrRat, fid1Thr = fid1Thr );
+	end
+	return locLstLstPure, vLstLstPure;
+end
+
+function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, stepLst; bndThrRat = 0.01, fidlThr = 0.99999 )
+	for idLst in idHash
+		empty!(idLst);
+	end
+	
+	if isempty(locLst)
+		return
+	end
+	
+	nDim = length(divLst);
+	bndThrAbsMin = bndThrRat * stepLst;
+	bndThrAbsMax = (1 - bndThrRat) * stepLst;
+	
+	idTmp = zeros(Int64,nDim);
+	idTmpSh = similar(idTmp);
+	idBndSh = zeros(Int64,nDim);
+	idRemain = zeros(nDim);
+	idShLst = zeros(Int64,nDim,2^nDim);
+	iShThis = 1;
+	# iShNext = 1;
+	isBndLst = ConstantArray(false,nDim);
+	idLin = 1;
+	
+	idNonColl = zeros(Int64,0);
+	for ii = 1 : size(locLst,2)
+		idTmp .= mod.( floor.( locLst[:,ii] ./ stepLst ), paramMaxLst ) .+ 1;
+		idRemain .= @view(locLst[:,ii]) .- (idTmp .- 1) .* stepLst;
+		idLin = getLinId( idTmp, divLst, nDim );
+		
+		isCollide = false;
+		for iHsh = 1 : length( idHash[idLin] )
+			@views if fidelity2by2( vLst[:,:,ii], vLst[:,:,idHash[idLin][iHsh]] > fidlThr )
+				isCollide = true;
+				break;
+			end
+		end
+		if isCollide
+			continue;
+		end
+		push!(idNonColl,ii);
+		
+		idBndSh .= 0;
+		for iDim = 1 : nDim
+			if idRemain[iDim] < bndThrAbsMin[iDim]
+				idBndSh[iDim] = -1;
+			elseif idRemain[iDim] > bndThrAbsMax[iDim]
+				idBndSh[iDim] = 1;
+			end
+		end
+		# isBndLst .= idRemain .> bndThrAbs;
+		@views idShLst[:,1] .= 0;
+		iShThis = 1;
+		for iDim = 1:nDim
+			if idBndSh[iDim] != 0
+				for iShBnd = 1 : iShThis
+					@views idShLst[:,iShBnd+iShThis] .= idShLst[:,iShBnd];
+					idShLst[iDim,iShBnd+iShThis] = idBndSh[iDim];
+				end
+				iShThis *= 2;
+			end
+		end
+		
+		for iSh = 1 : iShThis
+			iShTmp .= mod.( idShLst .+ idTmp .- 1, divLst ) .+ 1;
+			idLin = getLinId( idShTmp, divLst, nDim );
+			push!(idHash[idLin],ii);
+		end
+	end
+	
+	# lnIdLst = 1;
+	# idColl = Set( zeros(Int64,0) );
+	# for idLst in idHash
+		# i1 = 1;
+		# while i1 <= length(idLst)
+			# i2 = i1+1;
+			# while i2 <= length(idLst)
+				# @views if fidelity2by2( vLst[:,:,idLst[i1]], vLst[:,:,idLst[i2]] ) > fidlThr
+					# push!( idColl, i2 );
+					# deleteat!(idLst,i2);
+					# continue;
+				# end
+				# i2 += 1;
+			# end
+			# i1 += 1;
+		# end
+	# end
+	# deleteat!(  );
+	return locLst[:,idNonColl], vLst[:,:,idNonColl];
+end
+
+function fidelity2by2( v1lst, v2lst; numVec = 2 )
+	H22 = zeros(ComplexF64,numVec,numVec);
+	for i1 = 1:numVec
+		for i2 = 1:numVec
+			for jj = 1:numVec
+				@views H22[i1,i2] += 1/4 * dot( v1lst[:,i1], v2lst[:,jj] ) * dot( v2lst[:,jj], v1lst[:,i2] );
+			end
+		end
+	end
+	return tr(sqrt(H22));
 end

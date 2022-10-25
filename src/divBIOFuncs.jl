@@ -3,6 +3,8 @@ const attrLstDim = vcat(["dim"],attrLstBase);
 
 const varNamePosLoc = "posLocLst";
 const varNameNegLoc = "negLocLst";
+const varNamePosN = "posNlst";
+const varNameNegN = "negNlst";
 const varNameLocDensity = "locDensity";
 const varNameLocCorrAvg = "locCorrLstAvg";
 const varNameLocCorrStd = "locCorrLstStd";
