@@ -1085,6 +1085,7 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 	negNlst = load( fVarName, varNameNegLoc );
 	H_GUE_lst = load( fVarName, "H_GUE_lst" );
 	
+	@infiltrate
 	nLev = size[posNlst[1],2];
 	if isnothing(dim)
 		dim = 3;
@@ -1092,11 +1093,12 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 	ratio = ones(dim);
 	
 	locLstPol = [posLocLst, negLocLst];
-	locLstPolOut = [ [ [ zeros(Int64, dim, 0) for m = 1 : nLev ] for it = 1:itNum ] for iPol = 1:2 ];
+	locLstPolOut = [ [ [ zeros(Float64, 0, dim) for m = 1 : nLev ] for it = 1:itNum ] for iPol = 1:2 ];
 	HmatThr = threaded_zeros( ComplexF64, N, N );
 	vLstThr = threaded_zeros( ComplexF64, N, N );
 	eLstThr = threaded_zeros( Float64, N );
 	NLstPol = [posNlst,negNlst];
+	eigWorks = eigenPreworkStruct!( getThrInst(HmatThr), getThrInst(eLstThr), getThrInst(vLstThr) );
 	for iPol = 1:2
 		locLstLst = locLstPol[iPol];
 		NLstLst = NLstPol[iPol];
@@ -1104,7 +1106,7 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 			HmatFun = ( xLst -> Hmat_3comb_ratio!( getThrInst( HmatThr ), xLst, H_GUE_lst[it], ratio ) );
 			vLstTmp = zeros( ComplexF64, N, 2, NLstLst[it,m] );
 			for iLoc = 1 : NLstLst[it,m]
-				
+				@views HmatFun( locLstLst[it][m][iLoc,:] );
 			end
 		end
 		vLstLst = [ [ zeros(ComplexF64,N,2,NLstLst[it,m]) for m = 1 : length[locLstLst[it]] ] for it = 1 : itNum ];
