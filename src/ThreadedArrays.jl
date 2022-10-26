@@ -1,9 +1,25 @@
 module ThreadedArrays
 
-export ThrArray, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssign!;
+export ThrArray, ThrStruct, thrStructFill, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssign!;
 
 struct ThrArray{T,N} # <: AbstractArray{T,N}
 	data::Vector{Array{T,N}};
+end
+
+struct ThrStruct{Tstruct}
+	data::Vector{Tstruct};
+end
+
+function thrStructFill( T::DataType, args... )
+	ThrStruct{T}( [ T(args...) for ii = 1 : Threads.nthreads() ] );
+end
+
+function getThrInst( thrStruct::ThrStruct{T} ) where{T}
+	if length(thrStruct.data) == 0
+		return nothing;
+	else
+		return thrStruct.data[Threads.threadid()];
+	end
 end
 
 ThrArray{T}( data::Vector{Array{T,N}} ) where{T,N} = ThrArray{T,ndims(data[1])}( data );
