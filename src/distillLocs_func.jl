@@ -1071,7 +1071,7 @@ function parityAvg_fromFile( N, param_divide, itNum, seed; dim = nothing, fMod =
 	# @infiltrate
 end
 
-function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing, fMod = "", fExt = jld2Type, alpha = 0, divColl = 30, paramMax = 2*pi, bndThrRat = 0.01, fidlThr = 0.99999 )
+function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing, fMod = "", fExt = jld2Type, alpha = 0, divColl = 10, paramMax = 2*pi, bndThrRat = 0.1, fidlThr = 0.99999 )
 	attrLst, valLst = fAttrValFunc( mSz, param_divide, itNum, seed, dim; alpha = alpha );
 	
 	fMain = fDeg;
@@ -1111,9 +1111,10 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 	locLstPol = [posLocLst, negLocLst];
 	NLstPol = [posNlst,negNlst];
 	NLstPolOrg = deepcopy(NLstPol);
-	# locLstPolOut = [ [ [ zeros(Float64, 0, dim) for m = 1 : nLev ] for it = 1:itNum ] for iPol = 1:2 ];
+	
 	locLstPolOut = [ [ Vector{Array{Float64,2}}(undef,nLev) for it = 1:itNum ] for iPol = 1:2 ];
 	vLstPolOut = [ [ Vector{Array{ComplexF64,3}}(undef,nLev) for it = 1:itNum ] for iPol = 1:2 ];
+	fidlLstPol = [ [Vector{Vector{Float64}}(undef,nLev) for it = 1:itNum] for iPol = 1:2 ];
 	
 	HmatThr = threaded_zeros( ComplexF64, mSz, mSz );
 	vLstThr = threaded_zeros( ComplexF64, mSz, mSz );
@@ -1131,17 +1132,22 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 				eigenZheevrStruct!( getThrInst(HmatThr), getThrInst(eLstThr), getThrInst(vLstThr), getThrInst(eigWorksThr) );
 				@views vLstTmp[:,:,iLoc] = vLstThr[:,m:m+1];
 			end
-			locLstPolOut[iPol][it][m], vLstPolOut[iPol][it][m] = collisionPurifyPerLevel!( idHash, locLstLst[it][m], vLstTmp, paramMaxLstHash, divLstHash, stepLstHash; bndThrRat = bndThrRat, fidlThr = fidlThr );
+			locLstPolOut[iPol][it][m], vLstPolOut[iPol][it][m], fidlLstPol[iPol][it][m] = collisionPurifyPerLevel!( idHash, locLstLst[it][m], vLstTmp, paramMaxLstHash, divLstHash, stepLstHash; bndThrRat = bndThrRat, fidlThr = fidlThr, isRecordFidl = true );
 			NLstLst[it,m] = size( locLstPolOut[iPol][it][m], 1 )
 		end
 		# vLstLst = [ [ zeros(ComplexF64,N,2,NLstLst[it,m]) for m = 1 : length[locLstLst[it]] ] for it = 1 : itNum ];
 	end
+	fidlLstAllPol = [ vcat.(fidlLstPol[iPol]...) for iPol = 1:2 ];
 	
 	oFmain = fMain * "_collisionPurified";
-	oFname = fNameFunc( oFmain, attrLst, valLst, fExt; fMod = fMod );
-	save( oFname, varNamePosLoc, locLstPolOut[1], varNameNegLoc, locLstPolOut[2], varNamePosN, NLstPol[1], varNameNegN, NLstPol[2] );
+	attrLstOut = copy(attrLst);
+	valLstOut = copy(valLst);
+	push!(attrLstOut, "divColl", "bndThrRat");
+	push!(valLstOut, divColl, bndThrRat);
+	oFname = fNameFunc( oFmain, attrLstOut, valLstOut, fExt; fMod = fMod );
+	save( oFname, varNamePosLoc, locLstPolOut[1], varNameNegLoc, locLstPolOut[2], varNamePosN, NLstPol[1], varNameNegN, NLstPol[2], "fidlLstPol", fidlLstPol, "fidlLstAllPol", fidlLstAllPol );
 	@infiltrate
-	return locLstPolOut, NLstPol;
+	return locLstPolOut, NLstPol, fidlLstPol;
 end
 
 function collisionPurify!( idHash, locLstLst, vLstLst, mSz, paramMaxLst, divLst, stepLst; bndThrRat = 0.01, fidlThr = 0.99999 )
@@ -1154,7 +1160,7 @@ function collisionPurify!( idHash, locLstLst, vLstLst, mSz, paramMaxLst, divLst,
 	return locLstLstPure, vLstLstPure;
 end
 
-function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, stepLst; bndThrRat = 0.01, fidlThr = 0.99999 )
+function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, stepLst; bndThrRat = 0.01, fidlThr = 0.99999, isRecordFidl = false )
 	for idLst in idHash
 		empty!(idLst);
 	end
@@ -1166,6 +1172,10 @@ function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, st
 	nDim = length(divLst);
 	bndThrAbsMin = bndThrRat * stepLst;
 	bndThrAbsMax = (1 - bndThrRat) * stepLst;
+	
+	# if isRecordFidl
+	fidlLst = zeros(0);
+	# end
 	
 	idTmp = zeros(Int64,nDim);
 	idTmpSh = similar(idTmp);
@@ -1187,7 +1197,11 @@ function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, st
 		isCollide = false;
 		for iHsh = 1 : length( idHash[idLin] )
 			# @infiltrate
-			@views if fidelity2by2( vLst[:,:,ii], vLst[:,:,idHash[idLin][iHsh]] )  > fidlThr
+			fidl = fidelity2by2( vLst[:,:,ii], vLst[:,:,idHash[idLin][iHsh]] );
+			if isRecordFidl
+				push!(fidlLst,fidl);
+			end
+			@views if fidl > fidlThr
 				isCollide = true;
 				break;
 			end
@@ -1225,7 +1239,8 @@ function collisionPurifyPerLevel!( idHash, locLst, vLst, paramMaxLst, divLst, st
 		end
 	end
 	
-	return locLst[idNonColl,:], vLst[:,:,idNonColl];
+	# @infiltrate
+	return locLst[idNonColl,:], vLst[:,:,idNonColl], fidlLst;
 end
 
 function fidelity2by2( v1lst, v2lst; numVec = 2 )
