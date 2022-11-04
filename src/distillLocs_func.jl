@@ -8,12 +8,6 @@ using Statistics
 
 Mlst = [10];
 
-fDeg = "deg";
-fLocDistilled = fDeg * "locDistilled";
-fLocDistilledOld = "locDistilled";
-varNDistilled = "NDistilledLst";
-fGvar = "varG";
-
 function locLstPurify_detailedOutput( posLocLstRaw, negLocLstRaw, posNlst, param_divide; isReversed = false )
 	itNum = size(posNlst, 1);
 	N = size(posNlst, 2);

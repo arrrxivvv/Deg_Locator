@@ -14,6 +14,13 @@ const varNameZacCorr = "parityCorr";
 const varNameZacCorrAvg = "zacCorrAvg";
 const varNameZacCorrStd = "zacCorrStd";
 
+
+const fDeg = "deg";
+const fLocDistilled = fDeg * "locDistilled";
+const fLocDistilledOld = "locDistilled";
+const varNDistilled = "NDistilledLst";
+const fGvar = "varG";
+
 const fNameDegGOE = "deg_GOE_3d_full";
 const fNameLocDensityGOE = "locDenstiy_GOE";
 const fNameLocCorr = "locCorr";
