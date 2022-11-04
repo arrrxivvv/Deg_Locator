@@ -71,7 +71,7 @@ function locate_rootFind_base( degObj, HmatFun, nmOptFun! )
 				end
 				tFull = @timed 				cntNM = nmOptFun!( HmatFun, iN, degObj );
 				@info( timeMemStr( tFull.time, tFull.bytes ) )
-				@infiltrate
+				# @infiltrate
 				@view( degObj.locLstFromSimp[idCart][:,iSimp] ) .= wrapCoorArr!( @view( degObj.ptLstEnd[:,1] ), degObj.param_max );
 				degObj.eDiffLst[idCart,iSimp] = degObj.valLst[1];
 				# @infiltrate cond = idCart == CartesianIndex(22,1,1)
