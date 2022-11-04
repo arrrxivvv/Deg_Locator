@@ -3,6 +3,7 @@ const attrLstDim = vcat(["dim"],attrLstBase);
 
 const varNamePosLoc = "posLocLst";
 const varNameNegLoc = "negLocLst";
+const varNameHlst = "H_GUE_lst";
 const varNamePosN = "posNlst";
 const varNameNegN = "negNlst";
 const varNameLocDensity = "locDensity";
@@ -13,6 +14,13 @@ const varNameZacAvg = "zacAvgArr";
 const varNameZacCorr = "parityCorr";
 const varNameZacCorrAvg = "zacCorrAvg";
 const varNameZacCorrStd = "zacCorrStd";
+
+
+const fDeg = "deg";
+const fLocDistilled = fDeg * "locDistilled";
+const fLocDistilledOld = "locDistilled";
+const varNDistilled = "NDistilledLst";
+const fGvar = "varG";
 
 const fNameDegGOE = "deg_GOE_3d_full";
 const fNameLocDensityGOE = "locDenstiy_GOE";
