@@ -128,7 +128,6 @@ function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio=nothing )
 		for ii in eachindex(Hmat)
 			Hmat[ii] += ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
 		end
-		# Hmat .+= ratio[it] * ( cos(xLst[it]) * Hlst[1,it] + sin(xLst[it]) * Hlst[2,it] );
 	end
 end
 
@@ -138,7 +137,6 @@ function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cO
 		for ii in eachindex(Hmat)
 			Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
 		end
-		# Hmat .+= ratio[it] * ( cos(xLst[it]) * Hlst[1,it] + sin(xLst[it]) * Hlst[2,it] );
 	end
 	
 	Hmat .+= cOff * Hoffset;
