@@ -16,6 +16,20 @@ export EnumSaveMem, memNone, memEig, memEigLink, rootFind, rootFindLanczos
 
 export DegObj
 
+struct DegParams
+	param_divide::Vector{Int64};
+	param_dim::Int64;
+	N::Int64;
+	Bfield_ln::Int64;
+	nonPeriodic::Bool;
+	
+	param_min::Vector{Float64};
+	param_max::Vector{Float64};
+	param_step::Vector{Float64};
+	param_grids::Vector{ Vector{Float64} };
+	param_mesh::Array{ Vector{Float64} };
+end
+
 struct DegObj
 	param_divide::Vector{Int64};
 	param_dim::Int64;
@@ -230,6 +244,8 @@ include("degLocator_funcs.jl")
 export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_div_GUE_scale, locator_div_GUE_ratio, locator_div_GOE_ratio
 
 include("degLocator_funcs_rootfind.jl")
+
+# include()
 
 include("distillLocs_func.jl")
 export distillLocsFromFile, distillLocN, whichLocsFromFile, distillLocsFromWhich, locLstPurify, locLstPurify_detailedOutput, locNvarFromFile, parityGOE_resave_fromFile, parityAvg_fromFile, collisionPurifyPerLevel!, collisionPurifyFromFile
