@@ -119,7 +119,10 @@ function Hmat_3comb_ratio( xLst, Hlst, ratio )
 	return Hmat;
 end
 
-function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio )
+function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio=nothing )
+	if isnothing(ratio)
+		ratio = fill(1,length(xLst));
+	end
 	Hmat .= 0;
 	for it = 1:length(xLst)
 		for ii in eachindex(Hmat)
