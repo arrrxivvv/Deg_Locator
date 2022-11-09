@@ -14,39 +14,10 @@ import LinearAlgebra: BlasFloat, BlasInt
 @enum EnumSaveMem memNone=1 memEig=2 memEigLink=3 rootFind=4 rootFindLanczos=5
 export EnumSaveMem, memNone, memEig, memEigLink, rootFind, rootFindLanczos
 
-export DegParams, DegObj
-export degParamsNonPeriodic
+include("DegParams.jl");
+export DegParams, degParamsNonPeriodic, makeArrOverGrid, linIdFromIdVec, wrapIdVec!
 
-struct DegParams
-	divLst::Vector{Int64};
-	nDim::Int64;
-	N::Int64;
-	nonPeriodic::Bool;
-	posLst::AbstractArray{CartesianIndex{N}, N} where N;
-	
-	minLst::Vector{Float64};
-	maxLst::Vector{Float64};
-	stepLst::Vector{Float64};
-	gridLst::Vector{ Vector{Float64} };
-	mesh::Array{ Vector{Float64} };
-end
-
-function degParamsNonPeriodic( N, divLst, minLst, maxLst, nDim )
-	posLst = CartesianIndices(Tuple(divLst));
-	if !isa(minLst, Array)
-		minLst = fill( minLst, nDim );
-	end
-	if !isa(maxLst, Array)
-		maxLst = fill( maxLst, nDim );
-	end
-	nonPeriodic = false;
-	stepLst = ( maxLst .- minLst ) ./ divLst;
-	gridLst = [ collect( range( minLst[iDim], maxLst[iDim] - stepLst[iDim], length = divLst[iDim] ) ) for iDim = 1:nDim ];
-	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
-	
-	return DegParams( divLst, nDim, N, nonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh );
-end
-
+export DegObj
 struct DegObj
 	param_divide::Vector{Int64};
 	param_dim::Int64;
