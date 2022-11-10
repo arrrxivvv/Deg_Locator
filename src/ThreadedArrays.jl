@@ -1,6 +1,6 @@
 module ThreadedArrays
 
-export ThrArray, ThrStruct, thrStructFill, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssig;
+export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssig;
 
 struct ThrArray{T,N} # <: AbstractArray{T,N}
 	data::Vector{Array{T,N}};
@@ -12,6 +12,16 @@ end
 
 function thrStructFill( T::DataType, args... )
 	ThrStruct{T}( [ T(args...) for ii = 1 : Threads.nthreads() ] );
+end
+
+function thrStructCopy( obj )
+	T = typeof(obj);
+	data = Vector{T}(undef,Threads.nthreads());
+	data[1] = obj;
+	for ii = 2:Threads.nthreads()
+		data[ii] = deepcopy(obj);
+	end
+	ThrStruct{T}( data );
 end
 
 function thrStructCpyTheRest( obj )
