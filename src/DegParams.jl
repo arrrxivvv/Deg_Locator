@@ -12,7 +12,7 @@ struct DegParams
 	mesh::Array{ Vector{Float64} };
 end
 
-function degParamsNonPeriodic( N, divLst, minLst, maxLst, nDim )
+function degParamsPeriodic( N, divLst, minLst, maxLst, nDim )
 	posLst = CartesianIndices(Tuple(divLst));
 	if !isa(minLst, Array)
 		minLst = fill( minLst, nDim );
@@ -29,7 +29,7 @@ function degParamsNonPeriodic( N, divLst, minLst, maxLst, nDim )
 end
 
 function makeArrOverGrid( type::DataType, params::DegParams )
-	return Array{type,params.nDim}(fillVal,params.divLst...);
+	return Array{type,params.nDim}(undef,params.divLst...);
 end
 
 function linIdFromIdVec( idVec::Vector{Int64}, params::DegParams )
