@@ -14,12 +14,6 @@ function matsGridBase( params::DegParams, HmatLst, HOpt::HgridStoreOpt )
 	Elst = makeArrOverGrid( Vector{Float64}, params );
 	vLst = makeArrOverGrid( Matrix{ComplexF64}, params );
 	
-	# if Hopt == HgridFull
-		# HmatLst = makeArrOverGrid( Matrix{ComplexF64}, params );
-	# elseif Hopt == HthreadedOnly
-		# HmatLst = threaded_zeros( ComplexF64, params.N, params.N );
-	# end
-	
 	eigWorkTh = thrStructCopy( eigWorkStructFromNum!( params.N ) );
 	
 	return DegMatsOnGrid( params, Elst, vLst, HmatLst, HOpt, eigWorkTh );
@@ -30,8 +24,6 @@ function matsGridHinternal( params::DegParams, Hopt::HgridStoreOpt )
 		HmatLst = makeArrOverGrid( Matrix{ComplexF64}, params );
 	elseif Hopt == Hlayered
 		HmatLst = makeArrOverGrid( Matrix{	ComplexF64}, params );
-	# elseif Hopt == HthreadedOnly
-		# HmatLst = threaded_zeros( ComplexF64, params.N, params.N );
 	end
 	
 	return matsGridBase( params, HmatLst, Hopt );
