@@ -17,18 +17,13 @@ export divB!, linkLstFun!, BfieldFromLink!, Bfield_dA
 function linkLstFun!( degObj )
 	for dim = 1:degObj.param_dim
 		sh_lst = zeros(Int64,degObj.param_dim);
-		# sh_lst[dim] = -1;
 		sh_lst[dim] = +1;
 		shCartInd = CartesianIndex( Tuple(sh_lst) );
-		# vecLst_sh = circshift(vecLst,Tuple(sh_lst));
 		Threads.@threads for pos in degObj.posLst
 			nextPos = pos + shCartInd;
 			nextPos = wrapCartInd!( nextPos, degObj.vecLst );
-			# degObj.linkLst[dim][pos] = dotEachCol( degObj.vecLst[nextPos], degObj.vecLst[pos] );
 			dotEachCol!( degObj.linkLst[dim][pos], degObj.vecLst[nextPos], degObj.vecLst[pos] );
 		end
-		# linkLst[dim] = dotEachCol.(vecLst_sh,vecLst);
-		# degObj.linkLst[dim] = ( x -> x ./ abs.(x) ).(degObj.linkLst[dim]);
 		Threads.@threads for pos in degObj.posLst
 			degObj.linkLst[dim][pos] .= degObj.linkLst[dim][pos] ./ abs.(degObj.linkLst[dim][pos]);
 		end
@@ -49,14 +44,8 @@ function BfieldFromLink!( degObj )
 				dim = dimLst[it];
 				dimSh = dimOtherLst[it];
 				sh_lst = zeros(Int64, degObj.param_dim);
-				# sh_lst[dimSh] = -1;
-				# sh_lst[dimSh] = 1;
-				# shCartInd = CartesianIndex( Tuple(sh_lst) );
 				linkLstShTmp = ShiftedArrays.circshift( degObj.linkLst[dim], ntuple( i -> i==dimSh ? -1 : 0, degObj.param_dim ) );
 				Threads.@threads for pos in degObj.posLst
-					# nextPos = pos + shCartInd;
-					# nextPos = wrapCartInd!( nextPos, degObj.linkLst[1] );
-					# linkRatio[it][pos] .= degObj.linkLst[dim][pos] ./ degObj.linkLst[dim][nextPos];
 					linkRatio[it][pos] .= degObj.linkLst[dim][pos] ./ linkLstShTmp[pos];
 				end
 			end
