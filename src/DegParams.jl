@@ -10,6 +10,8 @@ struct DegParams
 	stepLst::Vector{Float64};
 	gridLst::Vector{ Vector{Float64} };
 	mesh::Array{ Vector{Float64} };
+	
+	locItThr::ThrArray{Int64,1};
 end
 
 function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
@@ -25,7 +27,9 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	
 	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
 	
-	return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh );
+	locItThr = threaded_zeros( Int64, nDim );
+	
+	return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh, locItThr );
 end
 
 function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )
@@ -44,20 +48,6 @@ function degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	end
 	
 	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false );
-	
-	# stepLst = ( maxLst .- minLst ) ./ divLst;
-	
-	# if isNonPeriodic
-		# posLst = CartesianIndices(Tuple(divLst.+1));
-		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim], length = divLst[iDim]+1 ) ) for iDim = 1:nDim ];
-	# else
-		# posLst = CartesianIndices(Tuple(divLst));
-		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim] - stepLst[iDim], length = divLst[iDim] ) ) for iDim = 1:nDim ];
-	# end
-	
-	# mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
-	
-	# return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh );
 end
 
 function degParamsPeriodic( N, divLst, minLst, maxLst, nDim )
@@ -105,4 +95,38 @@ function wrapIdVec!( idVec::Vector{Int64}, params::DegParams )
 	idVec .-= 1;
 	idVec .= mod.( idVec, params.divLst );
 	idVec .+= 1;
+end
+
+function shLinId!( idLin, iSh, params::DegParams )
+	iSh -= 1;
+	for iDim = 1 : params.nDim
+		idVec[iDim] = (iSh & 1);
+		iSh = iSh >> 1;
+	end
+end
+
+function shIdVec!( params::DegParams, loc, iSh; shD = 1 )
+	broadcastAssign!( params.locItThr, loc );
+	
+	shLocIt!( params, iSh; shD=shD );
+end
+
+function shLocIt!( params::DegParams, iSh; shD = 1 )
+	iSh -= 1;	
+	for iDim = 1:params.nDim
+		params.locItThr[iDim] += (iSh & 1) * 	( isa(shD,Array) ? shD[iDim] : shD );
+		iSh = iSh >> 1;
+	end
+	
+	wrapIdVec!( getThrInst( params.locItThr ), params )
+end
+
+function locItCorner!( params::DegParams, iSh )
+	broadcastAssign!( params.locItThr, 1 );
+	
+	shLocIt!( params, iSh; shD = params.divLst );
+end
+
+function linItCurrent( params::DegParams )
+	return linIdFromIdVec( getThrInst( params.itLocThr ), params );
 end

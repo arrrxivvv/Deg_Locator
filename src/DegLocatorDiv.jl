@@ -15,7 +15,7 @@ import LinearAlgebra: BlasFloat, BlasInt
 export EnumSaveMem, memNone, memEig, memEigLink, rootFind, rootFindLanczos
 
 include("DegParams.jl");
-export DegParams, degParamsPeriodic, degParamsBase, degParamsNonInit, degParamsInit, makeArrOverGrid, updateParamsRange, linIdFromIdVec, wrapIdVec!
+export DegParams, degParamsPeriodic, degParamsBase, degParamsNonInit, degParamsInit, makeArrOverGrid, updateParamsRange, linIdFromIdVec, wrapIdVec!, shIdVec!
 
 include("DegMatsOnGrid.jl");
 export DegMatsOnGrid, matsGridHThreaded, getHLoc, eigenAtLoc
