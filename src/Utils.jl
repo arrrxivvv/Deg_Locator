@@ -16,7 +16,7 @@ export error_only_logger
 
 export fileType, jldType, jld2Type, npyType, MatchMethod, mX, mExtended, mSameN, mPropagate
 
-export printlnLogFile, printLogFile, SortABbyA, EigenSort!, dotEachCol, dotEachCol!, wrap, arrLstToArr, arrLstToArrDepth, arrToArrLst, cartIndLstToArr, gridLst, wrapCartInd!, selectDimLst, permuteArr!, permuteCol2d!, permute1d!, wrapIntInd, getLinInd, wrapIndArr!, wrapCoorArr!, wrapDiffArr!, funArrDims
+export printlnLogFile, printLogFile, SortABbyA, EigenSort!, dotEachCol, dotEachCol!, wrap, arrLstToArr, arrLstToArrDepth, arrToArrLst, cartIndLstToArr, gridLst, wrapCartInd!, selectDimLst, permuteArr!, permuteCol2d!, permute1d!, wrapIntInd, getLinInd, wrapIndArr!, wrapCoorArr!, wrapDiffArr!, funArrDims, shIdVec!
 
 export timeMemStr
 
@@ -268,6 +268,15 @@ function structAssign!( dest, src )
 		else
 			setfield!( dest, fld, getfield(src, fld) );
 		end
+	end
+end
+
+function shIdVec!( idVec, nDim, iSh )
+	idVec .= 0;
+	iSh -= 1;
+	for iDim = 1 : nDim
+		idVec[iDim] += (iSh & 1);
+		iSh = iSh >> 1;
 	end
 end
 
