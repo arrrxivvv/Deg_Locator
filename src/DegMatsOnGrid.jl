@@ -92,3 +92,60 @@ function eigenAtLoc( loc::Vector{Int64}, matsGrid::DegMatsOnGrid; noReEigen = tr
 	
 	eigenZheevrStruct!( Hmat, matsGrid.Elst[idLin], matsGrid.vLst[idLin], getThrInst(matsGrid.eigWorkTh) );
 end
+
+function setCurrentDone( matsGrid::DegMatsOnGrid )
+	linId = linItCurrent( matsGrid.params );
+	matsGrid.eigenIdGrid[linId] = matsGrid.eigenId;
+end
+
+function getCurrentElst( matsGrid::DegMatsOnGrid )
+	linId = linIdFromIdVec( 
+		getThrInst( matsGrid.params.locItThr ), matsGrid.params );
+	return matsGrid.Elst[linId];
+end
+
+function setCurrentElst( matsGrid::DegMatsOnGrid, mat )
+	linId = linIdFromIdVec( 
+		getThrInst( matsGrid.params.locItThr ), matsGrid.params );
+	if !isassigned( matsGrid.Elst, linId )
+		matsGrid.Elst[linId] = mat;
+	else
+		matsGrid.Elst[linId] .= mat;
+	end
+end
+
+function getCurrentVLst( matsGrid::DegMatsOnGrid )
+	linId = linIdFromIdVec( 
+		getThrInst( matsGrid.params.locItThr ), matsGrid.params );
+	return matsGrid.vLst[linId];
+end
+
+function setCurrentVLst( matsGrid::DegMatsOnGrid, mat )
+	linId = linIdFromIdVec( 
+		getThrInst( matsGrid.params.locItThr ), matsGrid.params );
+	if !isassigned( matsGrid.vLst, linId )
+		matsGrid.vLst[linId] = mat;
+	else
+		matsGrid.vLst[linId] .= mat;
+	end
+end
+
+function matsGridTransfer!( matsGsT, matsGrS, locS )
+	for iSh = 1 : 2^matsGrT.params.nDim
+		shIdVec!( matsGrS.params, locS, iSh );
+		locItCorner!( matsGrT.params, iSh );
+		setCurrentElst( matsGrT, 
+			getCurrentElst( matsGrS ) );
+		setCurrentVLst( matsGrT, 
+			getCurrentVLst( matsGrS ) );
+		setCurrentDone( matsGrT );
+	end
+end
+
+function eigenOnSurface( matsGrid::DegMatsOnGrid )
+	for iCoDim = nDim : -1 : 1
+		for 
+			;
+		end
+	end
+end
