@@ -1,6 +1,6 @@
 module ThreadedArrays
 
-export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssig;
+export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssign!;
 
 struct ThrArray{T,N} # <: AbstractArray{T,N}
 	data::Vector{Array{T,N}};
