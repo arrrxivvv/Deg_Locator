@@ -144,6 +144,45 @@ end
 
 function eigenOnSurface( matsGrid::DegMatsOnGrid )
 	for iCoDim = nDim : -1 : 1
+		dimBndLst = ones(Int64, nDim - iCoDim);
+		for ii = 1 : nDim - iCoDim
+			dimBndLst[ii] = ii;
+		end
+		while
+			broadcastAssign!( matsGrid.params.stepsItThr, 1 );
+			for ii = 1 : nDim
+				matsGrid.params.divsItThr[ii] = matsGrid.params.divLst[ii]+1;
+			end
+			iDim = 1;
+			broadcastAssign( matsGrid.params.locItThr, 2 );
+			for ii = 1 : nDim - iCoDim
+				matsGrid.params.divsItThr[dimBndLst[ii]] = 2;
+				matsGrid.params.stepsItThr[dimBndLst[ii]] = matsGrid.params.divLst[dimBndLst[ii]];
+				matsGrid.params.locItThr[dimBndLst[ii]] = 1;
+			end
+			
+			iDim = 1;
+			broadcastAssign( matsGrid.params.locItThr, 2 );
+			
+			while
+				
+			end
+			
+			iDim = 1;
+			dimBndLst[1] += 1;
+			while dimBndLst[iDim] > nDim - iDim +1 && iDim < nDim-iCoDim
+				iDim += 1;
+				dimBndLst[iDim] += 1;
+			end
+			if iDim == nDim - iCoDim
+				break;
+			else
+				while iDim < nDim - iCoDim
+					dimBndLst[iDim+1] = dimBndLst[iDim] + 1;
+					iDim += 1;
+				end
+			end
+		end
 		for 
 			;
 		end
