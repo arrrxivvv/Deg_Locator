@@ -29,7 +29,7 @@ function shLocLst( locLst, param_divide_num, dim, shId )
 	return locLst;
 end
 
-function divB_profile( mSz, divLst, itNum, seedFed; nDim = 3 )
+function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3 )
 	if seedFed > 0
 		Random.seed!(seedFed);
 	end

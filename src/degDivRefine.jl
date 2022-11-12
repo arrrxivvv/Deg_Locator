@@ -18,9 +18,9 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	HmatThr = threaded_zeros( ComplexF64, params.N, params.N );
 	degMatsGrid = matsGridHThreaded( params, HmatThr );
 	
-	numRes = 3;
+	numRes = 2;
 	
-	divBlst = [ [ 
+	divBLst = [ [ 
 		[ zeros( size(locLstPol[iPol][it][lev],1), numRes ) for lev = 1:mSz ] 
 			for it = 1:itNum ] 
 				for iPol = 1:2 ];
@@ -34,8 +34,9 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	# );
 	
 	matsGridCubeLst = Vector{DegMatsOnGrid}(undef, numRes);
+	degBerrysLst = Vector{DegBerrys}(undef,numRes);
 	
-	divLstCube = ones(params.nDim);
+	divLstCube = ones(Int64,params.nDim);
 	for iRes = 1 : numRes
 		divLstCube .= 2^iRes;
 		matsGridCubeLst[iRes] = 
@@ -43,12 +44,18 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 				degParamsNonInit( params.N, divLstCube, params.nDim; isNonPeriodic = true ), 
 				HmatThr
 			);
+		degBerrysLst[iRes] = 
+			degBerrysInit( 
+				matsGridCubeLst[iRes].params, 
+				matsGridCubeLst[iRes] );
 	end
+	# @infiltrate
 	
 	numSh = 2^params.nDim;
 	maxLstTmp = zeros(params.nDim);
 	iShTmp = zeros(Int64,params.nDim);
 	for it = 1 : itNum
+		# println( "it = ", it, "/", itNum );
 		HLst = HLstLst[it];
 		HmatFun = ( (H,xLst) -> Hmat_3comb_ratio!(H,xLst,HLst) );
 		# HmatGridFun reevaluate
@@ -58,28 +65,26 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 		);
 		startNextEigen( degMatsGrid );
 		for n = 1 : mSz, iPol = 1 : 2
+			print( "it = ", it, " / ", itNum, ", ", "n = ", n, " / ", mSz, "              \r" );
+			# println( "n = ", n, );
 			locLst = locLstPol[iPol][it][n];
 			# Threads.@threads 
+			@info( "re eigen corners" )
+			tFull = @timed begin
 			for iLoc = 1 : size(locLst,1)
 				loc = @view(locLst[iLoc,:]);
-				locSh = ones( Int64, params.nDim ) ;
-				dLoc = ones( Int64, params.nDim );
 				
-				for iSh = 0 : numSh-1
-					locSh .= loc;
-					iShTmp .= iSh;
-					for iDimSh = 1 : params.nDim
-						if iShTmp & 1 != 0
-							locSh[iDimSh] += 1;
-						end
-						iShTmp = iShTmp >> 1;
-					end
-					wrapIdVec!(locSh, params);
+				for iSh = 1 : numSh
+					setCurrentLoc( degMatsGrid.params, loc );
+					shLocIt!( degMatsGrid.params, iSh );
 					
-					HmatGridFun( locSh );
-					eigenAtLoc( locSh, degMatsGrid );
+					eigenAtCurrentLoc( degMatsGrid; HmatFun = HmatFun );
 				end
 			end
+			end
+			@info( timeMemStr( tFull.time, tFull.bytes ) )
+			@info( "finer eigen each cell" )
+			tFull = @timed begin
 			for iLoc = 1 : size(locLst, 1)
 				loc = @view(locLst[iLoc,:]);
 				linId = linIdFromIdVec( loc, params );
@@ -89,13 +94,23 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 					updateParamsRange( params.mesh[linId], maxLstTmp, matsCube.params );
 					
 					startNextEigen( matsCube );
-					matsGridTransfer( matsCube, degMatsGrid, loc );
+					if iRes == 1
+						matsGridTransfer!( matsCube, degMatsGrid; locS = loc );
+					else
+						matsGridTransferSurfaceDouble!(matsCube, matsGridCubeLst[iRes-1]);
+					end
 					
-					
+					divBSurfaceOutput( degBerrysLst[iRes], HmatFun; transferredResults = true );
+					divBLst[iPol][it][n][iLoc,iRes] = 
+					real(degBerrysLst[iRes].divBSurface[n]);
 				end
 			end
+			end
+			@info( timeMemStr( tFull.time, tFull.bytes ) )
 			# @infiltrate
 		end
 	end
 	# @infiltrate
+	
+	
 end

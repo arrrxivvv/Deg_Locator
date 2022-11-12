@@ -43,7 +43,7 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 		for iDim = 1 : nDim, iSgn = 1 : 2
 		 ];
 	
-	return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh, locItThr, stepsItThr, divsItThr, posLstSh );
+	return DegParams( deepcopy(divLst), nDim, N, isNonPeriodic, posLst, deepcopy(minLst), deepcopy(maxLst), stepLst, gridLst, mesh, locItThr, stepsItThr, divsItThr, posLstSh );
 end
 
 function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )
@@ -106,7 +106,7 @@ function linIdFromIdVecArr( idVec, arr::Array )
 	return id;
 end
 
-function linIdFromIdVec( idVec::Vector{Int64}, params::DegParams )
+function linIdFromIdVec( idVec, params::DegParams )
 	id = idVec[end]-1;
 	for iDim = (params.nDim-1):-1:1
 		id = id * size(params.posLst,iDim) + idVec[iDim]-1;
@@ -149,7 +149,6 @@ function shLocIt!( params::DegParams, iSh; shD = 1 )
 		params.locItThr[iDim] += (iSh & 1) * 	( isa(shD,Array) ? shD[iDim] : shD );
 		iSh = iSh >> 1;
 	end
-	# @infiltrate
 	
 	wrapIdVec!( getThrInst( params.locItThr ), params )
 end
@@ -169,7 +168,7 @@ function setCurrentLoc( params::DegParams, loc )
 		for iDim = 1 : params.nDim
 			params.locItThr[iDim] = loc[iDim];
 		end
-	elseif isa( loc, Vector )
+	elseif isa( loc, Vector ) || isa( loc, SubArray )
 		broadcastAssign!( params.locItThr, loc );
 	end
 end

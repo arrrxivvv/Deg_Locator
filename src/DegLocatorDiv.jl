@@ -246,7 +246,7 @@ include("distillLocs_func.jl")
 export distillLocsFromFile, distillLocN, whichLocsFromFile, distillLocsFromWhich, locLstPurify, locLstPurify_detailedOutput, locNvarFromFile, parityGOE_resave_fromFile, parityAvg_fromFile, collisionPurifyPerLevel!, collisionPurifyFromFile
 
 include("divBProfile_funcs.jl")
-export divB_profile, divB_profile_GOE_3d
+export divB_profile, divB_profile_GOE_3d, divB_profile_new
 degOptAttrLst = ["scale", "ratio", "alpha"];
 degOptDefaultLst = [1, nothing, 0];
 rtFndAttrLst = ["thresNM", "thresEDeg"];

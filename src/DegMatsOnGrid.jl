@@ -52,6 +52,10 @@ function matsGridHThreaded( params::DegParams, HmatLst )
 	return matsGridHExt( params, HmatLst, HthreadedOnly );
 end
 
+function getHCurrent( matsGrid::DegMatsOnGrid )
+	return getHLoc( getThrInst( matsGrid.params.locItThr ), matsGrid );
+end
+
 function getHLoc( loc, matsGrid::DegMatsOnGrid )
 	if matsGrid.HgridOpt == HgridFull
 		if isa(loc, Vector)
@@ -91,12 +95,15 @@ function checkEigenDone( matsGrid::DegMatsOnGrid, loc )
 	end
 end
 
-function eigenAtCurrentLoc( matsGrid::DegMatsOnGrid; noReEigen = true )
+function eigenAtCurrentLoc( matsGrid::DegMatsOnGrid; noReEigen = true, HmatFun = nothing )
 	idLin = linItCurrent( matsGrid.params );
 	if checkEigenDone( matsGrid, idLin )
 		return;
 	end
 	Hmat = getHLoc( idLin, matsGrid );
+	if !isnothing(HmatFun)
+		HmatFun(Hmat, matsGrid.params.mesh[idLin]);
+	end
 	
 	if !isassigned( matsGrid.Elst, idLin )
 		matsGrid.Elst[idLin] = zeros(matsGrid.params.N);
@@ -170,6 +177,7 @@ function matsGridTransfer!( matsGrT, matsGrS; locS = nothing )
 			locItCorner!( matsGrS.params, iSh );
 		end
 		locItCorner!( matsGrT.params, iSh );
+		# @infiltrate;
 		setCurrentElst( matsGrT, 
 			getCurrentElst( matsGrS ) );
 		setCurrentVLst( matsGrT, 

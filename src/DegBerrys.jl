@@ -185,8 +185,8 @@ function divBCalcSurface( degBerrys::DegBerrys )
 	degBerrys.divBSurface ./= 2*pi;
 end
 
-function divBSurfaceOutput( degBerrys::DegBerrys, HmatFun; transferedResults = false )
-	if !transferedResults
+function divBSurfaceOutput( degBerrys::DegBerrys, HmatFun; transferredResults = false )
+	if !transferredResults
 		startNextEigen( degBerrys.degMats );
 	end
 	eigenOnSurface( degBerrys.degMats; HmatFun = HmatFun );
