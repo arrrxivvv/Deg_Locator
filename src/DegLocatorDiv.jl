@@ -18,7 +18,10 @@ include("DegParams.jl");
 export DegParams, degParamsPeriodic, degParamsBase, degParamsNonInit, degParamsInit, makeArrOverGrid, updateParamsRange, linIdFromIdVec, wrapIdVec!, shIdVec!
 
 include("DegMatsOnGrid.jl");
-export DegMatsOnGrid, matsGridHThreaded, getHLoc, eigenAtLoc
+export DegMatsOnGrid, matsGridHThreaded, startNextEigen, getHLoc, eigenAtLoc, eigenOnSurface, eigenAll, matsGridTransfer!, matsGridTransferSurfaceDouble!
+
+include("DegBerrys.jl");
+export degBerrysInit, divBSurfaceOutput
 
 export DegObj
 struct DegObj

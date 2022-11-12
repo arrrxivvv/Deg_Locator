@@ -1,3 +1,4 @@
+# using Infiltrator
 @enum HgridStoreOpt HgridFull=1 Hlayered HthreadedOnly
 
 struct DegMatsOnGrid
@@ -14,7 +15,8 @@ struct DegMatsOnGrid
 	
 	function DegMatsOnGrid( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh )
 		eigenId = 0;
-		eigenIdGrid = zeros( Int64, params.divLst... );
+		eigenIdGrid = makeArrOverGrid( Int64, params );
+		eigenIdGrid .= 0;
 		new( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh, Ref(eigenId), eigenIdGrid );
 	end
 end
@@ -50,9 +52,13 @@ function matsGridHThreaded( params::DegParams, HmatLst )
 	return matsGridHExt( params, HmatLst, HthreadedOnly );
 end
 
-function getHLoc( loc::Vector{Int64}, matsGrid::DegMatsOnGrid )
+function getHLoc( loc, matsGrid::DegMatsOnGrid )
 	if matsGrid.HgridOpt == HgridFull
-		idLin = linIdFromIdVec(loc);
+		if isa(loc, Vector)
+			idLin = linIdFromIdVec(loc);
+		else
+			idLin = loc;
+		end
 		if !isassigned( matsGrid.HmatLst, idLin )
 			matsGrid.HmatLst[idLin] = zeros(ComplexF64, matsGrid.params.N, matsGrid.params.N);
 		end
@@ -66,8 +72,17 @@ function startNextEigen( matsGrid::DegMatsOnGrid )
 	matsGrid.eigenId[] += 1;
 end
 
-function checkEigenDone( matsGrid::DegMatsOnGrid, loc::Vector{Int64} )
-	idLin = linIdFromIdVec( loc, matsGrid.params );
+function checkEigenDone( matsGrid::DegMatsOnGrid, loc )
+	if isa(loc, Vector)
+		idLin = linIdFromIdVec( loc, matsGrid.params );
+	elseif isa(loc, CartesianIndex)
+		for iDim = 1 : matsGrid.params.nDim
+			matsGrid.params.locItThr[iDim] = loc[iDim];
+		end
+		idLin = linItCurrent( matsGrid.params );
+	else
+		idLin = loc;
+	end
 	if matsGrid.eigenIdGrid[idLin] ==  matsGrid.eigenId[]
 		return true;
 	else
@@ -76,13 +91,13 @@ function checkEigenDone( matsGrid::DegMatsOnGrid, loc::Vector{Int64} )
 	end
 end
 
-function eigenAtLoc( loc::Vector{Int64}, matsGrid::DegMatsOnGrid; noReEigen = true )
-	idLin = linIdFromIdVec( loc, matsGrid.params );
-	if checkEigenDone( matsGrid, loc )
+function eigenAtCurrentLoc( matsGrid::DegMatsOnGrid; noReEigen = true )
+	idLin = linItCurrent( matsGrid.params );
+	if checkEigenDone( matsGrid, idLin )
 		return;
 	end
+	Hmat = getHLoc( idLin, matsGrid );
 	
-	Hmat = getHLoc( loc, matsGrid );
 	if !isassigned( matsGrid.Elst, idLin )
 		matsGrid.Elst[idLin] = zeros(matsGrid.params.N);
 	end
@@ -93,9 +108,14 @@ function eigenAtLoc( loc::Vector{Int64}, matsGrid::DegMatsOnGrid; noReEigen = tr
 	eigenZheevrStruct!( Hmat, matsGrid.Elst[idLin], matsGrid.vLst[idLin], getThrInst(matsGrid.eigWorkTh) );
 end
 
+function eigenAtLoc( loc, matsGrid::DegMatsOnGrid; noReEigen = true )
+	setCurrentLoc( matsGrid.params, loc );
+	eigenAtCurrentLoc( matsGrid; noReEigen = noReEigen );
+end
+
 function setCurrentDone( matsGrid::DegMatsOnGrid )
 	linId = linItCurrent( matsGrid.params );
-	matsGrid.eigenIdGrid[linId] = matsGrid.eigenId;
+	matsGrid.eigenIdGrid[linId] = matsGrid.eigenId[];
 end
 
 function getCurrentElst( matsGrid::DegMatsOnGrid )
@@ -120,6 +140,18 @@ function getCurrentVLst( matsGrid::DegMatsOnGrid )
 	return matsGrid.vLst[linId];
 end
 
+# function getNextVLst( matsGrid::DegMatsOnGrid, iDim::Int64 )
+	# matsGrid.params.locItThr[iDim] += 1;
+	# linId = linIdFromIdVec( 
+		# getThrInst( matsGrid.params.locItThr ), matsGrid.params );
+	# matsGrid.params.locItThr[iDim] -= 1;
+	# return matsGrid.vLst[linId];
+# end
+
+function getNextVLst( matsGrid::DegMatsOnGrid, iDim::Int64 )
+	return getCurrentArrSh( matsGrid.vLst, matsGrid.params; dimSh = iDim, iSh = 1 );
+end
+
 function setCurrentVLst( matsGrid::DegMatsOnGrid, mat )
 	linId = linIdFromIdVec( 
 		getThrInst( matsGrid.params.locItThr ), matsGrid.params );
@@ -130,9 +162,13 @@ function setCurrentVLst( matsGrid::DegMatsOnGrid, mat )
 	end
 end
 
-function matsGridTransfer!( matsGsT, matsGrS, locS )
+function matsGridTransfer!( matsGrT, matsGrS; locS = nothing )
 	for iSh = 1 : 2^matsGrT.params.nDim
-		shIdVec!( matsGrS.params, locS, iSh );
+		if !isnothing(locS)
+			shIdVec!( matsGrS.params, locS, iSh );
+		else
+			locItCorner!( matsGrS.params, iSh );
+		end
 		locItCorner!( matsGrT.params, iSh );
 		setCurrentElst( matsGrT, 
 			getCurrentElst( matsGrS ) );
@@ -142,49 +178,129 @@ function matsGridTransfer!( matsGsT, matsGrS, locS )
 	end
 end
 
-function eigenOnSurface( matsGrid::DegMatsOnGrid )
-	for iCoDim = nDim : -1 : 1
-		dimBndLst = ones(Int64, nDim - iCoDim);
-		for ii = 1 : nDim - iCoDim
-			dimBndLst[ii] = ii;
-		end
-		while
-			broadcastAssign!( matsGrid.params.stepsItThr, 1 );
-			for ii = 1 : nDim
-				matsGrid.params.divsItThr[ii] = matsGrid.params.divLst[ii]+1;
-			end
-			iDim = 1;
-			broadcastAssign( matsGrid.params.locItThr, 2 );
-			for ii = 1 : nDim - iCoDim
-				matsGrid.params.divsItThr[dimBndLst[ii]] = 2;
-				matsGrid.params.stepsItThr[dimBndLst[ii]] = matsGrid.params.divLst[dimBndLst[ii]];
-				matsGrid.params.locItThr[dimBndLst[ii]] = 1;
-			end
-			
-			iDim = 1;
-			broadcastAssign( matsGrid.params.locItThr, 2 );
-			
-			while
-				
-			end
-			
-			iDim = 1;
-			dimBndLst[1] += 1;
-			while dimBndLst[iDim] > nDim - iDim +1 && iDim < nDim-iCoDim
-				iDim += 1;
-				dimBndLst[iDim] += 1;
-			end
-			if iDim == nDim - iCoDim
-				break;
-			else
-				while iDim < nDim - iCoDim
-					dimBndLst[iDim+1] = dimBndLst[iDim] + 1;
-					iDim += 1;
-				end
-			end
-		end
-		for 
-			;
+function matsGridTransferSurfaceDouble!( matsGrT, matsGrS )
+	for pos in matsGrS.params.posLst
+		if isPosSurface( pos, matsGrS.params )
+			setCurrentLoc( matsGrS.params, pos );
+			setCurrentLoc( matsGrT.params, pos );
+			setDoubleLoc( matsGrT.params );
+			setCurrentElst( matsGrT, 
+				getCurrentElst( matsGrS ) );
+			setCurrentVLst( matsGrT, 
+				getCurrentVLst( matsGrS ) );
+			setCurrentDone( matsGrT );
 		end
 	end
 end
+
+function eigenOnSurface( matsGrid::DegMatsOnGrid; HmatFun = nothing )
+	Threads.@threads for pos in matsGrid.params.posLst
+		isSurface = false;
+		for iDim = 1 : matsGrid.params.nDim
+			isSurface = ( isSurface 
+				|| ( pos[iDim] == 1 )
+				|| ( pos[iDim] > matsGrid.params.divLst[iDim] ) );
+			if isSurface
+				break;
+			end
+		end
+		if !isSurface
+			continue;
+		end
+		if !isnothing(HmatFun)
+			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
+		end
+		eigenAtLoc( pos, matsGrid );
+	end
+end
+
+function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
+	Threads.@threads for pos in matsGrid.params.posLst
+		# if checkEigenDone( matsGrid, pos );
+			# continue;
+		# end
+		# setCurrentLoc( matsGrid.params, pos );
+		if !isnothing(HmatFun)
+			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
+		end
+		eigenAtLoc( pos, matsGrid );
+	end
+end
+
+# function eigenOnSurface( matsGrid::DegMatsOnGrid )
+	# for iDim = 1 : matsGrid.params.nDim
+		# broadcasrAssign!(matsGrid.params.stepsItThr, 1);
+		# matsGrid.params.stepsItThr[iDim] = 
+			# matsGrid.params.divLst[iDim];
+		# for iDiv = 1 : matsGrid.params.nDim
+			# matsGrid.params.divsItThr[iDiv] =  matsGrid.params.divLst[iDiv] + 1;
+		# end
+		# matsGrid.params.divItThr[iDim] = ;
+		# for i1 = 1 : matsGrid.params.stepsItThr[1] : matsGrid.params.divLst[1]+1
+			# for i2 = 1 : matsGrid.params.stepsItThr[2] : matsGrid.params.divLst[2] + 1
+				# for i3 = 1 : matsGrid.params.stepsItThr[3] : matsGrid.params.divLst[3] + 1
+					
+				# end
+			# end
+		# end
+	# end
+	# for pos in matsGrid.params.posLst
+		# isSurface = true;
+		# for iDim = 1 : params.nDim
+			# isSurface = ( isSurface 
+				# && ( pos[iDim] > 1 )
+				# && ( pos[iDim] <= matsGrid.params.divLst[iDim] ) );
+			# if !isSurface
+				# break;
+			# end
+		# end
+		# if !isSurface
+			# continue;
+		# end
+		# eigen
+	# end
+	# for iCoDim = nDim : -1 : 1
+		# dimBndLst = ones(Int64, nDim - iCoDim);
+		# for ii = 1 : nDim - iCoDim
+			# dimBndLst[ii] = ii;
+		# end
+		# while
+			# broadcastAssign!( matsGrid.params.stepsItThr, 1 );
+			# for ii = 1 : nDim
+				# matsGrid.params.divsItThr[ii] = matsGrid.params.divLst[ii]+1;
+			# end
+			# iDim = 1;
+			# broadcastAssign!( matsGrid.params.locItThr, 2 );
+			# for ii = 1 : nDim - iCoDim
+				# matsGrid.params.divsItThr[dimBndLst[ii]] = 2;
+				# matsGrid.params.stepsItThr[dimBndLst[ii]] = matsGrid.params.divLst[dimBndLst[ii]];
+				# matsGrid.params.locItThr[dimBndLst[ii]] = 1;
+			# end
+			
+			# iDim = 1;
+			# broadcastAssign( matsGrid.params.locItThr, 2 );
+			
+			# while
+				
+			# end
+			
+			# iDim = 1;
+			# dimBndLst[1] += 1;
+			# while dimBndLst[iDim] > nDim - iDim +1 && iDim < nDim-iCoDim
+				# iDim += 1;
+				# dimBndLst[iDim] += 1;
+			# end
+			# if iDim == nDim - iCoDim
+				# break;
+			# else
+				# while iDim < nDim - iCoDim
+					# dimBndLst[iDim+1] = dimBndLst[iDim] + 1;
+					# iDim += 1;
+				# end
+			# end
+		# end
+		# for 
+			# ;
+		# end
+	# end
+# end

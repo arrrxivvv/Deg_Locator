@@ -29,6 +29,45 @@ function shLocLst( locLst, param_divide_num, dim, shId )
 	return locLst;
 end
 
+function divB_profile( mSz, divLst, itNum, seedFed; nDim = 3 )
+	if seedFed > 0
+		Random.seed!(seedFed);
+	end
+	minNum = 0;
+	maxNum = 2*pi;
+	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
+	matsFull = matsGridHThreaded( paramsFull, threaded_zeros(ComplexF64,mSz,mSz) );
+	degBerrysFull = degBerrysInit( paramsFull, matsFull );
+	
+	totalNumLst = zeros(Int64,itNum);
+	
+	for it = 1 : itNum
+		print( "\r Iteration: " * string(it) * " / " * string(itNum) );
+		Hlst = DegLocatorDiv.HlstFunc(H_GUE,nDim,mSz);
+		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, Hlst );
+		startNextEigen( matsFull );
+		
+		@info("Eigen:")
+		tFull = @timed eigenAll( matsFull; HmatFun = HmatFun );
+		@info( timeMemStr( tFull.time, tFull.bytes ) )
+
+		@info("Link:")
+		tFull = @timed DegLocatorDiv.linksCalcAll( degBerrysFull );
+		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		
+		@info("Bfield:")
+		tFull = @timed DegLocatorDiv.BfieldCalcAll( degBerrysFull );
+		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		
+		@info("DivB:")
+		tFull = @timed DegLocatorDiv.divBCalcAll( degBerrysFull );
+		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		
+		totalNumLst[it] = sum(sum( (x->abs.(x).>1e-9).(degBerrysFull.divBLst) ));
+	end
+	return totalNumLst;
+end
+
 function divB_profile( param_dim = 2, Nlst=[20], num_it_main=2, param_divide=50, seedFedstart = -1, enumSaveMem = memNone; scale=degOptDefaultLst[1], ratioFed=degOptDefaultLst[2], fileNameMod = "", maxDepth = 0, param_divide_next = nothing, isOrtho = false, alpha = degOptDefaultLst[3], thresNM = rtFndDefaultLst[1], thresEDeg = rtFndDefaultLst[2], thresDegCollision = rtFndDefaultLst[2] )
 	ratio = ratioFed;
 	if ratioFed == degOptDefaultLst[2]

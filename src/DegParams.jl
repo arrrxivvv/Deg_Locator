@@ -1,3 +1,4 @@
+using ShiftedArrays
 struct DegParams
 	divLst::Vector{Int64};
 	nDim::Int64;
@@ -14,6 +15,8 @@ struct DegParams
 	locItThr::ThrArray{Int64,1};
 	stepsItThr::ThrArray{Int64,1};
 	divsItThr::ThrArray{Int64,1};
+	
+	posLstSh::Array{CircShiftedArray};
 end
 
 function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
@@ -33,7 +36,14 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	stepsItThr = threaded_zeros( Int64, nDim );
 	divsItThr = threaded_zeros( Int64, nDim );
 	
-	return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh, locItThr, stepsItThr, divsItThr );
+	posLstSh = [ 
+		ShiftedArrays.circshift( 
+			posLst, 
+			ntuple(( i -> i==iDim ? (-1)^iSgn : 0 ), nDim ) )
+		for iDim = 1 : nDim, iSgn = 1 : 2
+		 ];
+	
+	return DegParams( divLst, nDim, N, isNonPeriodic, posLst, minLst, maxLst, stepLst, gridLst, mesh, locItThr, stepsItThr, divsItThr, posLstSh );
 end
 
 function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )
@@ -51,7 +61,7 @@ function degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 		maxLst = fill( maxLst, nDim );
 	end
 	
-	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false );
+	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic );
 end
 
 function degParamsPeriodic( N, divLst, minLst, maxLst, nDim )
@@ -87,18 +97,36 @@ function updateParamsRange( minLst, maxLst, params::DegParams )
 	end
 end
 
+function linIdFromIdVecArr( idVec, arr::Array )
+	id = idVec[ndims(arr)]-1;
+	for iDim = (ndims(arr)-1):-1:1
+		id = id * size(arr,iDim) + idVec[iDim]-1;
+	end
+	id = id+1;
+	return id;
+end
+
 function linIdFromIdVec( idVec::Vector{Int64}, params::DegParams )
 	id = idVec[end]-1;
 	for iDim = (params.nDim-1):-1:1
-		id = id * params.divLst[iDim] + idVec[iDim]-1;
+		id = id * size(params.posLst,iDim) + idVec[iDim]-1;
 	end
 	id = id+1;
+	return id;
+end
+
+function wrapIdVecArr!( idVec::Vector{Int64}, arr::Array )
+	idVec .-= 1;
+	idVec .= mod.( idVec, size(arr) );
+	idVec .+= 1;
 end
 
 function wrapIdVec!( idVec::Vector{Int64}, params::DegParams )
-	idVec .-= 1;
-	idVec .= mod.( idVec, params.divLst );
-	idVec .+= 1;
+	if !params.nonPeriodic
+		idVec .-= 1;
+		idVec .= mod.( idVec, params.divLst );
+		idVec .+= 1;
+	end
 end
 
 function shLinId!( idLin, iSh, params::DegParams )
@@ -121,6 +149,7 @@ function shLocIt!( params::DegParams, iSh; shD = 1 )
 		params.locItThr[iDim] += (iSh & 1) * 	( isa(shD,Array) ? shD[iDim] : shD );
 		iSh = iSh >> 1;
 	end
+	# @infiltrate
 	
 	wrapIdVec!( getThrInst( params.locItThr ), params )
 end
@@ -132,5 +161,75 @@ function locItCorner!( params::DegParams, iSh )
 end
 
 function linItCurrent( params::DegParams )
-	return linIdFromIdVec( getThrInst( params.itLocThr ), params );
+	return linIdFromIdVec( getThrInst( params.locItThr ), params );
+end
+
+function setCurrentLoc( params::DegParams, loc )
+	if isa(loc, CartesianIndex)
+		for iDim = 1 : params.nDim
+			params.locItThr[iDim] = loc[iDim];
+		end
+	elseif isa( loc, Vector )
+		broadcastAssign!( params.locItThr, loc );
+	end
+end
+
+function setDoubleLoc( params::DegParams )
+	for iDim = 1 : params.nDim
+		params.locItThr[iDim] = 2 *params.locItThr[iDim] - 1;
+	end
+end
+
+function isPosSurface( pos, params::DegParams )
+	isSurface = false;
+	for iDim = 1 : params.nDim
+		isSurface = ( isSurface 
+			|| ( pos[iDim] == 1 )
+			|| ( pos[iDim] == size(params.posLst,iDim) ) );
+		if isSurface
+			break;
+		end
+	end
+	return isSurface;
+end
+
+function getArrShifted( arr::Array, pos, iDim, iSh, params::DegParams )
+	if isa( pos, CartesianIndex )
+		idSh = iSh > 0 ? 1 : 2;
+		return arr[ params.posLstSh[iDim, idSh][pos] ];
+	elseif isa( pos, Vector )
+		setCurrentLoc( params, pos );
+		params.locItThr[iDim] += iSh;
+		wrapIdVecArr( getThrInst(params.locItThr), arr );
+		linId = linIdFromIdVecArr( getThrInst(params.locItThr), arr );
+		params.locItThr[iDim] -= iSh;
+		wrapIdVecArr( getThrInst(params.locItThr), arr );
+		return arr[linId];
+	end
+end
+
+function getCurrentArrSh( arr::Array, params::DegParams; dimSh = 0, iSh = 0 )
+	if dimSh != 0
+		params.locItThr[dimSh] += iSh;
+		wrapIdVecArr!( getThrInst(params.locItThr), arr );
+		linId = linIdFromIdVecArr( getThrInst(params.locItThr), arr );
+		params.locItThr[dimSh] -= iSh;
+		wrapIdVecArr!( getThrInst(params.locItThr), arr );
+	else
+		linId = linIdFromIdVecArr( 
+		getThrInst( params.locItThr ), arr );
+	end
+	
+	return arr[linId];
+end
+
+function getCurrentArr( arr::Array, params::DegParams )
+	return getCurrentArrSh( arr, params );
+end
+
+function needInitArr( arr::Array, pos )
+	if !isa(pos, Int64)
+		linId  = linIdFromIdVecArr( pos, arr );
+	end
+	return isassigned( arr, linId ), linId;
 end
