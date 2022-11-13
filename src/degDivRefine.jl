@@ -1,4 +1,4 @@
-# using Infiltrator
+using Infiltrator
 
 function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fExt = jld2Type )
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim );
@@ -18,7 +18,7 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	HmatThr = threaded_zeros( ComplexF64, params.N, params.N );
 	degMatsGrid = matsGridHThreaded( params, HmatThr );
 	
-	numRes = 2;
+	numRes = 3;
 	
 	divBLst = [ [ 
 		[ zeros( size(locLstPol[iPol][it][lev],1), numRes ) for lev = 1:mSz ] 
@@ -38,7 +38,7 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	
 	divLstCube = ones(Int64,params.nDim);
 	for iRes = 1 : numRes
-		divLstCube .= 2^iRes;
+		divLstCube .= 2^(iRes-1);
 		matsGridCubeLst[iRes] = 
 			matsGridHThreaded( 
 				degParamsNonInit( params.N, divLstCube, params.nDim; isNonPeriodic = true ), 
@@ -85,6 +85,7 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 			@info( timeMemStr( tFull.time, tFull.bytes ) )
 			@info( "finer eigen each cell" )
 			tFull = @timed begin
+			# Threads.@threads 
 			for iLoc = 1 : size(locLst, 1)
 				loc = @view(locLst[iLoc,:]);
 				linId = linIdFromIdVec( loc, params );
@@ -104,6 +105,7 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 					divBLst[iPol][it][n][iLoc,iRes] = 
 					real(degBerrysLst[iRes].divBSurface[n]);
 				end
+				@infiltrate
 			end
 			end
 			@info( timeMemStr( tFull.time, tFull.bytes ) )
@@ -112,5 +114,13 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	end
 	# @infiltrate
 	
+	attrLstRes = deepcopy( attrLst );
+	valLstRes = deepcopy( valLst );
+	push!( attrLstRes, "nRes" );
+	push!( valLstRes, numRes );
+	fResMain = "divBrefined";
+	fResName = fNameFunc( fResMain, attrLstRes, valLstRes, fExt; fMod = fMod );
+	save( fResName, "divBLst", divBLst );
 	
+	return divBLst;
 end

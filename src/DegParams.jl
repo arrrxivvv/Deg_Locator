@@ -86,8 +86,8 @@ function updateParamsRange( minLst, maxLst, params::DegParams )
 	params.stepLst .= ( maxLst .- minLst ) ./ params.divLst;
 	
 	for iDim = 1 : params.nDim
-		for ii = 0 : length( params.gridLst[iDim] ) - 1
-			params.gridLst[iDim][ii+1] = params.stepLst[iDim] * ii;
+		for ii = 1 : length( params.gridLst[iDim] )
+			params.gridLst[iDim][ii] = params.stepLst[iDim] * (ii-1) + minLst[iDim];
 		end
 	end
 	for pos in params.posLst
