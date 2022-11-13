@@ -14,22 +14,16 @@ import LinearAlgebra: BlasFloat, BlasInt
 @enum EnumSaveMem memNone=1 memEig=2 memEigLink=3 rootFind=4 rootFindLanczos=5
 export EnumSaveMem, memNone, memEig, memEigLink, rootFind, rootFindLanczos
 
+include("DegParams.jl");
+export DegParams, degParamsPeriodic, degParamsBase, degParamsNonInit, degParamsInit, makeArrOverGrid, updateParamsRange, linIdFromIdVec, wrapIdVec!, shIdVec!
+
+include("DegMatsOnGrid.jl");
+export DegMatsOnGrid, matsGridHThreaded, startNextEigen, getHLoc, eigenAtLoc, eigenOnSurface, eigenAll, matsGridTransfer!, matsGridTransferSurfaceDouble!
+
+include("DegBerrys.jl");
+export degBerrysInit, divBSurfaceOutput
+
 export DegObj
-
-struct DegParams
-	param_divide::Vector{Int64};
-	param_dim::Int64;
-	N::Int64;
-	Bfield_ln::Int64;
-	nonPeriodic::Bool;
-	
-	param_min::Vector{Float64};
-	param_max::Vector{Float64};
-	param_step::Vector{Float64};
-	param_grids::Vector{ Vector{Float64} };
-	param_mesh::Array{ Vector{Float64} };
-end
-
 struct DegObj
 	param_divide::Vector{Int64};
 	param_dim::Int64;
@@ -245,13 +239,14 @@ export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_di
 
 include("degLocator_funcs_rootfind.jl")
 
-# include()
+include("degDivRefine.jl")
+export degDivRefineFromFile
 
 include("distillLocs_func.jl")
 export distillLocsFromFile, distillLocN, whichLocsFromFile, distillLocsFromWhich, locLstPurify, locLstPurify_detailedOutput, locNvarFromFile, parityGOE_resave_fromFile, parityAvg_fromFile, collisionPurifyPerLevel!, collisionPurifyFromFile
 
 include("divBProfile_funcs.jl")
-export divB_profile, divB_profile_GOE_3d
+export divB_profile, divB_profile_GOE_3d, divB_profile_new
 degOptAttrLst = ["scale", "ratio", "alpha"];
 degOptDefaultLst = [1, nothing, 0];
 rtFndAttrLst = ["thresNM", "thresEDeg"];
