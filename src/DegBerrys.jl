@@ -10,6 +10,7 @@ struct DegBerrys
 	divBLst::Array{ Vector{Complex{Float64}} };
 	
 	divBSurface::Vector{ComplexF64};
+	BfieldLstSurface::Array{ComplexF64};
 	
 	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
 end
@@ -54,10 +55,11 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid )
 	end
 	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
 	divBSurface = zeros(ComplexF64, params.N);
+	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
 	
 	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
 	
-	DegBerrys( params, degMats, BfieldLn, dimLstRev, linkLst, BfieldLst, divBLst, divBSurface, linkRatioThr );
+	DegBerrys( params, degMats, BfieldLn, dimLstRev, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
 end
 
 function linksCalcSurface( degBerrys::DegBerrys )
@@ -177,11 +179,18 @@ end
 function divBCalcSurface( degBerrys::DegBerrys )
 	degBerrys.divBSurface .= 0;
 	iB = 1;
-	for iB = 1 : degBerrys.params.nDim
+	for iB = 1 : degBerrys.params.nDim		
 		iDimB = degBerrys.dimLstRev[iB];
-		degBerrys.divBSurface .+= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, size( degBerrys.BfieldLst[iB], iDimB ) ) );
-		degBerrys.divBSurface .-= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, 1 ) );
+		@view(degBerrys.BfieldLstSurface[1,iDimB,:]) .= 
+			-sum( selectdim( degBerrys.BfieldLst[iB], iDimB, 1 ) );
+		@view(degBerrys.BfieldLstSurface[2,iDimB,:]) .= 
+			sum( selectdim( degBerrys.BfieldLst[iB], iDimB, size( degBerrys.BfieldLst[iB], iDimB ) ) );
+		degBerrys.divBSurface .+= @view(degBerrys.BfieldLstSurface[2,iDimB,:]);
+		degBerrys.divBSurface .+= @view( degBerrys.BfieldLstSurface[1,iDimB,:] );
+		# degBerrys.divBSurface .+= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, size( degBerrys.BfieldLst[iB], iDimB ) ) );
+		# degBerrys.divBSurface .-= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, 1 ) );
 	end
+	# degBerrys.divBSurface .= sum( degBerrys.BfieldLstSurface );
 	degBerrys.divBSurface ./= 2*pi;
 end
 
