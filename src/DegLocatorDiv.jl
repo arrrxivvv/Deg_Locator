@@ -240,7 +240,7 @@ export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_di
 include("degLocator_funcs_rootfind.jl")
 
 include("degDivRefine.jl")
-export degDivRefineFromFile, divBRefinedStats
+export degDivRefineFromFile, divBErrNeighbor, divBErrNeighborSumCalc, divBRefinedStats
 
 include("distillLocs_func.jl")
 export distillLocsFromFile, distillLocN, whichLocsFromFile, distillLocsFromWhich, locLstPurify, locLstPurify_detailedOutput, locNvarFromFile, parityGOE_resave_fromFile, parityAvg_fromFile, collisionPurifyPerLevel!, collisionPurifyFromFile
