@@ -1,6 +1,6 @@
 using Infiltrator
 
-function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fExt = jld2Type )
+function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = "", dim = 3, fExt = jld2Type, numRes = 3, thres = 0.1 )
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim );
 	fMain = fDeg;
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
@@ -18,20 +18,20 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 	HmatThr = threaded_zeros( ComplexF64, params.N, params.N );
 	degMatsGrid = matsGridHThreaded( params, HmatThr );
 	
-	numRes = 3;
+	# numRes = 3;
 	
 	divBLst = [ [ 
 		[ zeros( size(locLstPol[iPol][it][lev],1), numRes ) for lev = 1:mSz ] 
 			for it = 1:itNum ] 
 				for iPol = 1:2 ];
+	BfieldLst = [
+		[ [ zeros( 2, 3, size( locLstPol[iPol][it][n], 1 ), numRes )
+			for n = 1 : mSz ]
+				for it = 1 : itNum ] 
+					for iPol = 1 : 2];
+	
 	
 	divLstCube = fill(2,params.nDim);
-	# paramsCubeThr = thrStructCopy( degParamsNonInit( params.N, divLst, params.nDim; isNonPeriodic = true ) );
-	# matsGridCubeThr = thrStructCopy( 	 
-		# matsGridHThreaded( 
-			# degParamsNonInit( params.N, divLst, params.nDim; isNonPeriodic = true ), 
-			# HmatThr ) 
-	# );
 	
 	matsGridCubeLst = Vector{DegMatsOnGrid}(undef, numRes);
 	degBerrysLst = Vector{DegBerrys}(undef,numRes);
@@ -104,23 +104,154 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", dim = 3, fEx
 					divBSurfaceOutput( degBerrysLst[iRes], HmatFun; transferredResults = true );
 					divBLst[iPol][it][n][iLoc,iRes] = 
 					real(degBerrysLst[iRes].divBSurface[n]);
+					for iDim = 1 : params.nDim, iBnd = 1 : 2
+						BfieldLst[iPol][it][n][iBnd,iDim,iLoc,iRes] = real( degBerrysLst[iRes].BfieldLstSurface[iBnd,iDim,n] );
+					end
 				end
-				@infiltrate
+				# @infiltrate
 			end
 			end
 			@info( timeMemStr( tFull.time, tFull.bytes ) )
 			# @infiltrate
 		end
 	end
-	# @infiltrate
-	
+	 
 	attrLstRes = deepcopy( attrLst );
 	valLstRes = deepcopy( valLst );
 	push!( attrLstRes, "nRes" );
 	push!( valLstRes, numRes );
 	fResMain = "divBrefined";
-	fResName = fNameFunc( fResMain, attrLstRes, valLstRes, fExt; fMod = fMod );
-	save( fResName, "divBLst", divBLst );
+	fOutModFull = fMod;
+	if fOutMod != ""
+		fOutModFull = fMod * fOutMod;
+	end
+	fResName = fNameFunc( fResMain, attrLstRes, valLstRes, fExt; fMod = fOutModFull );
+	save( fResName, "divBLst", divBLst, "BfieldLst", BfieldLst );
 	
-	return divBLst;
+	# return divBLst;
+end
+
+function divBRefinedStats( mSz, divLst, itNum, seed; fMod = "", dim = 3, numRes = 3, fModOut = "", fExt = jld2Type, thres=0.1 )
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = ["nRes"], valMoreLst = [numRes] );
+	fMain = "divBrefined";
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	divBLst = load( fName, "divBLst" );
+	BfieldLst = load( fName, "BfieldLst" );
+	
+	divBLstVcat = [ 
+		vcat( ((x->vcat(x...)).( divBLst[iPol]) )... )
+		for iPol = 1 : 2 ];
+		
+	BMaxLst = [ [ [ 
+		maxDropDims( BfieldLst[iPol][it][n]; dims = [1,2] )
+		for n = 1 : mSz ]
+		for it = 1 : itNum ]
+		for iPol = 1 : 2 ];
+	BRemainLst = [ [ [ 
+		zeros( 2*dim-1, size( divBLst[iPol][it][n], 1 ), numRes )
+		for n = 1 : mSz ]
+		for it = 1 : itNum ]
+		for iPol = 1 : 2 ];
+	BDiffLst = [[[
+		BfieldLst[iPol][it][n][:,:,:,end] - BfieldLst[iPol][it][n][:,:,:,1]
+		for n = 1 : mSz]
+		for it = 1 : itNum]
+		for iPol = 1 : 2];
+	BDiffLstCat = [ 
+		cat( (x->cat(x...; dims=3)).(BDiffLst[iPol]) ...; dims = 3 )
+		for iPol = 1 : 2 ];
+	BDiffLstVcat = [ reshape(BDiffLstCat[iPol],length(BDiffLstCat[iPol])) for iPol = 1 : 2 ]
+	
+	for iPol = 1:2, it = 1:itNum, n = 1:mSz
+		for iRes = 1 : numRes, iLoc = 1 : size( divBLst[iPol][it][n], 1 )
+			isFnd = false;
+			valMax = BMaxLst;
+			id = 1;
+			for iBnd = 1:2, iDim = 1 : dim
+				if isFnd || BfieldLst[iPol][it][n][iBnd,iDim,iLoc,iRes] != BMaxLst[iPol][it][n][iLoc,iRes]
+					BRemainLst[iPol][it][n][id,iLoc,iRes] = BfieldLst[iPol][it][n][iBnd,iDim,iLoc,iRes];
+					id += 1;
+				else
+					isFnd = true;
+				end
+			end
+		end
+	end
+	
+	BMaxLstVcat = [ 
+		vcat( (x->vcat(x...)).( BMaxLst[iPol] )... )
+		for iPol = 1:2 ];
+	BRemainLstCat2 = [
+		cat( (x->cat(x...; dims=2)).( BRemainLst[iPol] ) ...; dims=2 )
+		for iPol = 1:2 ];
+	BRemainLstVcat = [
+		reshape( 
+		cat( (x->cat(x...; dims=2)).( BRemainLst[iPol] ) ...; dims=2 ), :, numRes )
+		for iPol = 1:2 ];
+		
+	BMaxLstErrVcat = [ 
+		BMaxLstVcat[iPol][
+			abs.(@view(divBLstVcat[iPol][:,3])).<(1-thres)
+			,:] 
+		for iPol = 1:2 ];
+	@infiltrate
+	BMaxLstNonErrVcat = [ 
+		BMaxLstVcat[iPol][
+			abs.(@view(divBLstVcat[iPol][:,3])).>(1-thres)
+			,:] 
+		for iPol = 1:2 ];
+	BRemainLstErrCat2 = [ 
+		BRemainLstCat2[iPol][:,
+			abs.(@view(divBLstVcat[iPol][:,3])).<(1-thres)
+			,:] 
+		for iPol = 1:2 ];
+	BRemainLstNonErrCat2 = [ 
+		BRemainLstCat2[iPol][:,
+			abs.(@view(divBLstVcat[iPol][:,3])).>(1-thres)
+			,:] 
+		for iPol = 1:2 ];
+	BRemainLstErrVcat = [
+		reshape( BRemainLstErrCat2[iPol], :, 3 )
+		for iPol = 1:2];
+	BRemainLstNonErrVcat = [
+		reshape( BRemainLstNonErrCat2[iPol], :, 3 )
+		for iPol = 1:2];
+	BDiffLstErrCat = [ 
+		BDiffLstCat[iPol][:,:,abs.(@view(divBLstVcat[iPol][:,3])).<(1-thres)]
+		for iPol = 1 : 2 ];
+	BDiffLstNonErrCat = [ 
+		BDiffLstCat[iPol][:,:,abs.(@view(divBLstVcat[iPol][:,3])).>(1-thres)]
+		for iPol = 1 : 2 ];
+	BMaxDiffLstErrCat = [ 
+		(-1)^(iPol-1) *minDropDims( (-1)^(iPol-1) * BDiffLstErrCat[iPol]; dims = [1,2] )
+		for iPol = 1 : 2 ];
+	
+	BRemainDiffLstErrCat = [
+		zeros(2*dim-1,length(BMaxDiffLstErrCat[iPol]))
+		for iPol = 1 : 2];
+	
+	@infiltrate
+	for iPol = 1 : 2, ii = 1 : length(BMaxDiffLstErrCat[iPol])
+		isFnd = false;
+		id = 1;
+		for iBnd = 1:2, iDim = 1 : dim
+			if isFnd || BDiffLstErrCat[iPol][iBnd,iDim,ii] != BMaxDiffLstErrCat[iPol][ii]
+				BRemainDiffLstErrCat[iPol][id,ii] = BDiffLstErrCat[iPol][iBnd,iDim,ii];
+				id += 1;
+			else
+				isFnd = true;
+			end
+		end
+	end
+	
+	BRemainDiffLstErrVcat = [
+		reshape( BRemainDiffLstErrCat[iPol], length(BRemainDiffLstErrCat[iPol]) )
+		for iPol = 1 : 2];
+	
+	fOutMain = "divBRefinedVcat";
+	
+	fOutName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = [fMod, fModOut] );
+	
+	save( fOutName, "divBLstVcat", divBLstVcat , "BMaxLst", BMaxLst, "BRemainLst", BRemainLst, "BMaxLstVcat", BMaxLstVcat, "BRemainLstVcat", BRemainLstVcat, "BMaxLstErrVcat", BMaxLstErrVcat, "BMaxLstNonErrVcat", BMaxLstNonErrVcat, "BRemainLstErrVcat", BRemainLstErrVcat, "BRemainLstNonErrVcat", BRemainLstNonErrVcat, "BDiffLstVcat", BDiffLstVcat, "BMaxDiffLstErrCat", BMaxDiffLstErrCat, "BRemainDiffLstErrCat", BRemainDiffLstErrCat, "BRemainDiffLstErrVcat", BRemainDiffLstErrVcat);
 end

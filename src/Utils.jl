@@ -30,6 +30,9 @@ export structAssign!
 
 error_only_logger = MinLevelLogger( current_logger(), Logging.Error );
 
+include("Utils_DimDrops.jl")
+export maxDropDims, minDropDims, sumDropDims
+
 function colabIOreset()
 	if isdefined(Main, :IJulia)
 		Main.IJulia.stdio_bytes[] = 0
@@ -279,5 +282,7 @@ function shIdVec!( idVec, nDim, iSh )
 		iSh = iSh >> 1;
 	end
 end
+
+
 
 end
