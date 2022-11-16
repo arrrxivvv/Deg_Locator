@@ -115,7 +115,6 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 			# @infiltrate
 		end
 	end
-	# @infiltrate
 	 
 	attrLstRes = deepcopy( attrLst );
 	valLstRes = deepcopy( valLst );
