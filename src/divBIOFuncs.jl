@@ -72,7 +72,7 @@ function fNameAttrLstFunc( N, param_divide, itNum, seed; dim = nothing, alpha = 
 	return attrLst, valLst;
 end
 
-function fAttrOptLstFunc( N, param_divide, itNum, seed; dim = nothing, scale = degOptDefaultLst[1], ratio = degOptDefaultLst[2], alpha = degOptDefaultLst[3], enumSaveMem = memNone, thresNM = rtFndDefaultLst[1], thresEDeg = rtFndDefaultLst[2] )
+function fAttrOptLstFunc( N, param_divide, itNum, seed; dim = nothing, scale = degOptDefaultLst[1], ratio = degOptDefaultLst[2], alpha = degOptDefaultLst[3], enumSaveMem = memNone, thresNM = rtFndDefaultLst[1], thresEDeg = rtFndDefaultLst[2], attrMoreLst=[], valMoreLst=[] )
 	attrLst, valLst = fNameAttrLstFunc( N, param_divide, itNum, seed; dim = dim );
 	optValLst = [scale, ratio, alpha];
 	for ii = eachindex(degOptAttrLst)
@@ -88,6 +88,12 @@ function fAttrOptLstFunc( N, param_divide, itNum, seed; dim = nothing, scale = d
 			push!( valLst, rtFndValLst[ii] );
 		end
 	end
+	
+	if !isempty( attrMoreLst )
+		append!( attrLst, attrMoreLst );
+		append!( valLst, valMoreLst );
+	end
+	
 	return attrLst, valLst;
 end
 
@@ -96,8 +102,19 @@ function fNameFunc( fNameMain, attrLst, valLst, fExt; fMod = "" )
 	for ii = 1 : length(attrLst)
 		fName = fName * "_" * attrLst[ii] * "_" * string( valLst[ii] );
 	end
-	if fMod != ""
-		fName = fName * "_" * fMod;
+	
+	if isa( fMod, Vector{String} )
+		fModStr = fMod[1];
+		for ii = 2 : length(fMod)
+			if fMod[ii] != ""
+				fModStr = fModStr * "_" * fMod[ii];
+			end
+		end
+	else
+		fModStr = fMod;
+	end
+	if fModStr != ""
+		fName = fName * "_" * fModStr;
 	end
 	fName = fName * fExt;
 	return fName;
