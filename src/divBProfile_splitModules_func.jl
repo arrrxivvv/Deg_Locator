@@ -11,7 +11,7 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3 )
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
 	matsFull = matsGridHThreaded( paramsFull, threaded_zeros(ComplexF64,mSz,mSz) );
-	degBerrysFull = degBerrysInit( paramsFull, matsFull );
+	degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
 	
 	totalNumLst = zeros(Int64,itNum);
 	

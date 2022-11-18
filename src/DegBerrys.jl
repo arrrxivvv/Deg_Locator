@@ -15,7 +15,7 @@ struct DegBerrys
 	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
 end
 
-function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid )
+function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = false )
 	BfieldLn = Int64( params.nDim * ( params.nDim -1 ) / 2 );
 	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
 	BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
@@ -59,7 +59,33 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid )
 	
 	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
 	
-	DegBerrys( params, degMats, BfieldLn, dimLstRev, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
+	degBerrys = DegBerrys( params, degMats, BfieldLn, dimLstRev, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
+	
+	if isFullInit
+		degBerrysArrsInitFull( degBerrys );
+	end
+	
+	return degBerrys;
+end
+
+function degBerrysArrsInitFull( degBerrys::DegBerrys )
+	Threads.@threads for iLin = 1 : length(degBerrys.params.posLst)
+		if !isassigned( degBerrys.divBLst, iLin )
+			degBerrys.divBLst[iLin] = zeros(ComplexF64, degBerrys.params.N);
+		end	
+		iB = 1;
+		for iDim = 1 : degBerrys.params.nDim
+			if !isassigned( degBerrys.linkLst[iDim], iLin )
+				degBerrys.linkLst[iDim][iLin] = zeros(ComplexF64, degBerrys.params.N);
+			end
+			for iDim2 = iDim + 1 : degBerrys.params.nDim
+				if !isassigned( degBerrys.BfieldLst[iB], iLin )
+					degBerrys.BfieldLst[iB][iLin] = zeros(ComplexF64, degBerrys.params.N);
+				end
+				iB += 1;
+			end
+		end
+	end
 end
 
 function linksCalcSurface( degBerrys::DegBerrys )
@@ -100,7 +126,7 @@ function linksCalcAll( degBerrys::DegBerrys )
 	for iDim = 1 : degBerrys.params.nDim
 		Threads.@threads for pos in degBerrys.params.posLst
 			setCurrentLoc( degBerrys.params, pos );
-			initLinkLst( degBerrys, iDim, pos );
+			# initLinkLst( degBerrys, iDim, pos );
 			dotEachCol!( 
 				degBerrys.linkLst[iDim][pos], 
 				getNextVLst( degBerrys.degMats, iDim ),
@@ -144,6 +170,7 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 	iB = 1;
 	for iDim1 = 1 : degBerrys.params.nDim
 		for iDim2 = iDim1+1 : degBerrys.params.nDim
+			parity = (-1)^(iDim1+iDim2-1);
 			# @time begin
 			linkLstShTmp1 = ShiftedArrays.circshift( degBerrys.linkLst[iDim1], 
 			ntuple( i -> i==iDim2 ? -1 : 0, degBerrys.params.nDim ) );
@@ -166,9 +193,8 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 				degBerrys.linkLst[iDim1][pos];
 				
 				# @time 
-				initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
+				# initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
 				
-				parity = (-1)^(iDim1+iDim2-1);
 				# @time 
 				# getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
 				# log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
@@ -185,7 +211,7 @@ end
 
 function divBCalcAll( degBerrys::DegBerrys )
 	Threads.@threads for pos in degBerrys.params.posLst
-		initDivBLst( degBerrys, pos );
+		# initDivBLst( degBerrys, pos );
 		degBerrys.divBLst[pos] .= 0;
 	end
 	for iB = 1 : degBerrys.params.nDim
