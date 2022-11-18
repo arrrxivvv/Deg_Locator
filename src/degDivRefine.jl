@@ -365,7 +365,7 @@ function divBRefinedStats( mSz, divLst, itNum, seed; fMod = "", dim = 3, numRes 
 			abs.(@view(divBLstVcat[iPol][:,3])).<(1-thres)
 			,:] 
 		for iPol = 1:2 ];
-	@infiltrate
+	# @infiltrate
 	BMaxLstNonErrVcat = [ 
 		BMaxLstVcat[iPol][
 			abs.(@view(divBLstVcat[iPol][:,3])).>(1-thres)
@@ -414,7 +414,7 @@ function divBRefinedStats( mSz, divLst, itNum, seed; fMod = "", dim = 3, numRes 
 			end
 		end
 	end
-	@infiltrate
+	# @infiltrate
 	
 	BRemainDiffLstErrVcat = [
 		reshape( BRemainDiffLstErrCat[iPol], length(BRemainDiffLstErrCat[iPol]) )
