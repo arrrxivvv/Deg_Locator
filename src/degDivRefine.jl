@@ -1,4 +1,4 @@
-using Infiltrator
+# using Infiltrator
 
 function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = "", dim = 3, fExt = jld2Type, numRes = 3, thres = 0.1 )
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim );
