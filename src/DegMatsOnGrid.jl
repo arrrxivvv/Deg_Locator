@@ -95,6 +95,17 @@ function checkEigenDone( matsGrid::DegMatsOnGrid, loc )
 	end
 end
 
+function matsGridInitAll( matsGrid::DegMatsOnGrid )
+	for linId in 1:length( matsGrid.params.posLst )
+		if !isassigned( matsGrid.Elst, linId )
+			matsGrid.Elst[linId] = zeros(matsGrid.params.N);
+		end
+		if !isassigned( matsGrid.vLst, linId )
+			matsGrid.vLst[linId] = zeros( ComplexF64, matsGrid.params.N, matsGrid.params.N );
+		end
+	end
+end
+
 function eigenAtCurrentLoc( matsGrid::DegMatsOnGrid; noReEigen = true, HmatFun = nothing )
 	idLin = linItCurrent( matsGrid.params );
 	if checkEigenDone( matsGrid, idLin )
@@ -225,6 +236,19 @@ end
 function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
 	Threads.@threads for pos in matsGrid.params.posLst
 		# if checkEigenDone( matsGrid, pos );
+			# continue;
+		# end
+		# setCurrentLoc( matsGrid.params, pos );
+		if !isnothing(HmatFun)
+			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
+		end
+		eigenAtLoc( pos, matsGrid );
+	end
+end
+
+function eigenLayer( matsGrid::DegMatsOnGrid, iDim; HmatFun = nothing )
+	Threads.@threads for pos in selectdim( matsGrid.params.posLst, matsGrid.params.nDim, iDim )	
+	# if checkEigenDone( matsGrid, pos );
 			# continue;
 		# end
 		# setCurrentLoc( matsGrid.params, pos );

@@ -99,6 +99,30 @@ function updateParamsRange( minLst, maxLst, params::DegParams )
 	end
 end
 
+function updateParamsRangeSteps( minLst, stepLst, params::DegParams )
+	if !isa( minLst, Array )
+		minLst = fill( minLst, params.nDim );
+	end
+	params.minLst .= minLst
+	params.stepLst .= stepLst;
+	params.maxLst .= minLst .+ params.divLst .* stepLst;
+	
+	refreshMeshGrid( params );
+end
+
+function refreshMeshGrid( params::DegParams )
+	for iDim = 1 : params.nDim
+		for ii = 1 : length( params.gridLst[iDim] )
+			params.gridLst[iDim][ii] = params.stepLst[iDim] * (ii-1) + params.minLst[iDim];
+		end
+	end
+	for pos in params.posLst
+		for iDim = 1 : params.nDim
+			params.mesh[pos][iDim] = params.gridLst[iDim][pos[iDim]];
+		end
+	end
+end
+
 function linIdFromIdVecArr( idVec, arr::Array )
 	id = idVec[ndims(arr)]-1;
 	for iDim = (ndims(arr)-1):-1:1

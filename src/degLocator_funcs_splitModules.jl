@@ -5,12 +5,17 @@ function locateDiv( non0Arr, degBerrys::DegBerrys )
 	
 	thresNon0 = 1e-6;
 	
-	@info("Eigen:")
-	startNextEigen( degBerrys.degMats );
-	Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
+	if degBerrys.enumSaveMem >= memEig
+		@info("Eigen and Link layered:")
+		Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
+	else
+		@info("Eigen:")
+		startNextEigen( degBerrys.degMats );
+		Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
 
-	@info("Link:")
-	Utils.@timeInfo linksCalcAll( degBerrys );
+		@info("Link:")
+		Utils.@timeInfo linksCalcAll( degBerrys );
+	end
 	
 	@info("Bfield:")
 	Utils.@timeInfo BfieldCalcAll( degBerrys );
