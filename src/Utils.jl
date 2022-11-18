@@ -18,8 +18,6 @@ export fileType, jldType, jld2Type, npyType, MatchMethod, mX, mExtended, mSameN,
 
 export printlnLogFile, printLogFile, SortABbyA, EigenSort!, dotEachCol, dotEachCol!, wrap, arrLstToArr, arrLstToArrDepth, arrToArrLst, cartIndLstToArr, gridLst, wrapCartInd!, selectDimLst, permuteArr!, permuteCol2d!, permute1d!, wrapIntInd, getLinInd, wrapIndArr!, wrapCoorArr!, wrapDiffArr!, funArrDims, shIdVec!
 
-export timeMemStr
-
 export thrId
 
 export myreverse!, myreverse
@@ -32,6 +30,9 @@ error_only_logger = MinLevelLogger( current_logger(), Logging.Error );
 
 include("Utils_DimDrops.jl")
 export maxDropDims, minDropDims, sumDropDims
+
+include("Utils_time_print.jl")
+export timeMemStr, timeInfo
 
 function colabIOreset()
 	if isdefined(Main, :IJulia)
@@ -46,10 +47,6 @@ function selectDimLst( arr, dimLst, indLst )
 	sliceLst[dimLst] .= indLst;
 	# @infiltrate	
 	return @view( arr[sliceLst...] );
-end
-
-function timeMemStr( t, mem )
-	"   time: " * string(t) * " seconds, memory: " * Base.format_bytes(mem)
 end
 
 function printlnLogFile( file, msg... )

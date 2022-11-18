@@ -66,11 +66,11 @@ function thrArr_empty(T::DataType=Float64)
 end
 
 function getThrInst( arrTh::ThrArray{T} ) where{T}
-	if length(arrTh.data) == 0
-		return nothing;
-	else
+	# if isempty(arrTh.data)
+		# return nothing;
+	# else
 		return arrTh.data[Threads.threadid()];
-	end
+	# end
 end
 
 function broadcastAssign!( arrTh::ThrArray{T}, src ) where{T}

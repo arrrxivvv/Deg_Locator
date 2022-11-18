@@ -237,6 +237,8 @@ export fileNameAttrFunc, fNameAttrLstFunc, fNameFunc, fAttrOptLstFunc
 include("degLocator_funcs.jl")
 export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_div_GUE_scale, locator_div_GUE_ratio, locator_div_GOE_ratio
 
+include("degLocator_funcs_splitModules.jl")
+
 include("degLocator_funcs_rootfind.jl")
 
 include("degDivRefine.jl")
@@ -246,11 +248,14 @@ include("distillLocs_func.jl")
 export distillLocsFromFile, distillLocN, whichLocsFromFile, distillLocsFromWhich, locLstPurify, locLstPurify_detailedOutput, locNvarFromFile, parityGOE_resave_fromFile, parityAvg_fromFile, collisionPurifyPerLevel!, collisionPurifyFromFile
 
 include("divBProfile_funcs.jl")
-export divB_profile, divB_profile_GOE_3d, divB_profile_new
+export divB_profile, divB_profile_GOE_3d
 degOptAttrLst = ["scale", "ratio", "alpha"];
 degOptDefaultLst = [1, nothing, 0];
 rtFndAttrLst = ["thresNM", "thresEDeg"];
 rtFndDefaultLst = [1e-7, 1e-5];
+
+include("divBProfile_splitModules_func.jl")
+export divB_profile_new
 
 include("deltaN_funcs.jl")
 export deltaN
