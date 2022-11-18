@@ -14,26 +14,34 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3 )
 	degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
 	
 	totalNumLst = zeros(Int64,itNum);
+	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
+	locLstPol = [
+		Vector{Vector{Array{Int64}}}(undef,itNum)
+		for iPol = 1:2];
+	NLstPol = [
+		zeros(Int64, itNum, mSz)
+		for iPol = 1:2];
+	# non0Arr = [
+		# zeros(mSz)
+		# for pos in paramsFull.posLst];
+	non0Arr = zeros(paramsFull.divLst...,paramsFull.N);
 	
 	for it = 1 : itNum
-		print( "\r Iteration: " * string(it) * " / " * string(itNum) );
-		Hlst = DegLocatorDiv.HlstFunc(H_GUE,nDim,mSz);
-		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, Hlst );
-		startNextEigen( matsFull );
-		
-		@info("Eigen:")
-		Utils.@timeInfo eigenAll( matsFull; HmatFun = HmatFun );
-
-		@info("Link:")
-		Utils.@timeInfo DegLocatorDiv.linksCalcAll( degBerrysFull );
-		
-		@info("Bfield:")
-		Utils.@timeInfo DegLocatorDiv.BfieldCalcAll( degBerrysFull );
-		
-		@info("DivB:")
-		Utils.@timeInfo DegLocatorDiv.divBCalcAll( degBerrysFull );
-		
-		totalNumLst[it] = sum(sum( (x->abs.(x).>1e-9).(degBerrysFull.divBLst) ));
+		print( "\rIteration: $it / $itNum         " )
+		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it], HLstLst[it] = locateDiv( non0Arr, degBerrysFull );
 	end
-	return totalNumLst;
+	
+	posLstAvg = mean(NLstPol[1]; dims = 1);
+	posLstStd = std( NLstPol[1]; dims = 1 );
+	posTotalLst = sum(NLstPol[1]; dims = 2);
+	posTotalAvg = mean( posTotalLst );
+	posTotalStd = std( posTotalLst );
+	
+	for n = 1 : mSz
+		println( "$(n): $(posLstAvg[n]) +/- $(round(posLstStd[n]; digits=3))" );
+	end
+	println( "Total: $posTotalAvg +/- $(round(posTotalStd; digits=2))" );
+		
+	@info("GC")
+	Utils.@timeInfo GC.gc();
 end

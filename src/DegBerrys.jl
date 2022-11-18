@@ -1,4 +1,4 @@
-using Infiltrator
+# using Infiltrator
 struct DegBerrys
 	params::DegParams;
 	degMats::DegMatsOnGrid;
@@ -124,13 +124,19 @@ end
 
 function linksCalcAll( degBerrys::DegBerrys )
 	for iDim = 1 : degBerrys.params.nDim
+		vLstSh = ShiftedArrays.circshift( 
+			degBerrys.degMats.vLst, 
+			ntuple( i -> i== iDim ? -1 : 0, 
+				degBerrys.params.nDim));
 		Threads.@threads for pos in degBerrys.params.posLst
 			setCurrentLoc( degBerrys.params, pos );
 			# initLinkLst( degBerrys, iDim, pos );
 			dotEachCol!( 
 				degBerrys.linkLst[iDim][pos], 
-				getNextVLst( degBerrys.degMats, iDim ),
-				getCurrentVLst(degBerrys.degMats)
+				# getNextVLst( degBerrys.degMats, iDim ),
+				vLstSh[pos],
+				# getCurrentVLst(degBerrys.degMats)
+				degBerrys.degMats.vLst[pos]
 				);
 			degBerrys.linkLst[iDim][pos] .= 
 				degBerrys.linkLst[iDim][pos] ./ abs.(degBerrys.linkLst[iDim][pos] );

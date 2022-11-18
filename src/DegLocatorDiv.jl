@@ -237,6 +237,8 @@ export fileNameAttrFunc, fNameAttrLstFunc, fNameFunc, fAttrOptLstFunc
 include("degLocator_funcs.jl")
 export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_div_GUE_scale, locator_div_GUE_ratio, locator_div_GOE_ratio
 
+include("degLocator_funcs_splitModules.jl")
+
 include("degLocator_funcs_rootfind.jl")
 
 include("degDivRefine.jl")
