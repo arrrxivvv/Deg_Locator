@@ -13,6 +13,7 @@ struct DegParams
 	mesh::Array{ Vector{Float64} };
 	
 	locItThr::ThrArray{Int64,1};
+	linIdThr::ThrStruct{Int64};
 	stepsItThr::ThrArray{Int64,1};
 	divsItThr::ThrArray{Int64,1};
 	
@@ -33,6 +34,7 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
 	
 	locItThr = threaded_zeros( Int64, nDim );
+	linIdThr = thrStructFill( Int64, 0 );
 	stepsItThr = threaded_zeros( Int64, nDim );
 	divsItThr = threaded_zeros( Int64, nDim );
 	
@@ -43,7 +45,7 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 		for iDim = 1 : nDim, iSgn = 1 : 2
 		 ];
 	
-	return DegParams( deepcopy(divLst), nDim, N, isNonPeriodic, posLst, deepcopy(minLst), deepcopy(maxLst), stepLst, gridLst, mesh, locItThr, stepsItThr, divsItThr, posLstSh );
+	return DegParams( deepcopy(divLst), nDim, N, isNonPeriodic, posLst, deepcopy(minLst), deepcopy(maxLst), stepLst, gridLst, mesh,  locItThr, linIdThr, stepsItThr, divsItThr, posLstSh );
 end
 
 function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )

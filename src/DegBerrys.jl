@@ -1,4 +1,4 @@
-# using Infiltrator
+using Infiltrator
 struct DegBerrys
 	params::DegParams;
 	degMats::DegMatsOnGrid;
@@ -144,20 +144,40 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 	iB = 1;
 	for iDim1 = 1 : degBerrys.params.nDim
 		for iDim2 = iDim1+1 : degBerrys.params.nDim
+			# @time begin
+			linkLstShTmp1 = ShiftedArrays.circshift( degBerrys.linkLst[iDim1], 
+			ntuple( i -> i==iDim2 ? -1 : 0, degBerrys.params.nDim ) );
+			linkLstShTmp2 = ShiftedArrays.circshift( degBerrys.linkLst[iDim2], 
+			ntuple( i -> i==iDim1 ? -1 : 0, degBerrys.params.nDim ) );
 			Threads.@threads for pos in degBerrys.params.posLst
+				# @time 
 				setCurrentLoc( degBerrys.params, pos );
+				# @time 
+				# getThrInst( degBerrys.linkRatioThr[1] ).= 
+				# getLinkLst( degBerrys, iDim2; dimSh = iDim1, iSh = 1 ) ./ 
+				# getLinkLst( degBerrys, iDim2 );
 				getThrInst( degBerrys.linkRatioThr[1] ).= 
-				getLinkLst( degBerrys, iDim2; dimSh = iDim1, iSh = 1 ) ./ 
-				getLinkLst( degBerrys, iDim2 );
-				getThrInst( degBerrys.linkRatioThr[2] ).= getLinkLst( degBerrys, iDim1; dimSh = iDim2, iSh = 1 ) ./ 
-				getLinkLst( degBerrys, iDim1 );
+				linkLstShTmp2[pos] ./ 
+				degBerrys.linkLst[iDim2][pos];
+				# @time 
+				# getThrInst( degBerrys.linkRatioThr[2] ).= getLinkLst( degBerrys, iDim1; dimSh = iDim2, iSh = 1 ) ./ 
+				# getLinkLst( degBerrys, iDim1 );
+				getThrInst( degBerrys.linkRatioThr[2] ).= linkLstShTmp1[pos] ./ 
+				degBerrys.linkLst[iDim1][pos];
 				
+				# @time 
 				initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
 				
 				parity = (-1)^(iDim1+iDim2-1);
-				getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
+				# @time 
+				# getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
+				# log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
+				degBerrys.BfieldLst[iB][pos] .= parity ./ 1im .* 
 				log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
+				# @infiltrate 
 			end
+			# end
+			# @infiltrate
 			iB += 1;
 		end
 	end
@@ -167,11 +187,17 @@ function divBCalcAll( degBerrys::DegBerrys )
 	Threads.@threads for pos in degBerrys.params.posLst
 		initDivBLst( degBerrys, pos );
 		degBerrys.divBLst[pos] .= 0;
-		setCurrentLoc( degBerrys.params, pos );
-		for iB = 1 : degBerrys.params.nDim
-			iDimB = degBerrys.dimLstRev[iB];
-			degBerrys.divBLst[pos] .+= getBfieldLst( degBerrys, iB; dimSh = iDimB, iSh = 1 );
-			degBerrys.divBLst[pos] .-= getBfieldLst( degBerrys, iB );
+	end
+	for iB = 1 : degBerrys.params.nDim
+		iDimB = degBerrys.dimLstRev[iB];
+		BfieldSh = ShiftedArrays.circshift( 
+			degBerrys.BfieldLst[iB], ntuple( i -> i==iDimB ? -1 : 0, degBerrys.params.nDim ) );
+		Threads.@threads for pos in degBerrys.params.posLst
+			setCurrentLoc( degBerrys.params, pos );
+			# degBerrys.divBLst[pos] .+= getBfieldLst( degBerrys, iB; dimSh = iDimB, iSh = 1 );
+			degBerrys.divBLst[pos] .+= BfieldSh[pos];
+			# degBerrys.divBLst[pos] .-= getBfieldLst( degBerrys, iB );
+			degBerrys.divBLst[pos] .-= degBerrys.BfieldLst[iB][pos];
 		end
 	end
 end
