@@ -1140,7 +1140,7 @@ function collisionPurifyFromFile( mSz, param_divide, itNum, seed; dim = nothing,
 	push!(valLstOut, divColl, bndThrRat);
 	oFname = fNameFunc( oFmain, attrLstOut, valLstOut, fExt; fMod = fMod );
 	save( oFname, varNamePosLoc, locLstPolOut[1], varNameNegLoc, locLstPolOut[2], varNamePosN, NLstPol[1], varNameNegN, NLstPol[2], "fidlLstPol", fidlLstPol, "fidlLstAllPol", fidlLstAllPol );
-	@infiltrate
+	# @infiltrate
 	return locLstPolOut, NLstPol, fidlLstPol;
 end
 

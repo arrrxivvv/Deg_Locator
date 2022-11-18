@@ -3,15 +3,20 @@ using Statistics
 using JLD2
 using Logging; using LoggingExtras;
 
-function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3 )
+function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone )
 	if seedFed > 0
 		Random.seed!(seedFed);
 	end
+	
 	minNum = 0;
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
-	matsFull = matsGridHThreaded( paramsFull, threaded_zeros(ComplexF64,mSz,mSz) );
-	degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
+	if enumSaveMem == memNone
+		matsFull = matsGridHThreaded( paramsFull, threaded_zeros(ComplexF64,mSz,mSz) );
+		degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
+	elseif enumSaveMem >= memEig
+		degBerrysFull = degBerrysEigLayered( paramsFull );
+	end
 	
 	totalNumLst = zeros(Int64,itNum);
 	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
