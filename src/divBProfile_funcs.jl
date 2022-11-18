@@ -48,20 +48,16 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3 )
 		startNextEigen( matsFull );
 		
 		@info("Eigen:")
-		tFull = @timed eigenAll( matsFull; HmatFun = HmatFun );
-		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		Utils.@timeInfo eigenAll( matsFull; HmatFun = HmatFun );
 
 		@info("Link:")
-		tFull = @timed DegLocatorDiv.linksCalcAll( degBerrysFull );
-		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		Utils.@timeInfo DegLocatorDiv.linksCalcAll( degBerrysFull );
 		
 		@info("Bfield:")
-		tFull = @timed DegLocatorDiv.BfieldCalcAll( degBerrysFull );
-		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		Utils.@timeInfo DegLocatorDiv.BfieldCalcAll( degBerrysFull );
 		
 		@info("DivB:")
-		tFull = @timed DegLocatorDiv.divBCalcAll( degBerrysFull );
-		@info( timeMemStr( tFull.time, tFull.bytes ) )
+		Utils.@timeInfo DegLocatorDiv.divBCalcAll( degBerrysFull );
 		
 		totalNumLst[it] = sum(sum( (x->abs.(x).>1e-9).(degBerrysFull.divBLst) ));
 	end

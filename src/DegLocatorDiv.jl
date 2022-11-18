@@ -252,6 +252,9 @@ degOptDefaultLst = [1, nothing, 0];
 rtFndAttrLst = ["thresNM", "thresEDeg"];
 rtFndDefaultLst = [1e-7, 1e-5];
 
+include("divBProfile_splitModules_func.jl")
+export divB_profile_new
+
 include("deltaN_funcs.jl")
 export deltaN
 
