@@ -1,7 +1,6 @@
 using LinearAlgebra
 using Arpack
 using NelderMeadTest
-# using Infiltrator
 
 function locate_rootFind( degObj, HmatFun )
 	locCount = zeros(Int64, degObj.N-1);
