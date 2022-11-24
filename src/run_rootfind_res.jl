@@ -5,8 +5,8 @@ nDim = 3;
 # mSz = 5;
 mSzLst = [5,10,15,20];
 itNum = 100;
-thresLst = [1e-10, 1e-7, 1e-8];
-fModBase = "rootFind";
+thresLst = [1e-9, 1e-7, 1e-8];
+# fModBase = "rootFind";
 
 for thres in thresLst
 	for res in resLst

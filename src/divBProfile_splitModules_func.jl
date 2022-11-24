@@ -42,22 +42,27 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	Utils.@timeInfo GC.gc();
 end
 
-function divB_profile_rootFind( mSz, divLst, itNum, seedFed; nDim = 3, thresVal = 1e-9, thresSz = 1e-9 )
-	locFun( tmpArrs...; HmatFun = HmatFun ) = locateRootFind( tmpArrs...; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
+function divB_profile_rootFind( mSz, divLst, itNum, seedFed; nDim = 3, thresVal = 1e-9, thresSz = 1e-9, thresRelaxRatio = 30, fMod = "" )
+	locFun( tmpArrs...; HmatFun = HmatFun ) = locateRootFind( tmpArrs...; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz, thresRelaxRatio = thresRelaxRatio );
 	
 	tmpArrsFun = tmpArrsDegRootFind;
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = true, locType = Float64 );
+	fModMethod = "rootFind";
+	attrMoreLst = ["thresVal", "thresSz", "thresRelaxRatio"];
+	valMoreLst = [thresVal, thresSz, thresRelaxRatio];
+	
+	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = true, locType = Float64, fMod = [fModMethod, fMod], attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
-function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone)
+function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone, fMod = "")
 	locFun = locateDiv;
 	tmpArrsFun( paramsFull ) = degTmpArrs( paramsFull, enumSaveMem );
+	fModMethod = "flux";
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun );
+	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod,fMod] );
 end
 
-function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
+function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	if seedFed > 0
 		Random.seed!(seedFed);
 	end
@@ -98,6 +103,52 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, locFun, tmpAr
 		println( "$(n): $(posLstAvg[n]) +/- $(round(posLstStd[n]; digits=3))" );
 	end
 	println( "Total: $posTotalAvg +/- $(round(posTotalStd; digits=2))" );
+	
+	fMain = "deg";
+	attrLst, valLst = ttrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	save( fName, "N", mSz, "seed", seedFed, "NLstPol", NLstPol, "locLstPol", locLstPol, "HLstLst", HLstLst );
+		
+	@info("GC")
+	Utils.@timeInfo GC.gc();
+end
+
+function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type, thresVal = 1e-9, thresSz = 1e-9 )
+	if seedFed > 0
+		Random.seed!(seedFed);
+	end
+	
+	minNum = 0;
+	maxNum = 2*pi;
+	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
+	degMats, degSmplx, nmArrsThr = tmpArrsDegRootFind( paramsFull );
+	
+	nLevels = mSz-1;
+	
+	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
+	locLstRawLst = zeros( degSmplx.params.nDim, degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N, itNum ); 
+	gapLstRawLst = zeros( degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N, itNum ); 
+	dLastLocs = ndims( locLstRawLst );
+	dLastGaps = ndims( gapLstRawLst );
+	
+	for it = 1 : itNum
+		HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+	end
+	
+	for it = 1 : itNum
+		print( "\rIteration: $it / $itNum         " )
+		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, HLstLst[it] );
+		selectdim( locLstRawLst, dLastLocs, it ), selectdim( gapLstRawLst, dLastGaps, it ) = locateRootFindRaw( degMats, degSmplx, nmArrsThr; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
+	end
+	
+	attrMoreLst = ["thresVal", "thresSz"];
+	valMoreLst = [thresVal, thresSz];
+	fMain = "locsRaw";
+	attrLst, valLst = ttrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	save( fName, "itNum", itNum, "locLstRawLst", locLstRawLst, "gapLstRawLst", gapLstRawLst );
 		
 	@info("GC")
 	Utils.@timeInfo GC.gc();
