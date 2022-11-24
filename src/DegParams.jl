@@ -147,7 +147,7 @@ function wrapIdVecArr!( idVec::Vector{Int64}, arr::Array )
 	idVec .+= 1;
 end
 
-function wrapIdVec!( idVec::Vector{Int64}, params::DegParams )
+function wrapIdVec!( idVec, params::DegParams )
 	if !params.nonPeriodic
 		idVec .-= 1;
 		idVec .= mod.( idVec, params.divLst );
@@ -189,14 +189,21 @@ function linItCurrent( params::DegParams )
 	return linIdFromIdVec( getThrInst( params.locItThr ), params );
 end
 
+# function setCurrentLoc( params::DegParams, loc )
+	# if isa(loc, CartesianIndex)
+		# for iDim = 1 : params.nDim
+			# params.locItThr[iDim] = loc[iDim];
+		# end
+	# elseif isa( loc, Vector ) || isa( loc, SubArray )
+		# broadcastAssign!( params.locItThr, loc );
+	# end
+# end
+
 function setCurrentLoc( params::DegParams, loc )
-	if isa(loc, CartesianIndex)
-		for iDim = 1 : params.nDim
-			params.locItThr[iDim] = loc[iDim];
-		end
-	elseif isa( loc, Vector ) || isa( loc, SubArray )
-		broadcastAssign!( params.locItThr, loc );
+	for iDim = 1 : params.nDim
+		params.locItThr[iDim] = loc[iDim];
 	end
+	
 end
 
 function setDoubleLoc( params::DegParams )

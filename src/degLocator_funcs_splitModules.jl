@@ -1,8 +1,4 @@
-# using Infiltrator
-function locateDiv( non0Arr, degBerrys::DegBerrys )
-	Hlst = DegLocatorDiv.HlstFunc(H_GUE,degBerrys.params.nDim,degBerrys.params.N);
-	HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, Hlst );
-	
+function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
 	thresNon0 = 1e-6;
 	
 	if degBerrys.enumSaveMem >= memEig
@@ -40,54 +36,20 @@ function locateDiv( non0Arr, degBerrys::DegBerrys )
 	@info("GC")
 	Utils.@timeInfo GC.gc();
 	
-	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2], Hlst;
+	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2]; 
+	# , Hlst;
 end
 
 function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
-	# posNLst = zeros(Int64, degBerrys.params.N);
-	# negNLst = zeros(Int64, degBerrys.params.N);
 	isDegArr = [[zeros(Bool,degBerrys.params.divLst...)
 		for n = 1:degBerrys.params.N]
 		for iPol = 1:2];
 	NLstPol = [ zeros(Int64, degBerrys.params.N) for iPol = 1:2 ];
 	
-	# isNon0 = false;
-	# thresN = -thres;
-	# non0Tmp = threaded_zeros(degBerrys.params.N);
-	# NLstPolThr = threaded_zeros( Int64, degBerrys.params.N, 2 );
-	# @time begin
-	# Threads.@threads for pos in degBerrys.params.posLst
-		# getThrInst( non0Tmp ) .= non0Arr[pos];
-		# for iPol = 1:2, n = 1:degBerrys.params.N
-			# isNon0 = (-1)^(iPol-1) * 
-				# non0Arr[pos][n] > thres;
-			# isNon0 = iPol == 1 ? 
-				# non0Arr[pos,n] > thres : 
-				# non0Arr[pos,n] < thresN;
-			# if isNon0
-				# NLstPolThr[n,iPol] += 1;
-			# end
-			# end
-		# end
-	# end
-	# end
-	# @infiltrate
-	# for iPol = 1:2, n = 1:degBerrys.params.N
-		# NLstPol[iPol][n] = 0;
-		# for iTh = 1 : Threads.nthreads()
-			# NLstPol[iPol][n] += NLstPolThr.data[iTh][n,iPol];
-		# end
-	# end
-	
-	# locLstPol = [[
-		# ones(Int64, NLstPol[iPol][n], degBerrys.params.nDim)
-		# for n = 1:degBerrys.params.N]
-		# for iPol = 1:2];
 	locLstPol = [
 		Vector{Array{Int64,2}}(undef,degBerrys.params.N)
 		for iPol = 1:2];
 	
-	# @time begin
 	for iPol = 1:2, n = 1:degBerrys.params.N
 		locLstPol[iPol][n] = 
 			cartIndLstToArr( 
@@ -97,22 +59,17 @@ function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
 		NLstPol[iPol][n] = 
 			size( locLstPol[iPol][n],1 );
 	end
-	# end
-	# @time begin
-	# for iPol = 1:2, n = 1:degBerrys.params.N
-		# cnt = 1;
-		# for pos in degBerrys.params.posLst
-			# if (-1)^(iPol-1) * 
-				# non0Arr[pos,n] > thres
-				# for iDim = 1 : degBerrys.params.nDim
-					# locLstPol[iPol][n][cnt,iDim] = pos[iDim];
-				# end
-				# cnt += 1;
-			# end
-		# end
-	# end
-	# end
-	# @infiltrate
 	
 	return NLstPol, locLstPol;
+end
+
+function degTmpArrs( params::DegParams, enumSaveMem::EnumSaveMem )
+	if enumSaveMem == memNone
+		matsFull = matsGridHThreaded( params, threaded_zeros(ComplexF64,mSz,mSz) );
+		degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
+	elseif enumSaveMem >= memEig
+		degBerrysFull = degBerrysEigLayered( params );
+	end
+	non0Arr = zeros(params.divLst...,params.N);
+	return degBerrysFull, non0Arr;
 end

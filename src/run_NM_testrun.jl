@@ -22,4 +22,11 @@ ptLstOrg = deepcopy(ptLst);
 
 ixLst = similar( valLst, Int64 );
 
-cnt = nmOpt!( cosXY, dim, ptLstOrg, valLst, ixLst, ptLst, ptLstTmp, valLstTmp );
+# cnt = nmOpt!( cosXY, dim, ptLstOrg, valLst, ixLst, ptLst, ptLstTmp, valLstTmp );
+
+nDim = 2;
+thresVal = 1e-9;
+thresSz = 1e-9;
+nmArrs = nmArrsConstruct( nDim, thresVal, thresSz );
+
+@time cnt = nmOpt!( ptLstOrg, nmArrs, cosXY; thresVal = thresVal, thresSz = thresSz );

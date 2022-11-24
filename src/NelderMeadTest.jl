@@ -10,6 +10,55 @@ function cosXY( xyLst )
 	return cos(xyLst[1]) + cos(xyLst[2]);
 end
 
+export nmArrsConstruct, NelderMeadArrs
+
+struct NelderMeadArrs
+	nDim::Int64;
+	nPts::Int64;
+	
+	ptLstOrg::Array{Float64,2};
+	ptLstTmp::Array{Float64,2};;
+	ptLst::Array{Float64,2};
+	valLstTmp::Vector{Float64};
+	valLst::Vector{Float64};
+	ixLst::Vector{Int64};
+	
+	volMat::Matrix{Float64};
+	
+	oPt::Vector{Float64};
+	rPt::Vector{Float64};
+	ePt::Vector{Float64};
+	
+	rVal::Base.RefValue{Float64};
+	eVal::Base.RefValue{Float64};
+	
+	auxLst;
+	auxLstTmp;
+end
+
+function nmArrsConstruct( nDim; auxLst = nothing, auxLstTmp = nothing )
+	nPts = nDim+1;
+	valLst = zeros(nPts);
+	valLstTmp = zeros(nPts);
+	ptLst = zeros(nDim, nPts);
+	ptLstTmp = copy(ptLst);
+	ptLstOrg = copy(ptLst);
+	ixLst = zeros(Int64, nPts);
+	
+	volMat = zeros(nDim,nDim);
+	
+	oPt = zeros(nDim);
+	rPt = zeros(nDim);
+	ePt = zeros(nDim);
+	
+	rVal = Float64(0);
+	eVal = Float64(0);
+	
+	NelderMeadArrs( nDim, nPts, ptLstOrg, ptLstTmp, ptLst, valLstTmp, valLst, ixLst, volMat, oPt, rPt, ePt, Ref(rVal), Ref(eVal), auxLst, auxLstTmp );
+end
+
+include("NelderMead_funcs_obj.jl")
+
 function nmOpt!( funOrg, dim, ptLstOrg, valLst, ixLst, ptLst, ptLstTmp, valLstTmp, threshold = 1e-10, cntCut = 1000; alpha = 1, gamma = 2, rho = 1/2, sigma = 1/2, funInit! = nothing, isRecVals = true, yesAux = false, auxLst = nothing, auxLstTmp = nothing )
 	if yesAux
 		fun! = funOrg;
