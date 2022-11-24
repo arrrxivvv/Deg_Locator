@@ -221,9 +221,9 @@ function locateRootFindRaw( degMats::DegMatsOnGrid, degSmplx::DegSimplices, nmAr
 	Utils.@timeInfo begin
 	for n = 1 : degMats.params.N - 1
 		gapFunN = (xLst) -> gapFunThr( xLst, HmatFun, degSmplx.eigMatsThr, n );
-		for pos in degMats.params.posLst
+		Threads.@threads for pos in degMats.params.posLst
 			for iSimp = 1 : degSmplx.lnSimpAll
-				print("\r",pos,", iSimp = $iSimp")
+				# print("\r",pos,", iSimp = $iSimp")
 				degSimpPtsInit!( 
 				getThrInst(nmArrsThr), 
 					degSmplx, pos, iSimp);
