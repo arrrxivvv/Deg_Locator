@@ -14,15 +14,45 @@ module EigCustom
 	
 	export eigenZheevr!, eigenZheevrStruct!, eigenPrework!, eigenPreworkStruct!, eigWorkStructFromNum!, eigenWorkThrdInit!, testZheevTime, testZheevTime2, testZheevInside;
 	
-	struct EigWork
-		lwork::BlasInt;
-		lrwork::BlasInt;
-		liwork::BlasInt;
+	include("EigCustom_preworks.jl")
+	export EigWork, eigenPreworkStruct!, eigWorkStructFromNum!
+	
+	# struct EigWork
+		# lwork::BlasInt;
+		# lrwork::BlasInt;
+		# liwork::BlasInt;
 		
-		workLst::Vector{ComplexF64};
-		rworkLst::Vector{Float64};
-		iworkLst::Vector{BlasInt};
-	end
+		# workLst::Vector{ComplexF64};
+		# rworkLst::Vector{Float64};
+		# iworkLst::Vector{BlasInt};
+	# end
+	
+	# function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
+		# lwork, lrwork, liwork = eigenPrework!( A, w, Z );
+		
+		# work = Vector{ComplexF64}(undef,Int64(lwork));
+		# rwork = Vector{Float64}(undef,lrwork);
+		# iwork = Vector{BlasInt}(undef,liwork);
+		
+		# return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
+	# end
+	
+	# function eigWorkStructFromNum!( mSz::Int64 )
+		# A = zeros(ComplexF64, mSz, mSz);
+		# w = zeros(mSz);
+		# Z = zeros(ComplexF64, mSz, mSz);
+		
+		# lwork, lrwork, liwork = eigenPrework!( A, w, Z );
+		
+		# work = Vector{ComplexF64}(undef,Int64(lwork));
+		# rwork = Vector{Float64}(undef,lrwork);
+		# iwork = Vector{BlasInt}(undef,liwork);
+		
+		# return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
+	# end
+	
+	include("EigCustom_tmpMats.jl")
+	export EigTmpMats, eigTmpMatsInit, eigOnTmpMats!
 	
 	function eigenZheevrStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, eigWork::EigWork; jobz = 'V' )
 		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, jobz = jobz );
@@ -138,29 +168,6 @@ module EigCustom
 		return lwork, lrwork, liwork;
 	end
 	
-	function eigWorkStructFromNum!( mSz::Int64 )
-		A = zeros(ComplexF64, mSz, mSz);
-		w = zeros(mSz);
-		Z = zeros(ComplexF64, mSz, mSz);
-		
-		lwork, lrwork, liwork = eigenPrework!( A, w, Z );
-		
-		work = Vector{ComplexF64}(undef,Int64(lwork));
-		rwork = Vector{Float64}(undef,lrwork);
-		iwork = Vector{BlasInt}(undef,liwork);
-		
-		return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
-	end
-	
-	function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
-		lwork, lrwork, liwork = eigenPrework!( A, w, Z );
-		
-		work = Vector{ComplexF64}(undef,Int64(lwork));
-		rwork = Vector{Float64}(undef,lrwork);
-		iwork = Vector{BlasInt}(undef,liwork);
-		
-		return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
-	end
 	
 	function eigenWorkThrdInit!( HmatLst, Elst, vecLst )
 		# @infiltrate
