@@ -127,8 +127,8 @@ function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = ""
 	nLevels = mSz-1;
 	
 	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
-	locLstRawLst = zeros( degSmplx.params.nDim, degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N, itNum ); 
-	gapLstRawLst = zeros( degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N, itNum ); 
+	locLstRawLst = zeros( degSmplx.params.nDim, degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N-1, itNum ); 
+	gapLstRawLst = zeros( degSmplx.lnSimpAll, degSmplx.params.divLst..., degSmplx.params.N-1, itNum ); 
 	dLastLocs = ndims( locLstRawLst );
 	dLastGaps = ndims( gapLstRawLst );
 	
@@ -139,7 +139,10 @@ function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = ""
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
 		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, HLstLst[it] );
-		selectdim( locLstRawLst, dLastLocs, it ), selectdim( gapLstRawLst, dLastGaps, it ) = locateRootFindRaw( degMats, degSmplx, nmArrsThr; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
+		
+		locLstRaw, gapLstRaw = locateRootFindRaw( degMats, degSmplx, nmArrsThr; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
+		selectdim( locLstRawLst, dLastLocs, it ) .= locLstRaw;
+		selectdim( gapLstRawLst, dLastGaps, it ) .= gapLstRaw;
 	end
 	
 	attrMoreLst = ["thresVal", "thresSz"];
