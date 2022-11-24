@@ -147,7 +147,7 @@ function wrapIdVecArr!( idVec::Vector{Int64}, arr::Array )
 	idVec .+= 1;
 end
 
-function wrapIdVec!( idVec::Vector{Int64}, params::DegParams )
+function wrapIdVec!( idVec, params::DegParams )
 	if !params.nonPeriodic
 		idVec .-= 1;
 		idVec .= mod.( idVec, params.divLst );

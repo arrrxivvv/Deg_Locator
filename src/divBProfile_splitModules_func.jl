@@ -43,11 +43,11 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 end
 
 function divB_profile_rootFind( mSz, divLst, itNum, seedFed; nDim = 3, thresVal = 1e-9, thresSz = 1e-9 )
-	locFun( tmpArrs... ) = locateRootFind( tmpArrs...; thresVal = thresVal, thresSz = thresSz );
+	locFun( tmpArrs...; HmatFun = HmatFun ) = locateRootFind( tmpArrs...; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
 	
 	tmpArrsFun = tmpArrsDegRootFind;
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = true );
+	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = true, locType = Float64 );
 end
 
 function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone)
@@ -57,7 +57,7 @@ function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun );
 end
 
-function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, locFun, tmpArrsFun, isOnlyBetween = false )
+function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	if seedFed > 0
 		Random.seed!(seedFed);
 	end
@@ -71,15 +71,18 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, locFun, tmpAr
 	totalNumLst = zeros(Int64,itNum);
 	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
 	locLstPol = [
-		Vector{Vector{Array{Int64}}}(undef,itNum)
+		Vector{Vector{Array{locType}}}(undef,itNum)
 		for iPol = 1:2];
 	NLstPol = [
 		zeros(Int64, itNum, nLevels)
 		for iPol = 1:2];
 	
 	for it = 1 : itNum
-		print( "\rIteration: $it / $itNum         " )
 		HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+	end
+	
+	for it = 1 : itNum
+		print( "\rIteration: $it / $itNum         " )
 		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, HLstLst[it] );
 		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
 		# , HLstLst[it]

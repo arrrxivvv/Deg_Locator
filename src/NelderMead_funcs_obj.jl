@@ -16,7 +16,7 @@ function nmOpt!( nmArrs::NelderMeadArrs, funOrg; ptLstStart = nothing, thresVal,
 	cnt = 0;
 	while ( valVar > thresVal || volume > volHedronThres ) && cnt < cntCut
 		cnt += 1;
-		print("\r","cnt = $cnt             ")
+		# print("\r","cnt = $cnt             ")
 		
 		sortperm!( nmArrs.ixLst, nmArrs.valLst );
 		permute1d!( nmArrs.valLst, nmArrs.valLstTmp, nmArrs.ixLst );
