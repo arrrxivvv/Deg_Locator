@@ -14,7 +14,7 @@ for thres in thresLst
 		divLst .= res;
 		for mSz in mSzLst
 			# @time divB_profile_rootFind( mSz, divLst, itNum, seed; thresVal = thres, thresSz = thres );
-			@time locateRootFindRawProfile( mSz, divLst, itNum, seed; thresVal = thres, thresSz = thres );
+			@time locRootFindRawProfile( mSz, divLst, itNum, seed; thresVal = thres, thresSz = thres );
 		end
 	end
 end
