@@ -25,6 +25,14 @@ export DegMatsOnGrid, matsGridHThreaded, startNextEigen, getHLoc, eigenAtLoc, ei
 include("DegBerrys.jl");
 export degBerrysInit, divBSurfaceOutput
 
+include("divBProfile_splitModules_func.jl")
+export divB_profile_new, divB_profile_flux, divB_profile_rootFind
+
+include("degLocator_funcs_splitModules.jl")
+
+include("degLocator_funcs_rootfind_splitModules.jl")
+# export tmpArrsDegRootFind
+
 export DegObj
 struct DegObj
 	param_divide::Vector{Int64};
@@ -239,7 +247,6 @@ export fileNameAttrFunc, fNameAttrLstFunc, fNameFunc, fAttrOptLstFunc
 include("degLocator_funcs.jl")
 export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_div_GUE_scale, locator_div_GUE_ratio, locator_div_GOE_ratio
 
-include("degLocator_funcs_splitModules.jl")
 
 include("degLocator_funcs_rootfind.jl")
 
@@ -256,8 +263,6 @@ degOptDefaultLst = [1, nothing, 0];
 rtFndAttrLst = ["thresNM", "thresEDeg"];
 rtFndDefaultLst = [1e-7, 1e-5];
 
-include("divBProfile_splitModules_func.jl")
-export divB_profile_new
 
 include("deltaN_funcs.jl")
 export deltaN
