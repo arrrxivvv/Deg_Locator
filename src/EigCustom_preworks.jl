@@ -6,6 +6,7 @@ struct EigWork
 	workLst::Vector{ComplexF64};
 	rworkLst::Vector{Float64};
 	iworkLst::Vector{BlasInt};
+	isuppz::Vector{BlasInt};
 end
 
 function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
@@ -15,7 +16,10 @@ function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Arr
 	rwork = Vector{Float64}(undef,lrwork);
 	iwork = Vector{BlasInt}(undef,liwork);
 	
-	return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
+	n = checksquare(A);
+	isuppz = similar(A, BlasInt, 2*n);
+	
+	return EigWork( lwork, lrwork, liwork, work, rwork, iwork, isuppz );
 end
 
 function eigWorkStructFromNum!( mSz::Int64 )
@@ -23,11 +27,12 @@ function eigWorkStructFromNum!( mSz::Int64 )
 	w = zeros(mSz);
 	Z = zeros(ComplexF64, mSz, mSz);
 	
-	lwork, lrwork, liwork = eigenPrework!( A, w, Z );
+	# lwork, lrwork, liwork = eigenPrework!( A, w, Z );
 	
-	work = Vector{ComplexF64}(undef,Int64(lwork));
-	rwork = Vector{Float64}(undef,lrwork);
-	iwork = Vector{BlasInt}(undef,liwork);
+	# work = Vector{ComplexF64}(undef,Int64(lwork));
+	# rwork = Vector{Float64}(undef,lrwork);
+	# iwork = Vector{BlasInt}(undef,liwork);
 	
-	return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
+	# return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
+	return eigenPreworkStruct!( A, w, Z );
 end
