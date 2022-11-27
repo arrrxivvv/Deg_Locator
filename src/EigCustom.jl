@@ -17,70 +17,35 @@ module EigCustom
 	include("EigCustom_preworks.jl")
 	export EigWork, eigenPreworkStruct!, eigWorkStructFromNum!
 	
-	# struct EigWork
-		# lwork::BlasInt;
-		# lrwork::BlasInt;
-		# liwork::BlasInt;
-		
-		# workLst::Vector{ComplexF64};
-		# rworkLst::Vector{Float64};
-		# iworkLst::Vector{BlasInt};
-	# end
-	
-	# function eigenPreworkStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
-		# lwork, lrwork, liwork = eigenPrework!( A, w, Z );
-		
-		# work = Vector{ComplexF64}(undef,Int64(lwork));
-		# rwork = Vector{Float64}(undef,lrwork);
-		# iwork = Vector{BlasInt}(undef,liwork);
-		
-		# return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
-	# end
-	
-	# function eigWorkStructFromNum!( mSz::Int64 )
-		# A = zeros(ComplexF64, mSz, mSz);
-		# w = zeros(mSz);
-		# Z = zeros(ComplexF64, mSz, mSz);
-		
-		# lwork, lrwork, liwork = eigenPrework!( A, w, Z );
-		
-		# work = Vector{ComplexF64}(undef,Int64(lwork));
-		# rwork = Vector{Float64}(undef,lrwork);
-		# iwork = Vector{BlasInt}(undef,liwork);
-		
-		# return EigWork( lwork, lrwork, liwork, work, rwork, iwork );
-	# end
-	
 	include("EigCustom_tmpMats.jl")
 	export EigTmpMats, eigTmpMatsInit, eigOnTmpMats!
 	
 	function eigenZheevrStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, eigWork::EigWork; jobz = 'V' )
-		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, jobz = jobz );
+		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, isuppz = eigWork.isuppz, jobz = jobz );
 	end
 	
-	function eigenZheevr!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, lwork = BlasInt(-1), lrwork = BlasInt(-1), liwork = BlasInt(-1); work= Vector{ComplexF64}(undef, 1), rwork = Vector{Float64}(undef, 1), iwork = Vector{BlasInt}(undef, 1), jobz = 'V' )
+	function eigenZheevr!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, lwork = BlasInt(-1), lrwork = BlasInt(-1), liwork = BlasInt(-1); work= Vector{ComplexF64}(undef, 1), rwork = Vector{Float64}(undef, 1), iwork = Vector{BlasInt}(undef, 1), jobz = 'V', isuppz = zeros(BlasInt,0) )
 		laRange = 'A';
 		# jobz = 'V';
 		vl, vu, il, iu = 0, 0, 0, 0;
 		abstol = -1;
 		uplo = 'U';
 		
-		if laRange == 'I' && !(1 <= il <= iu <= n)
-			throw(ArgumentError("illegal choice of eigenvalue indices (il = $il, iu=$iu), which must be between 1 and n = $n"));
-		end
-		if laRange == 'V' && vl >= vu
-			throw(ArgumentError("lower boundary, $vl, must be less than upper boundary, $vu"));
-		end
+		# if laRange == 'I' && !(1 <= il <= iu <= n)
+			# throw(ArgumentError("illegal choice of eigenvalue indices (il = $il, iu=$iu), which must be between 1 and n = $n"));
+		# end
+		# if laRange == 'V' && vl >= vu
+			# throw(ArgumentError("lower boundary, $vl, must be less than upper boundary, $vu"));
+		# end
 		
 		n = checksquare(A);
 		lda = max(1,stride(A,2));
 		ldz = n;
 		m = Ref{BlasInt}();
-		isuppz = similar(A, BlasInt, 2*n);
+		if isempty(isuppz)
+			isuppz = similar(A, BlasInt, 2*n);
+		end
 		info = Ref{BlasInt}();
-	
-		@debug("n: ($n)", "lda: ($lda)");
-		@debug( "lrwork: ($lrwork), rwork size: ($(size(rwork)))" );
 	
 		for i = 1:2  # first call returns lwork as work[1], lrwork as rwork[1] and liwork as iwork[1]
 			if lwork != -1 && i == 1
@@ -103,23 +68,14 @@ module EigCustom
 				  iwork, liwork, info,
 				  1, 1, 1)
 			if i == 1
-				@debug("resize")
-				@debug("info: ($info)")
 				lwork = BlasInt(real(work[1]));
-				@debug("lwork: ($lwork)")
-				@debug("work size: ($(size(work)))")
 				resize!(work, lwork);
-				@debug("work size: ($(size(work)))")
 				lrwork = BlasInt(rwork[1])
 				resize!(rwork, lrwork);
-				@debug("lrwork: ($lrwork)")
 				liwork = iwork[1];
-				@debug("liwork: ($liwork)")
 				resize!(iwork, liwork);
 			end
 		end
-		@debug("m[]: ($m[])")
-		# return w,Z;
 	end
 	
 	function eigenPrework!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2} )
@@ -133,7 +89,7 @@ module EigCustom
 		lda = max(1,stride(A,2));
 		ldz = n;
 		m = Ref{BlasInt}();
-		isuppz = similar(A, BlasInt, 2*n);
+		# isuppz = similar(A, BlasInt, 2*n);
 		isuppz = similar(A, BlasInt, 2*n);
 		work   = Vector{ComplexF64}(undef, 1);
 		lwork  = BlasInt(-1);
