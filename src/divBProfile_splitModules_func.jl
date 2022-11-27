@@ -11,9 +11,12 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	minNum = 0;
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
-	tmpArrs = degTmpArrs( paramsFull, enumSaveMem );
+	matsFull = matsGridHThreaded( paramsFull, threaded_zeros(ComplexF64,mSz,mSz) );
+	matsGridInitAll( matsFull );
+	degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
+	non0Arr = zeros(divLst...,mSz);
 	
-	totalNumLst = zeros(Int64,itNum);
+	# totalNumLst = zeros(Int64,itNum);
 	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
 	locLstPol = [
 		Vector{Vector{Array{Int64}}}(undef,itNum)
@@ -21,10 +24,15 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	NLstPol = [
 		zeros(Int64, itNum, mSz)
 		for iPol = 1:2];
+		
+	for it = 1 : itNum
+		HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+	end
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
-		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it], HLstLst[it] = locateDiv( tmpArrs );
+		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLstLst[it] );
+		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locateDiv( degBerrysFull, non0Arr; HmatFun = HmatFun );
 	end
 	
 	posLstAvg = mean(NLstPol[1]; dims = 1);
@@ -74,7 +82,7 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 	
 	nLevels = isOnlyBetween ? mSz-1 : mSz;
 	totalNumLst = zeros(Int64,itNum);
-	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
+	# HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
 	locLstPol = [
 		Vector{Vector{Array{locType}}}(undef,itNum)
 		for iPol = 1:2];
@@ -82,13 +90,18 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 		zeros(Int64, itNum, nLevels)
 		for iPol = 1:2];
 	
-	for it = 1 : itNum
-		HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
-	end
+	# for it = 1 : itNum
+		# HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+	# end
+	HLstLst = [ H_GUE(mSz) 
+		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
-		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, HLstLst[it] );
+		HLst = @view(HLstLst[:,:,it]);
+		# HLst = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+		# @infiltrate
+		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
 		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
 		# , HLstLst[it]
 	end
@@ -138,7 +151,7 @@ function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = ""
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
-		HmatFun = (H,xLst) -> Hmat_3comb_ratio!( H, xLst, HLstLst[it] );
+		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLstLst[it] );
 		
 		locLstRaw, gapLstRaw = locateRootFindRaw( degMats, degSmplx, nmArrsThr; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
 		selectdim( locLstRawLst, dLastLocs, it ) .= locLstRaw;
