@@ -167,17 +167,21 @@ end
 
 function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 	i3Slc = 1;
-	minLstSlc = deepcopy( degBerrys.params.minLst );
-	stepLstSlc = deepcopy( degBerrys.params.stepLst );
-	stepLstSlc[end] = 0;
+	# minLstSlc = deepcopy( degBerrys.params.minLst );
+	# stepLstSlc = deepcopy( degBerrys.params.stepLst );
+	# stepLstSlc[end] = 0;
+	degBerrys.degMats.params.minLst .= degBerrys.params.minLst;
+	degBerrys.degMats.params.stepLst .=degBerrys.params.stepLst;
+	degBerrys.degMats.params.stepLst[end] = 0;
 	i3Slc = 1;
 	for i3 = 1 : degBerrys.params.divLst[end]
-		minLstSlc[end] = degBerrys.params.minLst[end] + degBerrys.params.stepLst[end] * (i3-1);
+		# minLstSlc[end] = 
+		degBerrys.degMats.params.minLst[end] = 
+		degBerrys.params.minLst[end] + degBerrys.params.stepLst[end] * (i3-1);
 		i3Slc = mod(i3,2)+1;
 		i3Prev = mod(i3-1,2)+1;
-		# i3Link = i3-1;
-		# if i3 <= degBerrys.divLst[end]
-		updateParamsRangeSteps( minLstSlc, stepLstSlc, degBerrys.degMats.params );
+		updateParamsRangeSteps( degBerrys.degMats.params.minLst, degBerrys.degMats.params.stepLst, degBerrys.degMats.params );
+		# updateParamsRangeSteps( minLstSlc, stepLstSlc, degBerrys.degMats.params );
 		# @infiltrate
 		startNextEigen( degBerrys.degMats );
 		eigenLayer( degBerrys.degMats, i3Slc; HmatFun = HmatFun );

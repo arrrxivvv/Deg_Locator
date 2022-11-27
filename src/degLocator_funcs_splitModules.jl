@@ -65,7 +65,8 @@ end
 
 function degTmpArrs( params::DegParams, enumSaveMem::EnumSaveMem )
 	if enumSaveMem == memNone
-		matsFull = matsGridHThreaded( params, threaded_zeros(ComplexF64,mSz,mSz) );
+		matsFull = matsGridHThreaded( params, threaded_zeros(ComplexF64,params.N,params.N) );
+		matsGridInitAll( matsFull );
 		degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
 	elseif enumSaveMem >= memEig
 		degBerrysFull = degBerrysEigLayered( params );

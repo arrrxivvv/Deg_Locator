@@ -239,10 +239,14 @@ function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
 			# continue;
 		# end
 		# setCurrentLoc( matsGrid.params, pos );
+		# Utils.@timeInfo begin
 		if !isnothing(HmatFun)
 			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
 		end
+		# end
 		eigenAtLoc( pos, matsGrid );
+		 # eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
+		# @infiltrate
 	end
 end
 
