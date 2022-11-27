@@ -2,7 +2,7 @@ module UMat
 using LinearAlgebra
 using CUDA
 
-export Hmat_3sin, H_GUE, H_GOE, Hmat_3GUE, Hmat_3comb, U_mat_QWZ_raw, Hmat_3comb_ratio, Hmat_3comb_ratio!, Hmat_3comb_ratio_Hoffset!, H_GUElst_orth!
+export Hmat_3sin, H_GUE, H_GOE, Hmat_3GUE, Hmat_3comb, Hmat_3comb!,  U_mat_QWZ_raw, Hmat_3comb_ratio, Hmat_3comb_ratio!, Hmat_3comb_ratio_Hoffset!, H_GUElst_orth!
 
 function U_element_fun( N, tau, V1, V2, ang1, ang2, k1, k2 )
 	U_ans = 0;
@@ -117,6 +117,15 @@ function Hmat_3comb_ratio( xLst, Hlst, ratio )
 		Hmat += ratio[it] .* ( cos(xLst[it]) * Hlst[1,it] + sin(xLst[it]) * Hlst[2,it] );
 	end
 	return Hmat;
+end
+
+function Hmat_3comb!( Hmat, xLst, Hlst )
+	Hmat .= 0;
+	for it = 1:length(xLst)
+		for ii in eachindex(Hmat)
+			Hmat[ii] += ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		end
+	end
 end
 
 function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio=nothing )
