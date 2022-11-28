@@ -156,6 +156,7 @@ function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = ""
 		locLstRaw, gapLstRaw = locateRootFindRaw( degMats, degSmplx, nmArrsThr; HmatFun = HmatFun, thresVal = thresVal, thresSz = thresSz );
 		selectdim( locLstRawLst, dLastLocs, it ) .= locLstRaw;
 		selectdim( gapLstRawLst, dLastGaps, it ) .= gapLstRaw;
+		# @infiltrate
 	end
 	
 	attrMoreLst = ["thresVal", "thresSz"];
