@@ -122,9 +122,10 @@ end
 function Hmat_3comb!( Hmat, xLst, Hlst )
 	Hmat .= 0;
 	for it = 1:length(xLst)
-		for ii in eachindex(Hmat)
-			Hmat[ii] += ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
-		end
+		# for ii in eachindex(Hmat)
+			# Hmat[ii] += ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		# end
+		Hmat .+= cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] ;
 	end
 end
 

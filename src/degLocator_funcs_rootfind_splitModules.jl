@@ -127,17 +127,64 @@ function degSimpPtsInit!( nmArrs::NelderMeadArrs, degSmplx::DegSimplices, pos, i
 	nmArrs.ptLst .= nmArrs.ptLstOrg;
 end
 
-function pick0gapLocs( locLstRaw, gapLstRaw, degSmplx::DegSimplices, thresVal )
-	locLst = Vector{Array{Float64,2}}(undef,degSmplx.params.N-1);
-	for n = 1:degSmplx.params.N-1
-		zerosIdLst = findall( x->x<thresVal, selectdim(gapLstRaw,1+degSmplx.params.nDim+1,n) );
-		locLst[n] = zeros(degSmplx.params.nDim, length(zerosIdLst));
-		for ii = 1 : length(zerosIdLst), iDim = 1 : degSmplx.params.nDim
+function pick0gapLocsNonStruct( locLstRaw, gapLstRaw, mSz, nDim, thresVal )
+	locLst = Vector{Array{Float64,2}}(undef,mSz-1);
+	for n = 1:mSz-1
+		zerosIdLst = findall( x->x<thresVal, selectdim(gapLstRaw,1+nDim+1,n) );
+		locLst[n] = zeros(nDim, length(zerosIdLst));
+		for ii = 1 : length(zerosIdLst), iDim = 1 : nDim
 			locLst[n][iDim,ii] = 
 				locLstRaw[iDim, zerosIdLst[ii], n];
 		end
 	end
 	return locLst;
+end
+
+# function pick0gapLocs( locLstRaw, gapLstRaw, degSmplx::DegSimplices, thresVal )
+	# locLst = Vector{Array{Float64,2}}(undef,degSmplx.params.N-1);
+	# for n = 1:degSmplx.params.N-1
+		# zerosIdLst = findall( x->x<thresVal, selectdim(gapLstRaw,1+degSmplx.params.nDim+1,n) );
+		# locLst[n] = zeros(degSmplx.params.nDim, length(zerosIdLst));
+		# for ii = 1 : length(zerosIdLst), iDim = 1 : degSmplx.params.nDim
+			# locLst[n][iDim,ii] = 
+				# locLstRaw[iDim, zerosIdLst[ii], n];
+		# end
+	# end
+	# return locLst;
+# end
+
+function pick0gapLocs( locLstRaw, gapLstRaw, degSmplx::DegSimplices, thresVal )
+	return pick0gapLocsNonStruct( locLstRaw, gapLstRaw, degSmplx.params.N, degSmplx.params.nDim, thresVal );
+end
+
+function pick0gapLocsFromFile( mSz, divLst, itNum, seed; thresVal, thresSz, fMod = "", dim = 3, fExt = jld2Type, thresValRatio = 30 )
+	attrMoreLst = ["thresVal", "thresSz"];
+	valMoreLst = [thresVal, thresSz];
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; attrMoreLst = attrMoreLst, valMoreLst = valMoreLst, dim = dim );
+	fMain = "locsRaw";
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	locLstRawLst = load( fName, "locLstRawLst" );
+	gapLstRawLst = load( fName, "gapLstRawLst" );
+	locLstNdim = ndims(locLstRawLst);
+	gapLstNdim = ndims(gapLstRawLst);
+	
+	locLst0Lst = Vector{Vector{Array{Float64,2}}}(undef,itNum);
+	
+	for it = 1 : itNum
+		locLstRaw = selectdim( locLstRawLst, locLstNdim, it );
+		gapLstRaw = selectdim( gapLstRawLst, gapLstNdim, it );
+		locLst0Lst[it] = pick0gapLocsNonStruct(locLstRaw, gapLstRaw, mSz, dim, thresValRatio * thresVal );
+	end
+	
+	# locLst0 = pick0gapLocsNonStruct(locLstRaw, gapLstRaw, mSz, dim, thresValRatio * thresVal );
+	
+	push!( attrLst, "thresValRatio" );
+	push!( valLst, thresValRatio );
+	# @infiltrate
+	fOutMain = "locLst0Lst";
+	fOutName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = fMod );
+	save( fOutName, "locLst0Lst", locLst0Lst );
 end
 
 function locLstCollisionRemove( locLst, degSmplx, thresSz )
@@ -204,6 +251,45 @@ function locLstCollisionRemove( locLst, degSmplx, thresSz )
 		[ locLstOfLstDistilled[n][iId][iDim] for iId = 1 : length(locLstOfLstDistilled[n]), iDim = 1 : degSmplx.params.nDim ]
 		for n = 1 : degSmplx.params.N - 1]; 
 	return locLstDistilled;
+end
+
+function locLstCollisionRemoveFromFile( mSz, divLst, itNum, seed; fMod = "", fExt = jld2Type, thresVal, thresSz, thresValRatio, thresSzRatio, dim = 3 )
+	attrMoreLst = ["thresVal", "thresSz", "thresValRatio"];
+	valMoreLst = Any[thresVal, thresSz, thresValRatio];
+	
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	fMain = "locLst0Lst";
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	locLst0Lst = load(fName, "locLst0Lst");
+	
+	minNum = 0;
+	maxNum = 2*pi;
+	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, dim );
+	degSmplx = DegSimplices( paramsFull );
+	
+	locLstDistilledLst = Vector{Vector{Array{Float64,2}}}(undef,itNum);
+	NLstDistilledLst = zeros( Int64, itNum );
+	
+	for it = 1 : itNum
+		locLstDistilledLst[it] = locLstCollisionRemove( locLst0Lst[it], degSmplx, thresSzRatio * thresSz );
+	end
+	
+	for it = 1 : itNum
+		NLstDistilledLst[it] = sum( (x->size(x,1)).( locLstDistilledLst[it] ) );
+	end
+	
+	# locLstDistilled = locLstCollisionRemoveFromFile( locLst0, degSmplx, thresSzRatio * thresSz );
+	
+	fOutMain = "locLstRootDistilled";
+	push!( attrLst, "thresSzRatio" );
+	push!( valLst, thresSzRatio );
+	
+	fName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = fMod );
+	save( fName, "locLstDistilledLst", locLstDistilledLst );
+	
+	fOutMain = "NLstRootDistilled";
+	fName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = fMod );
+	save( fName, "NLstDistilledLst", NLstDistilledLst );
 end
 
 function locateRootFindRaw( degMats::DegMatsOnGrid, degSmplx::DegSimplices, nmArrsThr::ThrStruct{NelderMeadArrs}; HmatFun, thresVal = 1e-9, thresSz = 1e-9 )
