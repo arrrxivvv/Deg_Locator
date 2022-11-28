@@ -171,7 +171,7 @@ function pick0gapLocsFromFile( mSz, divLst, itNum, seed; thresVal, thresSz, fMod
 	
 	locLst0Lst = Vector{Vector{Array{Float64,2}}}(undef,itNum);
 	
-	for it = 1 : itNum
+	Threads.@threads for it = 1 : itNum
 		locLstRaw = selectdim( locLstRawLst, locLstNdim, it );
 		gapLstRaw = selectdim( gapLstRawLst, gapLstNdim, it );
 		locLst0Lst[it] = pick0gapLocsNonStruct(locLstRaw, gapLstRaw, mSz, dim, thresValRatio * thresVal );
@@ -270,11 +270,11 @@ function locLstCollisionRemoveFromFile( mSz, divLst, itNum, seed; fMod = "", fEx
 	locLstDistilledLst = Vector{Vector{Array{Float64,2}}}(undef,itNum);
 	NLstDistilledLst = zeros( Int64, itNum );
 	
-	for it = 1 : itNum
+	Threads.@threads for it = 1 : itNum
 		locLstDistilledLst[it] = locLstCollisionRemove( locLst0Lst[it], degSmplx, thresSzRatio * thresSz );
 	end
 	
-	for it = 1 : itNum
+	Threads.@threads for it = 1 : itNum
 		NLstDistilledLst[it] = sum( (x->size(x,1)).( locLstDistilledLst[it] ) );
 	end
 	
