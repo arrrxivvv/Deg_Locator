@@ -19,6 +19,7 @@ for thres in thresLst
 	for res in resLst
 		divLst .= res;
 		for mSz in mSzLst, thresValRatio in thresValRatioLst, thresSzRatio in thresSzRatioLst
+			print("mSz = $mSz, res = $res, thres = $thres, thresValRatio = $thresValRatio, thresSzRatio = $thresSzRatio")
 			DegLocatorDiv.pick0gapLocsFromFile( mSz, divLst, itNum, seed; thresVal = thres, thresSz = thres, thresValRatio = thresValRatio );
 			DegLocatorDiv.locLstCollisionRemoveFromFile( mSz, divLst, itNum, seed; thresVal = thres, thresSz = thres, thresValRatio = thresValRatio, thresSzRatio = thresSzRatio );
 		end
