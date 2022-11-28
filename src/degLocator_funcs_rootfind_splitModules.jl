@@ -266,12 +266,14 @@ function locLstCollisionRemoveFromFile( mSz, divLst, itNum, seed; fMod = "", fEx
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, dim );
 	degSmplx = DegSimplices( paramsFull );
+	degSmplxThr = thrStructCopy( degSmplx );
 	
 	locLstDistilledLst = Vector{Vector{Array{Float64,2}}}(undef,itNum);
 	NLstDistilledLst = zeros( Int64, itNum );
 	
+	
 	Threads.@threads for it = 1 : itNum
-		locLstDistilledLst[it] = locLstCollisionRemove( locLst0Lst[it], degSmplx, thresSzRatio * thresSz );
+		locLstDistilledLst[it] = locLstCollisionRemove( locLst0Lst[it], getThrInst( degSmplxThr ), thresSzRatio * thresSz );
 	end
 	
 	Threads.@threads for it = 1 : itNum
