@@ -1,4 +1,3 @@
-# using Infiltrator
 struct DegBerrys
 	params::DegParams;
 	degMats::DegMatsOnGrid;
@@ -17,6 +16,12 @@ struct DegBerrys
 	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
 end
 
+function calcBfieldDims( nDim::Int64 )
+	BfieldLn = Int64( nDim * ( nDim -1 ) / 2 );
+	dimLstRev = [nDim:-1:1;];
+	return BfieldLn, dimLstRev;
+end
+
 function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = false, enumSaveMem = memNone )
 	BfieldLn = Int64( params.nDim * ( params.nDim -1 ) / 2 );
 	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
@@ -24,37 +29,53 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = 
 	dimLstRev = [params.nDim:-1:1;];
 	
 	szLst = ones(Int64,params.nDim);
-	if params.nonPeriodic
-		for iDim = 1 : params.nDim
-			szLst .= params.divLst .+ 1;
-			szLst[iDim] -= 1;
-			# @infiltrate
-			linkLst[iDim] = 
+	for iDim = 1 : params.nDim
+		szLst .= params.divLst .+ params.nonPeriodicLst;
+		szLst[iDim] = params.divLst[iDim];
+		linkLst[iDim] = 
 				Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
-		end
-		iB = 1;
-		for iDim1 = 1 : params.nDim
-			for iDim2 = iDim1+1 : params.nDim
-				szLst .= params.divLst .+ 1;
-				szLst[iDim1] -= 1;
-				szLst[iDim2] -= 1;
-				BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
-				iB += 1;
-			end
-		end
-	else
-		for iDim = 1 : params.nDim
-			linkLst[iDim] = 
-				Array{ Vector{ComplexF64}, params.nDim}(undef,params.divLst...);
-		end
-		iB = 1;
-		for iDim1 = 1 : params.nDim
-			for iDim2 = iDim1+1 : params.nDim
-				BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,params.divLst...);
-				iB += 1;
-			end
+	end
+	iB = 1;
+	for iDim1 = 1 : params.nDim
+		for iDim2 = iDim1+1 : params.nDim
+			szLst .= params.divLst .+ params.nonPeriodicLst;
+			szLst[iDim1] = params.divLst[iDim1];
+			szLst[iDim2] = params.divLst[iDim2];
+			BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
+			iB += 1;
 		end
 	end
+	# if params.nonPeriodic
+		# for iDim = 1 : params.nDim
+			# szLst .= params.divLst .+ 1;
+			# szLst[iDim] -= 1;
+			
+			# linkLst[iDim] = 
+				# Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
+		# end
+		# iB = 1;
+		# for iDim1 = 1 : params.nDim
+			# for iDim2 = iDim1+1 : params.nDim
+				# szLst .= params.divLst .+ 1;
+				# szLst[iDim1] -= 1;
+				# szLst[iDim2] -= 1;
+				# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
+				# iB += 1;
+			# end
+		# end
+	# else
+		# for iDim = 1 : params.nDim
+			# linkLst[iDim] = 
+				# Array{ Vector{ComplexF64}, params.nDim}(undef,params.divLst...);
+		# end
+		# iB = 1;
+		# for iDim1 = 1 : params.nDim
+			# for iDim2 = iDim1+1 : params.nDim
+				# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,params.divLst...);
+				# iB += 1;
+			# end
+		# end
+	# end
 	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
 	divBSurface = zeros(ComplexF64, params.N);
 	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);

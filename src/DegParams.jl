@@ -3,7 +3,7 @@ struct DegParams
 	divLst::Vector{Int64};
 	nDim::Int64;
 	N::Int64;
-	nonPeriodic::Bool;
+	nonPeriodicLst::Vector{Bool};
 	posLst::AbstractArray{CartesianIndex{N}, N} where N;
 	
 	minLst::Vector{Float64};
@@ -23,13 +23,32 @@ end
 function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	stepLst = ( maxLst .- minLst ) ./ divLst;
 	
-	if isNonPeriodic
-		posLst = CartesianIndices(Tuple(divLst.+1));
-		gridLst = [ collect( range( minLst[iDim], maxLst[iDim], length = divLst[iDim]+1 ) ) for iDim = 1:nDim ];
-	else
-		posLst = CartesianIndices(Tuple(divLst));
-		gridLst = [ collect( range( minLst[iDim], maxLst[iDim] - stepLst[iDim], length = divLst[iDim] ) ) for iDim = 1:nDim ];
+	if isa(isNonPeriodic, Bool)
+		isNonPeriodic = fill(isNonPeriodic,nDim);
 	end
+	
+	szLst = copy(divLst);
+	maxGridLst = copy(maxLst);
+	szLst .+= isNonPeriodic;
+	maxGridLst .-= .!isNonPeriodic .* stepLst;
+	# maxGridLst .-= stepLst;
+	# for iDim = 1 : nDim
+		# if isNonPeriodic(iDim)
+			# szLst[iDim] += 1;
+			# maxGridLst[iDim] = maxLst[iDim];
+		# end
+	# end
+	
+	posLst = CartesianIndices( Tuple(szLst) );
+	gridLst = [ collect( range( minLst[iDim], maxGridLst[iDim], length = szLst[iDim] ) ) for iDim = 1:nDim ];
+	
+	# if isNonPeriodic
+		# posLst = CartesianIndices(Tuple(divLst.+1));
+		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim], length = divLst[iDim]+1 ) ) for iDim = 1:nDim ];
+	# else
+		# posLst = CartesianIndices(Tuple(divLst));
+		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim] - stepLst[iDim], length = divLst[iDim] ) ) for iDim = 1:nDim ];
+	# end
 	
 	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
 	
@@ -148,11 +167,18 @@ function wrapIdVecArr!( idVec::Vector{Int64}, arr::Array )
 end
 
 function wrapIdVec!( idVec, params::DegParams )
-	if !params.nonPeriodic
-		idVec .-= 1;
-		idVec .= mod.( idVec, params.divLst );
-		idVec .+= 1;
+	for iDim = 1 : params.nDim
+		if !params.nonPeriodicLst[iDim]
+			idVec[iDim] -= 1;
+			idVec[iDim] = mod( idVec[iDim], params.divLst[iDim] );
+			idVec[iDim] += 1;
+		end
 	end
+	# if !params.nonPeriodic
+		# idVec .-= 1;
+		# idVec .= mod.( idVec, params.divLst );
+		# idVec .+= 1;
+	# end
 end
 
 function shLinId!( idLin, iSh, params::DegParams )
