@@ -1,5 +1,6 @@
-struct DegBerrys
+struct DegBerrysFineSurface
 	params::DegParams;
+	paramsSurfSlice::DegParams;
 	degMats::DegMatsOnGrid;
 	BfieldLn::Int64;
 	dimLstRev::Vector{Int64};
@@ -10,20 +11,19 @@ struct DegBerrys
 	BfieldLst::Vector{Array{ Vector{ComplexF64} }};
 	divBLst::Array{ Vector{Complex{Float64}} };
 	
-	divBSurface::Vector{ComplexF64};
-	BfieldLstSurface::Array{ComplexF64};
-	
 	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
 end
 
-function calcBfieldDims( nDim::Int64 )
-	BfieldLn = Int64( nDim * ( nDim -1 ) / 2 );
-	dimLstRev = [nDim:-1:1;];
-	return BfieldLn, dimLstRev;
-end
-
-function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = false, enumSaveMem = memNone )
-	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( params );
+function degBerrysFineSurfaceInit( params::DegParams, ratFine::Int64; isFullInit = false, enumSaveMem = memNone )
+	divLstsurfSlice = params.divLst .* ratFine;
+	divLstsurfSlice[end] = ratFine;
+	nonPeriodicLst = fill(false, params.nDim);
+	nonPeriodicLst[end] = true;
+	paramsSurfSlice = degParamsNonInit( params.N, divLstsurfSlice, params.nDim; isNonPeriodic = nonPeriodicLst );
+	
+	matsGrid = matsGridHThreaded( paramsSurfSlice, threaded_zeros( ComplexF64, params.N, params.N ) );
+	
+	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( paramsSurfSlice );
 	
 	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
 	divBSurface = zeros(ComplexF64, params.N);
@@ -36,34 +36,6 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = 
 	end
 	
 	return degBerrys;
-end
-
-function initLinkBfield( params::DegParams )
-	BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
-	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
-	BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
-	
-	szLst = ones(Int64,params.nDim);
-	for iDim = 1 : params.nDim
-		szLst .= params.divLst .+ params.nonPeriodicLst;
-		szLst[iDim] = params.divLst[iDim];
-		linkLst[iDim] = 
-				Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
-	end
-	iB = 1;
-	for iDim1 = 1 : params.nDim
-		for iDim2 = iDim1+1 : params.nDim
-			szLst .= params.divLst .+ params.nonPeriodicLst;
-			szLst[iDim1] = params.divLst[iDim1];
-			szLst[iDim2] = params.divLst[iDim2];
-			BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
-			iB += 1;
-		end
-	end
-	
-	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
-	
-	return BfieldLn, dimLstRev, linkLst, BfieldLst, linkRatioThr;
 end
 
 function degBerrysEigLayered( params::DegParams )

@@ -16,7 +16,6 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	degBerrysFull = degBerrysInit( paramsFull, matsFull; isFullInit = true );
 	non0Arr = zeros(divLst...,mSz);
 	
-	# totalNumLst = zeros(Int64,itNum);
 	HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
 	locLstPol = [
 		Vector{Vector{Array{Int64}}}(undef,itNum)
@@ -24,9 +23,15 @@ function divB_profile_new( mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	NLstPol = [
 		zeros(Int64, itNum, mSz)
 		for iPol = 1:2];
-		
+	
+	if nDim == 3
+		HRandFun = H_GUE;
+	elseif nDim == 2
+		HRandFun = H_GOE;
+	end
+	
 	for it = 1 : itNum
-		HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
+		HLstLst[it] = DegLocatorDiv.HlstFunc(HRandFun,paramsFull.nDim,paramsFull.N);
 	end
 	
 	for it = 1 : itNum
@@ -93,7 +98,14 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 	# for it = 1 : itNum
 		# HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
 	# end
-	HLstLst = [ H_GUE(mSz) 
+	
+	if nDim == 3
+		HRandFun = H_GUE;
+	elseif nDim == 2
+		HRandFun = H_GOE;
+	end
+	
+	HLstLst = [ HRandFun(mSz) 
 		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
 	
 	for it = 1 : itNum

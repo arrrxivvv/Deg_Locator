@@ -16,7 +16,6 @@ function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
 	@info("Bfield:")
 	Utils.@timeInfo BfieldCalcAll( degBerrys );
 	
-	# thres = 1e-6;
 	if degBerrys.params.nDim >= 3
 		@info("DivB:")
 		Utils.@timeInfo divBCalcAll( degBerrys );
@@ -35,6 +34,8 @@ function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
 	Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
 	@info("GC")
 	Utils.@timeInfo GC.gc();
+	
+	# @infiltrate
 	
 	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2]; 
 	# , Hlst;
