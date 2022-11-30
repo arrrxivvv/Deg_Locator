@@ -107,6 +107,7 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 	
 	HLstLst = [ HRandFun(mSz) 
 		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
+	# @infiltrate
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )

@@ -232,7 +232,12 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 			end
 		end
 	end
-	
+	for iDim = 1 : degBerrys.params.nDim
+		for pos in degBerrys.params.posLst
+			degBerrys.linkLst[iDim][pos] .= 
+				degBerrys.linkLst[iDim][pos] ./ abs.(degBerrys.linkLst[iDim][pos] );
+		end
+	end
 end
 
 function BfieldCalcSurface( degBerrys::DegBerrys )
