@@ -23,10 +23,25 @@ function calcBfieldDims( nDim::Int64 )
 end
 
 function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = false, enumSaveMem = memNone )
-	BfieldLn = Int64( params.nDim * ( params.nDim -1 ) / 2 );
+	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( params );
+	
+	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
+	divBSurface = zeros(ComplexF64, params.N);
+	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
+	
+	degBerrys = DegBerrys( params, degMats, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
+	
+	if isFullInit
+		degBerrysArrsInitFull( degBerrys );
+	end
+	
+	return degBerrys;
+end
+
+function initLinkBfield( params::DegParams )
+	BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
 	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
 	BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
-	dimLstRev = [params.nDim:-1:1;];
 	
 	szLst = ones(Int64,params.nDim);
 	for iDim = 1 : params.nDim
@@ -45,50 +60,10 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = 
 			iB += 1;
 		end
 	end
-	# if params.nonPeriodic
-		# for iDim = 1 : params.nDim
-			# szLst .= params.divLst .+ 1;
-			# szLst[iDim] -= 1;
-			
-			# linkLst[iDim] = 
-				# Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
-		# end
-		# iB = 1;
-		# for iDim1 = 1 : params.nDim
-			# for iDim2 = iDim1+1 : params.nDim
-				# szLst .= params.divLst .+ 1;
-				# szLst[iDim1] -= 1;
-				# szLst[iDim2] -= 1;
-				# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
-				# iB += 1;
-			# end
-		# end
-	# else
-		# for iDim = 1 : params.nDim
-			# linkLst[iDim] = 
-				# Array{ Vector{ComplexF64}, params.nDim}(undef,params.divLst...);
-		# end
-		# iB = 1;
-		# for iDim1 = 1 : params.nDim
-			# for iDim2 = iDim1+1 : params.nDim
-				# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,params.divLst...);
-				# iB += 1;
-			# end
-		# end
-	# end
-	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
-	divBSurface = zeros(ComplexF64, params.N);
-	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
 	
 	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
 	
-	degBerrys = DegBerrys( params, degMats, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
-	
-	if isFullInit
-		degBerrysArrsInitFull( degBerrys );
-	end
-	
-	return degBerrys;
+	return BfieldLn, dimLstRev, linkLst, BfieldLst, linkRatioThr;
 end
 
 function degBerrysEigLayered( params::DegParams )
