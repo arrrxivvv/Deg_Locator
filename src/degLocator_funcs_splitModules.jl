@@ -28,17 +28,18 @@ function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
 			non0Arr[pos,n] = real( non0ArrCmplx[pos][n] );
 		end
 	end
-	# ((x,y)->(x.=real.(y))).(non0Arr, non0ArrCmplx );
 	
 	@info("find Non0")
 	Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
 	@info("GC")
 	Utils.@timeInfo GC.gc();
 	
-	# @infiltrate
+	if degBerrys.params.nDim == 2
+		NLstPol[1] .+= NLstPol[2];
+		locLstPol[1] .= vcat.( locLstPol[1], locLstPol[2] );
+	end
 	
 	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2]; 
-	# , Hlst;
 end
 
 function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
@@ -65,8 +66,12 @@ function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
 end
 
 function degTmpArrs( params::DegParams, enumSaveMem::EnumSaveMem )
+	typeHElem = ComplexF64;
+	# if params.nDim == 2
+		# typeHElem = Float64;
+	# end
 	if enumSaveMem == memNone
-		matsFull = matsGridHThreaded( params, threaded_zeros(ComplexF64,params.N,params.N) );
+		matsFull = matsGridHThreaded( params, threaded_zeros(typeHElem,params.N,params.N) );
 		matsGridInitAll( matsFull );
 		degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
 	elseif enumSaveMem >= memEig
