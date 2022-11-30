@@ -1,4 +1,3 @@
-# using Infiltrator
 
 function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = "", dim = 3, fExt = jld2Type, numRes = 3, thres = 0.1 )
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim );
@@ -8,6 +7,10 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 	posLocLst = load( fName, varNamePosLoc );
 	negLocLst = load( fName, varNameNegLoc );
 	HLstLst = load( fName, varNameHlst );
+	HLstArr = Array{Matrix{ComplexF64},3}(undef,2,dim,itNum);
+	HLstArr = [
+		HLstLst[it][iCos,iDim]
+		for iCos = 1:2, iDim = 1 : dim, it = 1 : itNum];
 	
 	locLstPol = [posLocLst,negLocLst];
 	
@@ -17,8 +20,6 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 	
 	HmatThr = threaded_zeros( ComplexF64, params.N, params.N );
 	degMatsGrid = matsGridHThreaded( params, HmatThr );
-	
-	# numRes = 3;
 	
 	divBLst = [ [ 
 		[ zeros( size(locLstPol[iPol][it][lev],1), numRes ) for lev = 1:mSz ] 
@@ -57,7 +58,8 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 	for it = 1 : itNum
 		# println( "it = ", it, "/", itNum );
 		HLst = HLstLst[it];
-		HmatFun = ( (H,xLst) -> Hmat_3comb_ratio!(H,xLst,HLst) );
+		# HLst = selectdim( HLstArr, 3, it );
+		HmatFun = ( (H,xLst) -> Hmat_3comb!(H,xLst,HLst) );
 		# HmatGridFun reevaluate
 		HmatGridFun = (xLst) -> HmatFun( getHLoc( iLst, degMatsGrid ), 
 			degMatsGrid.mesh[
@@ -70,8 +72,7 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 			locLst = locLstPol[iPol][it][n];
 			# Threads.@threads 
 			@info( "re eigen corners" )
-			tFull = @timed begin
-			for iLoc = 1 : size(locLst,1)
+			Utils.@timeInfo for iLoc = 1 : size(locLst,1)
 				loc = @view(locLst[iLoc,:]);
 				
 				for iSh = 1 : numSh
@@ -81,12 +82,9 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 					eigenAtCurrentLoc( degMatsGrid; HmatFun = HmatFun );
 				end
 			end
-			end
-			@info( timeMemStr( tFull.time, tFull.bytes ) )
 			@info( "finer eigen each cell" )
-			tFull = @timed begin
 			# Threads.@threads 
-			for iLoc = 1 : size(locLst, 1)
+			Utils.@timeInfo for iLoc = 1 : size(locLst, 1)
 				loc = @view(locLst[iLoc,:]);
 				linId = linIdFromIdVec( loc, params );
 				maxLstTmp .= params.mesh[linId] .+ params.stepLst;
@@ -112,44 +110,8 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 					divBErrCntLst[n,it,iPol] += 1;
 				end
 			end
-			end
-			@info( timeMemStr( tFull.time, tFull.bytes ) )
-			# @infiltrate
 		end
 	end
-	
-	# locLstErrPol = [[[
-		# ones(Int64, dim, divBErrCntLst[n,it,iPol])
-		# for n = 1:mSz]
-		# for it = 1:itNum]
-		# for iPol = 1:2];
-	# divBErrNeighborLst = [[[
-		# zeros( 2, params.nDim, divBErrCntLst[n,it,iPol] )
-		# for n = 1:mSz]
-		# for it = 1:itNum]
-		# for iPol = 1:2];
-	# for iPol = 1:2, it = 1:itNum, n = 1:mSz
-		# locLst = locLstPol[iPol][it][n];
-		# HLst = HLstLst[it];
-		# HmatFun = ( (H,xLst) -> Hmat_3comb_ratio!(H,xLst,HLst) );
-		# idErr = 0;
-		# for iLoc = 1 : size( locLst, 1 )
-			# if abs(divBLst[iPol][it][n][iLoc,numRes]) < 1-thres
-				# idErr += 1;
-				# loc = @view( locLst[iLoc,:] );
-				# @views locLstErrPol[iPol][it][n][:,idErr] .= loc;
-				# for iBnd = 1:2, iDim = 1:params.nDim
-					# setCurrentLoc( params, loc );
-					# minLstTmp .= getCurrentArrSh( params.mesh, params; dimSh = iDim, iSh = (-1)^iBnd );
-					# maxLstTmp .= minLstTmp .+ params.stepLst;
-					# matsCube = matsGridCubeLst[numRes];
-					# updateParamsRange( minLstTmp, maxLstTp, matsCube.params );
-					# divBSurfaceOutput( degBerrysLst[numRes], HmatFun );
-					# divBErrNeighborLst[iPol][it][n][iBnd,iDim,idErr] = degBerrysLst[numRes].divBSurface[n];
-				# end
-			# end
-		# end
-	# end
 	 
 	attrLstRes = deepcopy( attrLst );
 	valLstRes = deepcopy( valLst );
@@ -161,13 +123,12 @@ function degDivRefineFromFile( mSz, divLst, itNum, seed; fMod = "", fOutMod = ""
 		fOutModFull = fMod * fOutMod;
 	end
 	fResName = fNameFunc( fResMain, attrLstRes, valLstRes, fExt; fMod = fOutModFull );
-	save( fResName, "divBLst", divBLst, "BfieldLst", BfieldLst, "divBErrNeighborLst", divBErrNeighborLst );
-	
-	# return divBLst;
+	save( fResName, "divBLst", divBLst, "BfieldLst", BfieldLst ); 
+	# , "divBErrNeighborLst", divBErrNeighborLst );
 end
 
 function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", dim = 3, numRes = 3, fModOut = "", fExt = jld2Type, thres = 0.1 )
-	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim );
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim=dim, attrMoreLst = ["nRes"], valMoreLst = [numRes] );
 	fMain = fDeg;
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fModLocs );
 	
@@ -207,7 +168,7 @@ function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", di
 	minLstTmp = zeros(params.nDim);
 	maxLstTmp = zeros(params.nDim);
 
-	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = ["nRes"], valMoreLst = [numRes] );
+	# attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = ["nRes"], valMoreLst = [numRes] );
 	fMain = "divBrefined";
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
 	
@@ -228,6 +189,11 @@ function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", di
 		for n = 1:mSz]
 		for it = 1:itNum]
 		for iPol = 1:2];
+	locIdLstErrPol = [[[
+		ones(Int64, divBErrCntLst[n,it,iPol])
+		for n = 1 : mSz]
+		for it = 1:itNum]
+		for iPol = 1:2];
 	divBErrNeighborLst = [[[
 		zeros( 2, params.nDim, divBErrCntLst[n,it,iPol], 2 )
 		for n = 1:mSz]
@@ -236,7 +202,7 @@ function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", di
 	for iPol = 1:2, it = 1:itNum, n = 1:mSz
 		locLst = locLstPol[iPol][it][n];
 		HLst = HLstLst[it];
-		HmatFun = ( (H,xLst) -> Hmat_3comb_ratio!(H,xLst,HLst) );
+		HmatFun = ( (H,xLst) -> Hmat_3comb!(H,xLst,HLst) );
 		idErr = 0;
 		print( "it = ", it, " / ", itNum, ", ", "n = ", n, " / ", mSz, "              \r" );
 		for iLoc = 1 : size( locLst, 1 )
@@ -244,6 +210,7 @@ function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", di
 				idErr += 1;
 				loc = @view( locLst[iLoc,:] );
 				@views locLstErrPol[iPol][it][n][:,idErr] .= loc;
+				locIdLstErrPol[iPol][it][n][idErr] = iLoc;
 				for iBnd = 1:2, iDim = 1:params.nDim, iRes = 1 : 2
 					if iRes == 1
 						nRes = 1;
@@ -262,16 +229,130 @@ function divBErrNeighbor( mSz, divLst, itNum, seed; fModLocs = "", fMod = "", di
 		end
 	end
 	
+	# for iPol = 1:2, it = 1:itNum, n = 1:mSz
+		# for iErrLoc = 1 : divBErrCntLst[n,it,iPol]
+			
+		# end
+	# end
+	
 	divBErrNeighborSumLst = [[[
 		sumDropDims( divBErrNeighborLst[iPol][it][n][:,:,:,2]-divBErrNeighborLst[iPol][it][n][:,:,:,1]; dims = [1,2] )
 		for n = 1 : mSz]
 		for it = 1 : itNum]
 		for iPol = 1:2];
 	
-	
 	fOutMain = "divBErrNeighbors";
 	fOutName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = [fMod, fModOut] );
-	save( fOutName, "divBErrNeighborLst", divBErrNeighborLst, "locLstErrPol", locLstErrPol, "divBErrNeighborSumLst", divBErrNeighborSumLst );
+	save( fOutName, "divBErrNeighborLst", divBErrNeighborLst, "locLstErrPol", locLstErrPol,  "locIdLstErrPol", locIdLstErrPol, "divBErrCntLst", divBErrCntLst, "divBErrNeighborSumLst", divBErrNeighborSumLst );
+end
+
+function divBErrClassify( mSz, divLst, itNum, seed; fMod = "", numRes = 3, dim = 3, fExt = jld2Type, fModOut = "" )
+	fMain = "divBErrNeighbors";
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = ["nRes"], valMoreLst = [numRes] );
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	divBErrCntLst = load( fName, "divBErrCntLst" );
+	locIdLstErrPol = load( fName, "locIdLstErrPol" );
+	divBErrNeighborLst = load( fName, "divBErrNeighborLst" );
+	
+	locIdLstJustMoved = [[[
+		zeros(Int64,0)
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	locIdErrLstJustMoved = [[[
+		zeros(Int64,0)
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	locIdLstNotJustMoved = deepcopy( locIdLstJustMoved );
+	locIdErrLstNotJustMoved = deepcopy(locIdErrLstJustMoved);
+	locIdLstElse = deepcopy(locIdLstJustMoved);
+	locIdErrLstElse = deepcopy(locIdErrLstJustMoved);
+	
+	fluxOrgNeighborSum = 0;
+	fluxDiffNeighborSum = 0;
+	
+	for iPol = 1:2, it = 1:itNum, n = 1:mSz
+		for iLoc = 1 : divBErrCntLst[iPol,it,n]
+			fluxOrgNeighborSum = sum( abs.(divBNeighborLst[iPol][it][n][:,:,iLoc,1]) );
+			fluxDiffNeighborSum = sum( abs.(divBNeighborLst[iPol][it][n][:,:,iLoc,end]) ) - 
+			fluxOrgNeighborSum;
+			if fluxOrgNeighborSum < thres
+				if fluxDiffNeighborSum > 1-thres && fluxDiffNeighborSum < 1+thres
+					push!( locIdErrLstJustMoved[iPol][it][n], iLoc );
+					push!( locIdLstJustMoved[iPol][it][n], locIdLstErrPol[iPol][it][n][iLoc] );
+				else
+					push!( locIdErrLstNotJustMoved[iPol][it][n], iLoc );
+					push!( locIdLstNotJustMoved[iPol][it][n], locIdLstErrPol[iPol][it][n][iLoc] );
+				end
+			else
+				push!( locIdLstElse[iPol][it][n], iLoc );
+				push!( locIdErrLstElse[iPol][it][n], locIdLstErrPol[iPol][it][n][iLoc] );
+			end
+		end
+	end
+	
+	fOutMain = "degDivRefineClassify"
+	fOutName = fNameFunc( fOutMain, attrLst, valLst, fExt; fMod = [fMod , fModOut]);
+	
+	save( fOutName, "locIdLstJustMoved", locIdLstJustMoved, "locIdErrLstJustMoved", locIdErrLstJustMoved, "locIdLstNotJustMoved", locIdLstNotJustMoved, "locIdErrLstNotJustMoved", locIdErrLstNotJustMoved );
+end
+
+function degDivRefineClassifyBfields( mSz, divLst, itNum, seed; fMod = "", dim = 3, fExt = jld2 )
+	attrMoreLst = ["nRes"]; 
+	valMoreLst = [numRes];
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = dim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	fDBfieldDivBMain = "divBRefined";
+	fName = fNameFunc( fDBfieldDivBMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	BfieldLst = load( fName, "BfieldLst" );
+	
+	fNeighborMain = "divBErrNeighborLst";
+	fNeighborName = fNameFunc( fNeighborMain, attrLst, valLst, fExt; fMod = fMod );
+	divBErrNeighborLst = load( fNeighborName, "divBErrNeighborLst" );
+	
+	fClassifyMain = "degDivRefineClassify";
+	fClassifyName = fNameFunc( fClassifyMain, attrLst, valLst, fExt; fMod = fMod, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	
+	locIdLstJustMore = load( fClassifyName, "locIdLstJustMore" );
+	locIdErrLstJustMoved = load( fClassifyName, "locIdErrLstJustMore" );
+	locIdLstNotJustMore = load( fClassifyName, "locIdLstNotJustMore" );
+	locIdLstNotJustMore = load( fClassifyName, "locIdLstNotJustMore" );
+	locIdErrLstNotJustMore = load( fClassifyName, "locIdErrLstNotJustMore" );
+	
+	BDiffMaxErrLstJustMore = [[[
+		zeros( length( locIdLstJustMore[iPol][it][n] ) )
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	BMaxErrLstJustMore = [[[
+		zeros( length( locIdLstJustMore[iPol][it][n] ) )
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	BDiffMaxErrLstNotJustMore = [[[
+		zeros( length( locIdLstJustMore[iPol][it][n] ) )
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	BMaxErrLstNotJustMore = [[[
+		zeros( length( locIdLstJustMore[iPol][it][n] ) )
+		for n = 1:mSz] for it = 1:itNum]
+		for iPol = 1:2];
+	for iPol = 1:2, it = 1:itNum, n = 1:mSz
+		for iLoc = 1:length( locIdLstJustMore[iPol][it][n] )
+			iErr = locIdErrLstJustMore[iPol][it][n][iLoc];
+			iOrg = locIdLstJustMore[iPol][it][n][iLoc];
+			idMax = argmax( abs.( @view( divBErrNeighborLst[iPol][it][n][:,:,iErr,end] ) ) );
+			BDiffMaxErrLstJustMore[iPol][it][n][iLoc] = BfieldLst[iPol][it][n][idMax,iOrg,end] - BfieldLst[iPol][it][n][idMax,iOrg,1];
+			BMaxErrLstJustMore[iPol][it][n][iLoc] = BfieldLst[iPol][it][n][idMax,iOrg,1];
+		end
+	end
+	for iPol = 1:2, it = 1:itNum, n = 1:mSz
+		for iLoc = 1:length( locIdLstNotJustMore[iPol][it][n] )
+			iErr = locIdErrLstNotJustMore[iPol][it][n][iLoc];
+			iOrg = locIdLstNotJustMore[iPol][it][n][iLoc];
+			idMax = argmax( abs.( @view( divBErrNeighborLst[iPol][it][n][:,:,iErr,end] ) ) );
+			BDiffMaxErrLstJustMore[iPol][it][n][iLoc] = BfieldLst[iPol][it][n][idMax,iOrg,end] - BfieldLst[iPol][it][n][idMax,iOrg,1];
+			BMaxErrLstJustMore[iPol][it][n][iLoc] = BfieldLst[iPol][it][n][idMax,iOrg,1];
+		end
+	end
 end
 
 function divBErrNeighborSumCalc( mSz, divLst, itNum, seed; fMod = "", numRes = 3, dim = 3, fExt = jld2Type, fModOut = "" )
