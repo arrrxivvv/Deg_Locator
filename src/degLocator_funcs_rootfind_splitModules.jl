@@ -100,7 +100,7 @@ function locateRootFind( degMats::DegMatsOnGrid, degSmplx::DegSimplices, nmArrsT
 	@info( "remove duplicates" )
 	Utils.@timeInfo locLst0Distilled = locLstCollisionRemove( locLst0, degSmplx, thresRelaxRatio * thresSz );
 	Nlst = [ size(locLst0Distilled[n],1) for n = 1:degSmplx.params.N-1 ];
-	# @infiltrate
+	@infiltrate
 	
 	return Nlst, Nlst, locLst0Distilled, locLst0Distilled;
 end

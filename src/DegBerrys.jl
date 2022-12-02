@@ -202,11 +202,6 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 				);
 			end
 		end
-		# if i3Link != degBerrys.params.divLst[end]
-			
-		# else
-			# vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.nDim, degBerrys.degMats.params.divLst[end] );
-		# end
 		if i3 != 1
 			vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Slc );
 			vLstSlc = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Prev );
@@ -233,7 +228,7 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 		end
 	end
 	for iDim = 1 : degBerrys.params.nDim
-		for pos in degBerrys.params.posLst
+		Threads.@threads for pos in degBerrys.params.posLst
 			degBerrys.linkLst[iDim][pos] .= 
 				degBerrys.linkLst[iDim][pos] ./ abs.(degBerrys.linkLst[iDim][pos] );
 		end

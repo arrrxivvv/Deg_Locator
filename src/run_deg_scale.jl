@@ -14,7 +14,7 @@ dRes = resMax - resMin;
 param_divide = [80,16,16];
 fMod10 = "degObj";
 
-itNum = 1000;
+itNum = 100;
 seed = 1000;
 
 dim = 3;

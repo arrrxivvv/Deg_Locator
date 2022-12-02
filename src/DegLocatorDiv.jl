@@ -1,6 +1,6 @@
 module DegLocatorDiv
 
-# using Infiltrator
+using Infiltrator
 
 using MKL
 using UMat
