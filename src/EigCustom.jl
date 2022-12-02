@@ -1,4 +1,6 @@
 module EigCustom
+	using Infiltrator
+	
 	const liblapack = Base.liblapack_name
 
 	import LinearAlgebra.BLAS.@blasfunc
@@ -21,22 +23,22 @@ module EigCustom
 	export EigTmpMats, eigTmpMatsInit, eigOnTmpMats!
 	
 	function eigenZheevrStruct!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, eigWork::EigWork; jobz = 'V' )
-		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, isuppz = eigWork.isuppz, jobz = jobz );
+		eigenZheevr!( A, w, Z, eigWork.lwork,eigWork.lrwork, eigWork.liwork; work = eigWork.workLst, rwork = eigWork.rworkLst, iwork = eigWork.iworkLst, isuppz = eigWork.isuppz, jobz = jobz )
+		# , m = eigWork.m, info = eigWork.info );
+	end
+	
+	function eigenZheevrStruct!( A::Array{Float64,2}, w::Vector{Float64}, Z::Array{Float64,2}, eigWork::EigWork; jobz = 'V' )
+		eigenDsyver!( A, w, Z, eigWork.lwork,eigWork.liwork; work = eigWork.workLst,iwork = eigWork.iworkLst, isuppz = eigWork.isuppz, jobz = jobz )
+		# , m = eigWork.m, info = eigWork.info );
 	end
 	
 	function eigenZheevr!( A::Array{ComplexF64,2}, w::Vector{Float64}, Z::Array{ComplexF64,2}, lwork = BlasInt(-1), lrwork = BlasInt(-1), liwork = BlasInt(-1); work= Vector{ComplexF64}(undef, 1), rwork = Vector{Float64}(undef, 1), iwork = Vector{BlasInt}(undef, 1), jobz = 'V', isuppz = zeros(BlasInt,0) )
+	# , m = Ref{BlasInt}(), info = Ref{BlasInt}() )
+		# @time begin
 		laRange = 'A';
-		# jobz = 'V';
 		vl, vu, il, iu = 0, 0, 0, 0;
 		abstol = -1;
 		uplo = 'U';
-		
-		# if laRange == 'I' && !(1 <= il <= iu <= n)
-			# throw(ArgumentError("illegal choice of eigenvalue indices (il = $il, iu=$iu), which must be between 1 and n = $n"));
-		# end
-		# if laRange == 'V' && vl >= vu
-			# throw(ArgumentError("lower boundary, $vl, must be less than upper boundary, $vu"));
-		# end
 		
 		n = checksquare(A);
 		lda = max(1,stride(A,2));
@@ -51,7 +53,7 @@ module EigCustom
 			if lwork != -1 && i == 1
 				continue;
 			end
-			@debug("ccall: ")
+			# @debug("ccall: ")
 			ccall((@blasfunc(zheevr_), liblapack), Cvoid,
 				  (Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt},
 				   Ptr{ComplexF64}, Ref{BlasInt}, Ref{ComplexF64}, Ref{ComplexF64},
@@ -72,6 +74,48 @@ module EigCustom
 				resize!(work, lwork);
 				lrwork = BlasInt(rwork[1])
 				resize!(rwork, lrwork);
+				liwork = iwork[1];
+				resize!(iwork, liwork);
+			end
+		end
+		# end
+	end
+	
+	function eigenDsyver!( A::Array{Float64,2}, w::Vector{Float64}, Z::Array{Float64,2}, lwork = BlasInt(-1), liwork = BlasInt(-1); work= Vector{Float64}(undef, 1), iwork = Vector{BlasInt}(undef, 1), jobz = 'V', isuppz = zeros(BlasInt,0) )
+		laRange = 'A';
+		vl, vu, il, iu = 0, 0, 0, 0;
+		abstol = -1;
+		uplo = 'U';
+		
+		n = checksquare(A);
+		lda = max(1,stride(A,2));
+		ldz = n;
+		m = Ref{BlasInt}();
+		if isempty(isuppz)
+			isuppz = similar(A, BlasInt, 2*n);
+		end
+		info = Ref{BlasInt}();
+	
+		for i = 1:2  # first call returns lwork as work[1], lrwork as rwork[1] and liwork as iwork[1]
+			if lwork != -1 && i == 1
+				continue;
+			end
+			ccall((@blasfunc(dsyevr_), liblapack), Cvoid,
+				(Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt},
+					Ptr{Float64}, Ref{BlasInt}, Ref{Float64}, Ref{Float64},
+					Ref{BlasInt}, Ref{BlasInt}, Ref{Float64}, Ptr{BlasInt},
+					Ptr{Float64}, Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt},
+					Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+					Ptr{BlasInt}, Clong, Clong, Clong),
+				jobz, laRange, uplo, n,
+				A, max(1,lda), vl, vu,
+				il, iu, abstol, m,
+				w, Z, max(1,ldz), isuppz,
+				work, lwork, iwork, liwork,
+				info, 1, 1, 1)
+			if i == 1
+				lwork = BlasInt(real(work[1]));
+				resize!(work, lwork);
 				liwork = iwork[1];
 				resize!(iwork, liwork);
 			end
@@ -99,7 +143,6 @@ module EigCustom
 		liwork = BlasInt(-1);
 		info   = Ref{BlasInt}();
 		
-		# @time begin
 		ccall((@blasfunc(zheevr_), liblapack), Cvoid,
 			  (Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt},
 			   Ptr{ComplexF64}, Ref{BlasInt}, Ref{ComplexF64}, Ref{ComplexF64},
@@ -115,10 +158,48 @@ module EigCustom
 			  work, lwork, rwork, lrwork,
 			  iwork, liwork, info,
 			  1, 1, 1)
-		# end
 		
 		lwork = BlasInt(real(work[1]));
 		lrwork = BlasInt(rwork[1]);
+		liwork = iwork[1];
+		
+		return lwork, lrwork, liwork;
+	end
+	
+	function eigenPrework!( A::Array{Float64,2}, w::Vector{Float64}, Z::Array{Float64,2} )
+		laRange = 'A';
+		jobz = 'V';
+		vl, vu, il, iu = 0, 0, 0, 0;
+		abstol = -1;
+		uplo = 'U';
+		
+		n = checksquare(A);
+		lda = max(1,stride(A,2));
+		ldz = n;
+		m = Ref{BlasInt}();
+		isuppz = similar(A, BlasInt, 2*n);
+		work   = Vector{Float64}(undef, 1);
+		lwork  = BlasInt(-1);
+		iwork  = Vector{BlasInt}(undef, 1);
+		liwork = BlasInt(-1);
+		info   = Ref{BlasInt}();
+		
+		ccall((@blasfunc(dsyevr_), liblapack), Cvoid,
+			(Ref{UInt8}, Ref{UInt8}, Ref{UInt8}, Ref{BlasInt},
+				Ptr{Float64}, Ref{BlasInt}, Ref{Float64}, Ref{Float64},
+				Ref{BlasInt}, Ref{BlasInt}, Ref{Float64}, Ptr{BlasInt},
+				Ptr{Float64}, Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt},
+				Ptr{Float64}, Ref{BlasInt}, Ptr{BlasInt}, Ref{BlasInt},
+				Ptr{BlasInt}, Clong, Clong, Clong),
+			jobz, laRange, uplo, n,
+			A, max(1,lda), vl, vu,
+			il, iu, abstol, m,
+			w, Z, max(1,ldz), isuppz,
+			work, lwork, iwork, liwork,
+			info, 1, 1, 1)
+		
+		lwork = BlasInt(real(work[1]));
+		lrwork = 0;
 		liwork = iwork[1];
 		
 		return lwork, lrwork, liwork;
