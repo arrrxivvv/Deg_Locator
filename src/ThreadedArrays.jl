@@ -82,6 +82,7 @@ end
 # end
 Base.getindex( arrTh::ThrArray{T}, ind... ) where{T} = Base.getindex( getThrInst(arrTh), ind... );
 Base.setindex!( arrTh::ThrArray{T}, X, ind... ) where{T} = Base.setindex!( getThrInst(arrTh), X, ind... );
+Base.lastindex( arrTh::ThrArray{T} ) where{T} = Base.lastindex( getThrInst(arrTh) );
 Base.view( arrTh::ThrArray{T}, ind... ) where{T} = Base.view( getThrInst(arrTh), ind... );
 Base.similar( arrTh::ThrArray{T} ) where{T} = ThrArray{T}( [ Base.similar( arrTh.data[ii] ) for ii = 1 : Threads.nthreads() ] );
 Base.ndims( arrTh::ThrArray{T} ) where{T} = Base.ndims( arrTh.data[Threads.threadid()] );
