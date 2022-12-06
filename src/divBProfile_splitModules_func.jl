@@ -75,10 +75,25 @@ function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = 
 	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod,fMod] );
 end
 
+function divB_profile_flux_cell( mSz, divLst, itNum, seedFed; ratFine = 4, nDim = 3, fMod = "" )
+	locFun = locateDivCell;
+	tmpArrsFun( paramsFull ) = degTmpArrsCell( paramsFull, ratFine );
+	fModMethod = "fluxCell";
+	
+	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod] );
+end
+
 function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	if seedFed > 0
 		Random.seed!(seedFed);
 	end
+	if nDim == 3
+		HRandFun = H_GUE;
+	elseif nDim == 2
+		HRandFun = H_GOE;
+	end
+	HLstLst = [ HRandFun(mSz) 
+		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
 	
 	minNum = 0;
 	maxNum = 2*pi;
@@ -98,16 +113,6 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 	# for it = 1 : itNum
 		# HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
 	# end
-	
-	if nDim == 3
-		HRandFun = H_GUE;
-	elseif nDim == 2
-		HRandFun = H_GOE;
-	end
-	
-	HLstLst = [ HRandFun(mSz) 
-		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
-	# @infiltrate
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )

@@ -65,18 +65,46 @@ function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
 	return NLstPol, locLstPol;
 end
 
+function non0ArrInit( params::DegParams )
+	return zeros(params.divLst..., params.N);
+end
+
 function degTmpArrs( params::DegParams, enumSaveMem::EnumSaveMem )
 	typeHElem = ComplexF64;
 	# if params.nDim == 2
 		# typeHElem = Float64;
 	# end
 	if enumSaveMem == memNone
-		matsFull = matsGridHThreaded( params, threaded_zeros(typeHElem,params.N,params.N) );
+		matsFull = matsGridHThreaded( params, threaded_zeros(typeHElem,params.N,params.N); typeElm = typeHElem );
 		matsGridInitAll( matsFull );
 		degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
 	elseif enumSaveMem >= memEig
-		degBerrysFull = degBerrysEigLayered( params );
+		degBerrysFull = degBerrysEigLayered( params; typeElm = typeHElem );
 	end
-	non0Arr = zeros(params.divLst...,params.N);
+	non0Arr = non0ArrInit( params );
 	return degBerrysFull, non0Arr;
+end
+
+function locateDivCell( degBerrys::DegBerrys, non0Arr, gapLn; HmatFun )
+	@info("divB celled")
+	Utils.@timeInfo divBCellLayered( degBerrys, HmatFun, gapLn );
+	Threads.@threads for pos in degBerrys.params.posLst
+		for n = 1 : degBerrys.params.N
+			non0Arr[pos,n] = real( degBerrys.divBLst[pos][n] );
+		end
+	end
+	
+	@info("find Non0")
+	thresNon0 = 1e-6;
+	Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
+	@info("GC")
+	Utils.@timeInfo GC.gc();
+	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2]; 
+end
+
+function degTmpArrsCell( params::DegParams, gapLn::Int64 )
+	degBerrysCell = degBerrysFineSurfaceInit( params, gapLn );
+	non0Arr = non0ArrInit( params );
+	
+	return degBerrysCell, non0Arr, gapLn;
 end

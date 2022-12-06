@@ -48,7 +48,7 @@ function initLinkBfield( params::DegParams )
 		szLst .= params.divLst .+ params.nonPeriodicLst;
 		szLst[iDim] = params.divLst[iDim];
 		linkLst[iDim] = 
-				Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
+			Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
 	end
 	iB = 1;
 	for iDim1 = 1 : params.nDim
@@ -66,7 +66,7 @@ function initLinkBfield( params::DegParams )
 	return BfieldLn, dimLstRev, linkLst, BfieldLst, linkRatioThr;
 end
 
-function degBerrysEigLayered( params::DegParams )
+function degBerrysEigLayered( params::DegParams; typeElm = ComplexF64 )
 	enumSaveMem = memEig;
 	
 	divLstSlice = deepcopy( params.divLst );
@@ -77,9 +77,9 @@ function degBerrysEigLayered( params::DegParams )
 	
 	paramsSlice = degParamsNonInit( params.N, divLstSlice, params.nDim );
 	
-	HmatLst = threaded_zeros( ComplexF64, params.N, params.N );
+	HmatLst = threaded_zeros( typeElm, params.N, params.N );
 	
-	matsSlice = matsGridHThreaded( paramsSlice, HmatLst );
+	matsSlice = matsGridHThreaded( paramsSlice, HmatLst; typeElm = typeElm );
 	matsGridInitAll( matsSlice );
 	
 	degBerrysInit( params, matsSlice; isFullInit = true, enumSaveMem = enumSaveMem );
@@ -163,21 +163,16 @@ end
 
 function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 	i3Slc = 1;
-	# minLstSlc = deepcopy( degBerrys.params.minLst );
-	# stepLstSlc = deepcopy( degBerrys.params.stepLst );
-	# stepLstSlc[end] = 0;
 	degBerrys.degMats.params.minLst .= degBerrys.params.minLst;
 	degBerrys.degMats.params.stepLst .=degBerrys.params.stepLst;
 	degBerrys.degMats.params.stepLst[end] = 0;
 	i3Slc = 1;
 	for i3 = 1 : degBerrys.params.divLst[end]
-		# minLstSlc[end] = 
 		degBerrys.degMats.params.minLst[end] = 
 		degBerrys.params.minLst[end] + degBerrys.params.stepLst[end] * (i3-1);
 		i3Slc = mod(i3,2)+1;
 		i3Prev = mod(i3-1,2)+1;
 		updateParamsRangeSteps( degBerrys.degMats.params.minLst, degBerrys.degMats.params.stepLst, degBerrys.degMats.params );
-		# updateParamsRangeSteps( minLstSlc, stepLstSlc, degBerrys.degMats.params );
 		# @infiltrate
 		startNextEigen( degBerrys.degMats );
 		eigenLayer( degBerrys.degMats, i3Slc; HmatFun = HmatFun );
@@ -202,11 +197,6 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 				);
 			end
 		end
-		# if i3Link != degBerrys.params.divLst[end]
-			
-		# else
-			# vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.nDim, degBerrys.degMats.params.divLst[end] );
-		# end
 		if i3 != 1
 			vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Slc );
 			vLstSlc = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Prev );
@@ -233,7 +223,7 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 		end
 	end
 	for iDim = 1 : degBerrys.params.nDim
-		for pos in degBerrys.params.posLst
+		Threads.@threads for pos in degBerrys.params.posLst
 			degBerrys.linkLst[iDim][pos] .= 
 				degBerrys.linkLst[iDim][pos] ./ abs.(degBerrys.linkLst[iDim][pos] );
 		end
@@ -281,25 +271,12 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 			Threads.@threads for pos in degBerrys.params.posLst
 				# @time 
 				setCurrentLoc( degBerrys.params, pos );
-				# @time 
-				# getThrInst( degBerrys.linkRatioThr[1] ).= 
-				# getLinkLst( degBerrys, iDim2; dimSh = iDim1, iSh = 1 ) ./ 
-				# getLinkLst( degBerrys, iDim2 );
 				getThrInst( degBerrys.linkRatioThr[1] ).= 
 				linkLstShTmp2[pos] ./ 
 				degBerrys.linkLst[iDim2][pos];
-				# @time 
-				# getThrInst( degBerrys.linkRatioThr[2] ).= getLinkLst( degBerrys, iDim1; dimSh = iDim2, iSh = 1 ) ./ 
-				# getLinkLst( degBerrys, iDim1 );
 				getThrInst( degBerrys.linkRatioThr[2] ).= linkLstShTmp1[pos] ./ 
 				degBerrys.linkLst[iDim1][pos];
 				
-				# @time 
-				# initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
-				
-				# @time 
-				# getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
-				# log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
 				degBerrys.BfieldLst[iB][pos] .= parity ./ 1im .* 
 				log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
 				# @infiltrate 
@@ -385,4 +362,8 @@ end
 
 function getBfieldLst( degBerrys::DegBerrys, iB; dimSh = 0, iSh = 0 )
 	getCurrentArrSh( degBerrys.BfieldLst[iB], degBerrys.params; dimSh = dimSh, iSh = iSh );
+end
+
+function getBfieldLst( degBerrys::DegBerrys, iB, params::DegParams; dimSh = 0, iSh = 0 )
+	getCurrentArrSh( degBerrys.BfieldLst[iB], params; dimSh = dimSh, iSh = iSh );
 end

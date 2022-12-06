@@ -31,24 +31,9 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	maxGridLst = copy(maxLst);
 	szLst .+= isNonPeriodic;
 	maxGridLst .-= .!isNonPeriodic .* stepLst;
-	# maxGridLst .-= stepLst;
-	# for iDim = 1 : nDim
-		# if isNonPeriodic(iDim)
-			# szLst[iDim] += 1;
-			# maxGridLst[iDim] = maxLst[iDim];
-		# end
-	# end
 	
 	posLst = CartesianIndices( Tuple(szLst) );
 	gridLst = [ collect( range( minLst[iDim], maxGridLst[iDim], length = szLst[iDim] ) ) for iDim = 1:nDim ];
-	
-	# if isNonPeriodic
-		# posLst = CartesianIndices(Tuple(divLst.+1));
-		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim], length = divLst[iDim]+1 ) ) for iDim = 1:nDim ];
-	# else
-		# posLst = CartesianIndices(Tuple(divLst));
-		# gridLst = [ collect( range( minLst[iDim], maxLst[iDim] - stepLst[iDim], length = divLst[iDim] ) ) for iDim = 1:nDim ];
-	# end
 	
 	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
 	
@@ -129,6 +114,12 @@ function updateParamsRangeSteps( minLst, stepLst, params::DegParams )
 	refreshMeshGrid( params );
 end
 
+function updateParamsMin( minLst, params::DegParams )
+	params.minLst .= minLst;
+	params.maxLst .= minLst .+ params.divLst .* stepLst;
+	refreshMeshGrid( params );
+end
+
 function refreshMeshGrid( params::DegParams )
 	for iDim = 1 : params.nDim
 		for ii = 1 : length( params.gridLst[iDim] )
@@ -156,8 +147,28 @@ function linIdFromIdVec( idVec, params::DegParams )
 	for iDim = (params.nDim-1):-1:1
 		id = id * size(params.posLst,iDim) + idVec[iDim]-1;
 	end
+	# iDim = params.nDim-1;
+	# while iDim > 0
+		# id = id * size(params.posLst,iDim) + idVec[iDim]-1;
+		# iDim -= 1;
+	# end
 	id = id+1;
 	return id;
+end
+
+function getCurrentLinId( params::DegParams )
+	params.linIdThr.data[Threads.threadid()] = params.locItThr[end];
+	params.linIdThr.data[Threads.threadid()] -= 1;
+	# for iDim = (params.nDim-1):-1:1
+		# id = id * size(params.posLst,iDim) + idVec[iDim]-1;
+	# end
+	iDim = params.nDim-1;
+	while iDim > 0
+		params.linIdThr.data[Threads.threadid()] *= size(params.posLst,iDim);
+		params.linIdThr.data[Threads.threadid()] += params.locItThr[iDim]-1;
+		iDim -= 1;
+	end
+	params.linIdThr.data[Threads.threadid()] += 1;
 end
 
 function wrapIdVecArr!( idVec::Vector{Int64}, arr::Array )
@@ -174,11 +185,10 @@ function wrapIdVec!( idVec, params::DegParams )
 			idVec[iDim] += 1;
 		end
 	end
-	# if !params.nonPeriodic
-		# idVec .-= 1;
-		# idVec .= mod.( idVec, params.divLst );
-		# idVec .+= 1;
-	# end
+end
+
+function wrapCurrentIdVec( params::DegParams )
+	wrapIdVec!( getThrInst( params.locItThr ), params );
 end
 
 function shLinId!( idLin, iSh, params::DegParams )
@@ -274,10 +284,13 @@ function getCurrentArrSh( arr::Array, params::DegParams; dimSh = 0, iSh = 0 )
 		params.locItThr[dimSh] -= iSh;
 		wrapIdVecArr!( getThrInst(params.locItThr), arr );
 	else
-		linId = linIdFromIdVecArr( 
+		@time linId = linIdFromIdVecArr( 
 		getThrInst( params.locItThr ), arr );
+		# @time linId = linIdFromIdVec( 
+		# getThrInst( params.locItThr ), params );
+		# getCurrentLinId( params );
 	end
-	
+	# return arr[getThrInst( params.linIdThr )];
 	return arr[linId];
 end
 
