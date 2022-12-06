@@ -1,5 +1,5 @@
 module EigCustom
-	using Infiltrator
+	# using Infiltrator
 	
 	const liblapack = Base.liblapack_name
 

@@ -29,10 +29,10 @@ function eigenPreworkStruct!( A::Array{T,2}, w::Vector{Float64}, Z::Array{T,2} )
 	# , m, info );
 end
 
-function eigWorkStructFromNum!( mSz::Int64; typeEl = ComplexF64 )
-	A = zeros(typeEl, mSz, mSz);
+function eigWorkStructFromNum!( mSz::Int64; typeElm = ComplexF64 )
+	A = zeros(typeElm, mSz, mSz);
 	w = zeros(mSz);
-	Z = zeros(typeEl, mSz, mSz);
+	Z = zeros(typeElm, mSz, mSz);
 	
 	return eigenPreworkStruct!( A, w, Z );
 end
