@@ -1,355 +1,238 @@
-struct DegBerrysFineSurface
-	params::DegParams;
-	paramsSurfSlice::DegParams;
-	degMats::DegMatsOnGrid;
-	BfieldLn::Int64;
-	dimLstRev::Vector{Int64};
+# struct DegBerrysFineSurface
+	# params::DegParams;
+	# paramsSurfSlice::DegParams;
+	# degMats::DegMatsOnGrid;
+	# BfieldLn::Int64;
+	# dimLstRev::Vector{Int64};
 	
-	enumSaveMem::EnumSaveMem;
+	# enumSaveMem::EnumSaveMem;
 	
-	linkLst::Vector{Array{ Vector{ComplexF64} }};
-	BfieldLst::Vector{Array{ Vector{ComplexF64} }};
-	divBLst::Array{ Vector{Complex{Float64}} };
+	# linkLst::Vector{Array{ Vector{ComplexF64} }};
+	# BfieldLst::Vector{Array{ Vector{ComplexF64} }};
+	# divBLst::Array{ Vector{Complex{Float64}} };
 	
-	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
-end
+	# linkRatioThr::Vector{ThrArray{ComplexF64,1}};
+# end
 
-function degBerrysFineSurfaceInit( params::DegParams, ratFine::Int64; isFullInit = false, enumSaveMem = memNone )
+function degBerrysFineSurfaceInit( params::DegParams, ratFine::Int64; enumSaveMem = memNone )
 	divLstsurfSlice = params.divLst .* ratFine;
-	divLstsurfSlice[end] = ratFine;
+	divLstsurfSlice[end] = ratFine + 1;
 	nonPeriodicLst = fill(false, params.nDim);
 	nonPeriodicLst[end] = true;
 	paramsSurfSlice = degParamsNonInit( params.N, divLstsurfSlice, params.nDim; isNonPeriodic = nonPeriodicLst );
+	paramsSurfSlice.stepLst .= params.stepLst ./ ratFine;
 	
 	matsGrid = matsGridHThreaded( paramsSurfSlice, threaded_zeros( ComplexF64, params.N, params.N ) );
 	
 	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( paramsSurfSlice );
 	
-	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
+	divBLst = Array{Vector{ComplexF64},params.nDim}(undef,params.divLst...);
 	divBSurface = zeros(ComplexF64, params.N);
 	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
 	
-	degBerrys = DegBerrys( params, degMats, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
+	degBerrys = DegBerrys( params, matsGrid, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
 	
-	if isFullInit
-		degBerrysArrsInitFull( degBerrys );
-	end
+	degBerrysInitCells( degBerrys, ratFine );
 	
 	return degBerrys;
 end
 
-function degBerrysEigLayered( params::DegParams )
-	enumSaveMem = memEig;
-	
-	divLstSlice = deepcopy( params.divLst );
-	divLstSlice[end] = 3;
-	
-	# maxLstSlice = deepcopy( params.minLst );
-	# maxLstSlice[end] = params.minLst[end] + 2*params.stepLst[end];
-	
-	paramsSlice = degParamsNonInit( params.N, divLstSlice, params.nDim );
-	
-	HmatLst = threaded_zeros( ComplexF64, params.N, params.N );
-	
-	matsSlice = matsGridHThreaded( paramsSlice, HmatLst );
-	matsGridInitAll( matsSlice );
-	
-	degBerrysInit( params, matsSlice; isFullInit = true, enumSaveMem = enumSaveMem );
-end
-
-function degBerrysArrsInitFull( degBerrys::DegBerrys )
-	Threads.@threads for iLin = 1 : length(degBerrys.params.posLst)
-		if !isassigned( degBerrys.divBLst, iLin )
-			degBerrys.divBLst[iLin] = zeros(ComplexF64, degBerrys.params.N);
-		end	
-		iB = 1;
-		for iDim = 1 : degBerrys.params.nDim
-			if !isassigned( degBerrys.linkLst[iDim], iLin )
-				degBerrys.linkLst[iDim][iLin] = zeros(ComplexF64, degBerrys.params.N);
+function degBerrysInitCells( degBerrys::DegBerrys, gapLn::Int64 )
+	matsInitCellsExtraLayer( degBerrys.degMats, gapLn );
+	Threads.@threads for pos in degBerrys.degMats.params.posLst
+		for iDim = 1:degBerrys.degMats.params.nDim
+			if pos[degBerrys.degMats.params.nDim] > degBerrys.degMats.params.divLst[end] && iDim != degBerrys.degMats.params.nDim
+				degBerrys.linkLst[iDim][pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+			elseif iDim == degBerrys.degMats.params.nDim && pos[iDim] >= degBerrys.degMats.params.divLst[end]
+				continue;
 			end
-			for iDim2 = iDim + 1 : degBerrys.params.nDim
-				if !isassigned( degBerrys.BfieldLst[iB], iLin )
-					degBerrys.BfieldLst[iB][iLin] = zeros(ComplexF64, degBerrys.params.N);
+			for iDimWall = 1:degBerrys.degMats.params.nDim
+				if iDimWall == iDim
+					continue;
+				elseif mod( pos[iDimWall], gapLn ) == 1
+					degBerrys.linkLst[iDim][pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
 				end
+			end
+		end
+		iB = 0;
+		for iDim = 1 : degBerrys.degMats.params.nDim
+			for iDim2 = 1 + iDim : degBerrys.degMats.params.nDim
 				iB += 1;
+				if iDim2 == degBerrys.degMats.params.nDim && pos[iDim2] >= degBerrys.degMats.params.divLst[iDim2]
+					continue;
+				elseif pos[degBerrys.degMats.params.nDim] > degBerrys.degMats.params.divLst[end]
+					degBerrys.BfieldLst[iB][pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+				end
+				for iDimWall = 1:degBerrys.degMats.params.nDim
+					if iDimWall == iDim || iDimWall == iDim2
+						continue;
+					elseif mod( pos[iDimWall], gapLn ) == 1
+						degBerrys.BfieldLst[iB][pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+					end
+				end
 			end
 		end
 	end
+	Threads.@threads for pos in degBerrys.params.posLst
+		degBerrys.divBLst[pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+	end
 end
 
-function linksCalcSurface( degBerrys::DegBerrys )
-	for iDim = 1 : degBerrys.params.nDim
-		for pos in degBerrys.params.posLst
-			isSurface = false;
-			if pos[iDim] == size( degBerrys.params.posLst, iDim )
-				continue;
-			else
-				for iSf = 1 : degBerrys.params.nDim
-					if iSf != iDim
-						isSurface = (isSurface || (pos[iSf] == 1 ) ||
-						(pos[iSf] == degBerrys.params.divLst[iSf]+1) );
-						if isSurface
-							break;
+function divBCellLayered( degBerrys::DegBerrys, HmatFun, gapLn )
+	degBerrys.degMats.params.minLst .= degBerrys.params.minLst;
+	
+	vLstShLst = [
+		ShiftedArrays.circshift( degBerrys.degMats.vLst, ntuple(x-> x==iDim ? -1 : 0, degBerrys.degMats.params.nDim ) )
+		for iDim = 1 : degBerrys.degMats.params.nDim];
+	linkLstShLst = [
+		ShiftedArrays.circshift( degBerrys.linkLst[iDim2], ntuple( x->x==iDim1 ? -1 : 0, degBerrys.degMats.params.nDim ) )
+		for iDim1 = 1:degBerrys.degMats.params.nDim, iDim2 = 1:degBerrys.degMats.params.nDim];
+	BfieldLstShLst = [
+		ShiftedArrays.circshift( degBerrys.BfieldLst[iDim], ntuple( x->x==degBerrys.dimLstRev[iDim] ? -gapLn : 0, degBerrys.params.nDim ) )
+		for iDim = 1 : degBerrys.params.nDim];
+	arrCopyLst = [degBerrys.degMats.vLst, degBerrys.BfieldLst[1]];
+	for iDim = 1 : degBerrys.degMats.params.nDim - 1
+		push!( arrCopyLst, degBerrys.linkLst[iDim] );
+	end
+
+	for i3 = 0 : degBerrys.params.divLst[end]
+		degBerrys.degMats.params.minLst[end] = (i3-1)*degBerrys.params.stepLst[end];
+		refreshMeshGrid( degBerrys.degMats.params );
+		
+		if i3 == degBerrys.params.divLst[end]
+			for arr in arrCopyLst # [degBerrys.degMats.vLst, degBerrys.BfieldLst[1]]
+				( (x,y)->(x.=y) ).( selectdim( arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end] ), selectdim( arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end]+1 ) );
+			end
+		else
+			startNextEigen( degBerrys.degMats );
+			eigenLayer( degBerrys.degMats, degBerrys.degMats.params.divLst[end]; HmatFun );
+			
+			Threads.@threads for pos3 in selectdim( degBerrys.degMats.params.posLst, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end] )
+				for iDim = 1 : degBerrys.degMats.params.nDim-1
+					dotEachCol!( degBerrys.linkLst[iDim][pos3], vLstShLst[iDim][pos3], degBerrys.degMats.vLst[pos3] );
+					degBerrys.linkLst[iDim][pos3] ./= abs.(degBerrys.linkLst[iDim][pos3]);
+				end
+			end
+			
+			Threads.@threads for pos3 in selectdim( degBerrys.degMats.params.posLst, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end] )
+				iB = 0;
+				for iDim1 = 1 : degBerrys.degMats.params.nDim-1
+					for iDim2 = iDim1+1 : degBerrys.degMats.params.nDim-1
+						iB += 1;
+						parity = (-1)^(iDim1+iDim2-1);
+						degBerrys.BfieldLst[iB][pos3] .= parity ./ 1im .* log.( linkLstShLst[iDim1,iDim2][pos3] ./ degBerrys.linkLst[iDim2][pos3] ./ linkLstShLst[iDim2,iDim1][pos3] .* degBerrys.linkLst[iDim1][pos3] );
+					end
+				end
+			end
+
+		end
+		
+		if i3 == 0
+			for arr in arrCopyLst
+				((x,y)->(x.=y)).( selectdim(arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end]+1), selectdim(arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end]) );
+			end
+		else
+			Threads.@threads for pos in degBerrys.degMats.params.posLst
+				if pos[degBerrys.degMats.params.nDim] == 1 || pos[degBerrys.degMats.params.nDim] >= degBerrys.degMats.params.divLst[end]
+					continue;
+				end
+				for iDim = 1 : degBerrys.degMats.params.nDim-1
+					if mod( pos[iDim], gapLn ) == 1
+						eigenAtLocForced( pos, degBerrys.degMats, HmatFun );
+					end
+				end
+			end
+			Threads.@threads for pos in degBerrys.degMats.params.posLst
+				if pos[degBerrys.degMats.params.nDim] >= degBerrys.degMats.params.divLst[end]
+					continue;
+				end
+				for iDim = 1 : degBerrys.degMats.params.nDim-1
+					if mod( pos[iDim], gapLn ) == 1
+						dotEachCol!( degBerrys.linkLst[end][pos], vLstShLst[end][pos], degBerrys.degMats.vLst[pos] );
+						degBerrys.linkLst[end][pos] ./= abs.(degBerrys.linkLst[end][pos]);
+					end
+				end
+			end
+			Threads.@threads for pos in degBerrys.degMats.params.posLst
+				if pos[degBerrys.degMats.params.nDim] == 1 || pos[degBerrys.degMats.params.nDim] >= degBerrys.degMats.params.divLst[end]
+					continue;
+				end
+				for iDim = 1 : degBerrys.degMats.params.nDim-1
+					for iDimWall = 1 : degBerrys.degMats.params.nDim-1
+						if iDimWall == iDim
+							continue;
+						end
+						if mod(pos[iDimWall], gapLn) == 1
+							dotEachCol!( degBerrys.linkLst[iDim][pos], vLstShLst[iDim][pos], degBerrys.degMats.vLst[pos] );
+							degBerrys.linkLst[iDim][pos] ./= abs.(degBerrys.linkLst[iDim][pos]);
 						end
 					end
 				end
 			end
-			if !isSurface
-				continue;
-			end
-			setCurrentLoc( degBerrys.params, pos );
-			initLinkLst( degBerrys, iDim, pos );
-			# @infiltrate
-			dotEachCol!( 
-				degBerrys.linkLst[iDim][pos], 
-				getNextVLst( degBerrys.degMats, iDim ),
-				getCurrentVLst(degBerrys.degMats)
-				);
-			degBerrys.linkLst[iDim][pos] .= 
-				degBerrys.linkLst[iDim][pos ] ./ abs.(degBerrys.linkLst[iDim][pos] );
-		end
-	end
-end
-
-function linksCalcAll( degBerrys::DegBerrys )
-	for iDim = 1 : degBerrys.params.nDim
-		vLstSh = ShiftedArrays.circshift( 
-			degBerrys.degMats.vLst, 
-			ntuple( i -> i== iDim ? -1 : 0, 
-				degBerrys.params.nDim));
-		Threads.@threads for pos in degBerrys.params.posLst
-			setCurrentLoc( degBerrys.params, pos );
-			# initLinkLst( degBerrys, iDim, pos );
-			dotEachCol!( 
-				degBerrys.linkLst[iDim][pos], 
-				# getNextVLst( degBerrys.degMats, iDim ),
-				vLstSh[pos],
-				# getCurrentVLst(degBerrys.degMats)
-				degBerrys.degMats.vLst[pos]
-				);
-			degBerrys.linkLst[iDim][pos] .= 
-				degBerrys.linkLst[iDim][pos] ./ abs.(degBerrys.linkLst[iDim][pos] );
-		end
-	end
-end
-
-function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
-	i3Slc = 1;
-	# minLstSlc = deepcopy( degBerrys.params.minLst );
-	# stepLstSlc = deepcopy( degBerrys.params.stepLst );
-	# stepLstSlc[end] = 0;
-	degBerrys.degMats.params.minLst .= degBerrys.params.minLst;
-	degBerrys.degMats.params.stepLst .=degBerrys.params.stepLst;
-	degBerrys.degMats.params.stepLst[end] = 0;
-	i3Slc = 1;
-	for i3 = 1 : degBerrys.params.divLst[end]
-		# minLstSlc[end] = 
-		degBerrys.degMats.params.minLst[end] = 
-		degBerrys.params.minLst[end] + degBerrys.params.stepLst[end] * (i3-1);
-		i3Slc = mod(i3,2)+1;
-		i3Prev = mod(i3-1,2)+1;
-		updateParamsRangeSteps( degBerrys.degMats.params.minLst, degBerrys.degMats.params.stepLst, degBerrys.degMats.params );
-		# updateParamsRangeSteps( minLstSlc, stepLstSlc, degBerrys.degMats.params );
-		# @infiltrate
-		startNextEigen( degBerrys.degMats );
-		eigenLayer( degBerrys.degMats, i3Slc; HmatFun = HmatFun );
-		
-		vLstSlc = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Slc );
-		if i3 == 1 
-			vLstEnd = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, degBerrys.degMats.params.divLst[end] );
-			Threads.@threads for linId = 1 : length(vLstSlc)
-				vLstEnd[linId] .= vLstSlc[linId];
-			end
-		end
-		for iDim = 1 : degBerrys.params.nDim-1
-			linkLstSlc = selectdim( degBerrys.linkLst[iDim], degBerrys.params.nDim, i3 );
-			vLstSh = ShiftedArrays.circshift( 
-			vLstSlc, 
-			ntuple( (i -> (i == iDim ? -1 : 0)), degBerrys.params.nDim ) );
-			Threads.@threads for linId = 1 : length(linkLstSlc)
-				dotEachCol!( 
-				linkLstSlc[linId],
-				vLstSh[linId],
-				vLstSlc[linId]
-				);
-			end
-		end
-		# if i3Link != degBerrys.params.divLst[end]
-			
-		# else
-			# vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.nDim, degBerrys.degMats.params.divLst[end] );
-		# end
-		if i3 != 1
-			vLstSh3 = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Slc );
-			vLstSlc = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Prev );
-			linkLstSlc = selectdim( degBerrys.linkLst[degBerrys.params.nDim], degBerrys.params.nDim, i3-1 );
-			Threads.@threads for linId = 1 : length(vLstSlc)
-			dotEachCol!( 
-				linkLstSlc[linId],
-				vLstSh3[linId],
-				vLstSlc[linId]
-				);
-			end
-		end
-		if i3 == degBerrys.params.divLst[end]
-			vLstSh = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, degBerrys.degMats.params.divLst[end] );
-			vLstSlc = selectdim( degBerrys.degMats.vLst, degBerrys.params.nDim, i3Slc );
-			linkLstSlc = selectdim( degBerrys.linkLst[degBerrys.params.nDim], degBerrys.params.nDim, i3 );
-			Threads.@threads for linId = 1 : length(vLstSlc)
-			dotEachCol!( 
-				linkLstSlc[linId],
-				vLstSh[linId],
-				vLstSlc[linId]
-				);
-			end
-		end
-	end
-	
-end
-
-function BfieldCalcSurface( degBerrys::DegBerrys )
-	iB = 1;
-	for iDim1 = 1 : degBerrys.params.nDim
-		for iDim2 = iDim1+1 : degBerrys.params.nDim
-			iDim3 = degBerrys.dimLstRev[iB];
-			for i3 = 1 : size( degBerrys.BfieldLst[iB], iDim3 )-1 : size( degBerrys.params.posLst, iDim3 )
-				degBerrys.params.locItThr[iDim3] = i3;
-				for i1 = 1 : degBerrys.params.divLst[iDim1], i2 = 1 : degBerrys.params.divLst[iDim2]
-					degBerrys.params.locItThr[iDim1] = i1;
-					degBerrys.params.locItThr[iDim2] = i2;
-					getThrInst( degBerrys.linkRatioThr[1] ).= 
-					getLinkLst( degBerrys, iDim2; dimSh = iDim1, iSh = 1 ) ./ 
-					getLinkLst( degBerrys, iDim2 );
-					getThrInst( degBerrys.linkRatioThr[2] ).= getLinkLst( degBerrys, iDim1; dimSh = iDim2, iSh = 1 ) ./ 
-					getLinkLst( degBerrys, iDim1 );
-					
-					initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
-					
-					parity = (-1)^(iDim1+iDim2-1);
-					getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
-					log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
+			Threads.@threads for pos in degBerrys.degMats.params.posLst
+				if pos[degBerrys.degMats.params.nDim] >= degBerrys.degMats.params.divLst[end]
+					continue;
+				end
+				iB = 0;
+				for iDim1 = 1 : degBerrys.degMats.params.nDim
+					for iDim2 = iDim1+1 : degBerrys.degMats.params.nDim
+						iB += 1;
+						if iB == 1
+							continue;
+						end
+						for iDimWall = 1 : degBerrys.degMats.params.nDim
+							if iDimWall == iDim1 || iDimWall == iDim2
+								continue;
+							elseif mod( pos[iDimWall], gapLn ) == 1
+								parity = (-1)^(iDim1+iDim2-1);
+								degBerrys.BfieldLst[iB][pos] .= parity ./ 1im .* log.( linkLstShLst[iDim1,iDim2][pos] ./ degBerrys.linkLst[iDim2][pos] ./ linkLstShLst[iDim2,iDim1][pos] .* degBerrys.linkLst[iDim1][pos] );
+							end
+						end
+					end
+				end
+			end			
+			Threads.@threads for posOrg in selectdim( degBerrys.params.posLst, degBerrys.params.nDim, i3 )
+				degBerrys.divBLst[posOrg] .= 0;
+				for iDim = 1 : degBerrys.params.nDim - 1
+					degBerrys.degMats.params.locItThr[iDim] = (posOrg[iDim]-1)*gapLn + 1;
+				end
+				degBerrys.degMats.params.locItThr[end] = 1;
+				wrapCurrentIdVec( degBerrys.degMats.params );
+				iB = 0;
+				for iDim1 = 1 : degBerrys.params.nDim
+					for iDim2 = iDim1+1 : degBerrys.params.nDim
+						iB += 1;
+						# for iBnd = 1:2
+							for i1 = 1:gapLn
+								for i2 = 1:gapLn
+									getCurrentLinId( degBerrys.degMats.params );
+									linId = getThrInst( degBerrys.degMats.params.linIdThr );
+									# degBerrys.divBLst[posOrg] .+= (-1)^iBnd .* ( getBfieldLst( degBerrys, iB, degBerrys.degMats.params ) );
+									degBerrys.divBLst[posOrg] .-= degBerrys.BfieldLst[iB][linId];
+									degBerrys.divBLst[posOrg] .+= BfieldLstShLst[iB][linId];
+									# @infiltrate
+									degBerrys.degMats.params.locItThr[iDim2] += 1;
+									wrapCurrentIdVec( degBerrys.degMats.params );
+								end
+								degBerrys.degMats.params.locItThr[iDim2] -= gapLn;
+								wrapCurrentIdVec( degBerrys.degMats.params );
+								degBerrys.degMats.params.locItThr[iDim1] += 1;
+								wrapCurrentIdVec( degBerrys.degMats.params );
+							end
+							degBerrys.degMats.params.locItThr[iDim1] -= gapLn;
+							# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] += gapLn;
+							# wrapCurrentIdVec( degBerrys.degMats.params );
+						# end
+						# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] -= gapLn;
+						# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] -= gapLn;
+						wrapCurrentIdVec( degBerrys.degMats.params );
+					end
 				end
 			end
-			iB += 1;
+		end
+		
+		for arr in arrCopyLst
+			( (x,y)->(x.=y) ).( selectdim(arr, degBerrys.degMats.params.nDim, 1), selectdim(arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end]) );
 		end
 	end
-end
-
-function BfieldCalcAll( degBerrys::DegBerrys )
-	iB = 1;
-	for iDim1 = 1 : degBerrys.params.nDim
-		for iDim2 = iDim1+1 : degBerrys.params.nDim
-			parity = (-1)^(iDim1+iDim2-1);
-			# @time begin
-			linkLstShTmp1 = ShiftedArrays.circshift( degBerrys.linkLst[iDim1], 
-			ntuple( i -> i==iDim2 ? -1 : 0, degBerrys.params.nDim ) );
-			linkLstShTmp2 = ShiftedArrays.circshift( degBerrys.linkLst[iDim2], 
-			ntuple( i -> i==iDim1 ? -1 : 0, degBerrys.params.nDim ) );
-			Threads.@threads for pos in degBerrys.params.posLst
-				# @time 
-				setCurrentLoc( degBerrys.params, pos );
-				# @time 
-				# getThrInst( degBerrys.linkRatioThr[1] ).= 
-				# getLinkLst( degBerrys, iDim2; dimSh = iDim1, iSh = 1 ) ./ 
-				# getLinkLst( degBerrys, iDim2 );
-				getThrInst( degBerrys.linkRatioThr[1] ).= 
-				linkLstShTmp2[pos] ./ 
-				degBerrys.linkLst[iDim2][pos];
-				# @time 
-				# getThrInst( degBerrys.linkRatioThr[2] ).= getLinkLst( degBerrys, iDim1; dimSh = iDim2, iSh = 1 ) ./ 
-				# getLinkLst( degBerrys, iDim1 );
-				getThrInst( degBerrys.linkRatioThr[2] ).= linkLstShTmp1[pos] ./ 
-				degBerrys.linkLst[iDim1][pos];
-				
-				# @time 
-				# initBfieldLst( degBerrys, iB, getThrInst( degBerrys.params.locItThr ) );
-				
-				# @time 
-				# getBfieldLst( degBerrys, iB ) .= parity ./ 1im .* 
-				# log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
-				degBerrys.BfieldLst[iB][pos] .= parity ./ 1im .* 
-				log.( getThrInst( degBerrys.linkRatioThr[1] )./ getThrInst( degBerrys.linkRatioThr[2] ) );
-				# @infiltrate 
-			end
-			# end
-			# @infiltrate
-			iB += 1;
-		end
-	end
-end
-
-function divBCalcAll( degBerrys::DegBerrys )
-	Threads.@threads for pos in degBerrys.params.posLst
-		# initDivBLst( degBerrys, pos );
-		degBerrys.divBLst[pos] .= 0;
-	end
-	for iB = 1 : degBerrys.params.nDim
-		iDimB = degBerrys.dimLstRev[iB];
-		BfieldSh = ShiftedArrays.circshift( 
-			degBerrys.BfieldLst[iB], ntuple( i -> i==iDimB ? -1 : 0, degBerrys.params.nDim ) );
-		Threads.@threads for pos in degBerrys.params.posLst
-			setCurrentLoc( degBerrys.params, pos );
-			# degBerrys.divBLst[pos] .+= getBfieldLst( degBerrys, iB; dimSh = iDimB, iSh = 1 );
-			degBerrys.divBLst[pos] .+= BfieldSh[pos];
-			# degBerrys.divBLst[pos] .-= getBfieldLst( degBerrys, iB );
-			degBerrys.divBLst[pos] .-= degBerrys.BfieldLst[iB][pos];
-		end
-	end
-end
-
-function divBCalcSurface( degBerrys::DegBerrys )
-	degBerrys.divBSurface .= 0;
-	iB = 1;
-	for iB = 1 : degBerrys.params.nDim		
-		iDimB = degBerrys.dimLstRev[iB];
-		@view(degBerrys.BfieldLstSurface[1,iDimB,:]) .= 
-			-sum( selectdim( degBerrys.BfieldLst[iB], iDimB, 1 ) );
-		@view(degBerrys.BfieldLstSurface[2,iDimB,:]) .= 
-			sum( selectdim( degBerrys.BfieldLst[iB], iDimB, size( degBerrys.BfieldLst[iB], iDimB ) ) );
-		degBerrys.divBSurface .+= @view(degBerrys.BfieldLstSurface[2,iDimB,:]);
-		degBerrys.divBSurface .+= @view( degBerrys.BfieldLstSurface[1,iDimB,:] );
-		# degBerrys.divBSurface .+= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, size( degBerrys.BfieldLst[iB], iDimB ) ) );
-		# degBerrys.divBSurface .-= sum( selectdim( degBerrys.BfieldLst[iB], iDimB, 1 ) );
-	end
-	# degBerrys.divBSurface .= sum( degBerrys.BfieldLstSurface );
-	degBerrys.divBSurface ./= 2*pi;
-end
-
-function divBSurfaceOutput( degBerrys::DegBerrys, HmatFun; transferredResults = false )
-	if !transferredResults
-		startNextEigen( degBerrys.degMats );
-	end
-	eigenOnSurface( degBerrys.degMats; HmatFun = HmatFun );
-	linksCalcSurface( degBerrys );
-	BfieldCalcSurface( degBerrys );
-	divBCalcSurface( degBerrys );
-end
-
-function initLinkLst( degBerrys::DegBerrys, iDim, pos )
-	linId = linIdFromIdVecArr( pos, degBerrys.linkLst[iDim] );
-	if !isassigned( degBerrys.linkLst[iDim], linId )
-		degBerrys.linkLst[iDim][linId] = zeros( ComplexF64, degBerrys.params.N );
-	end
-end
-
-function initBfieldLst( degBerrys::DegBerrys, iB, pos )
-	isInitted, linId = needInitArr( degBerrys.BfieldLst[iB], pos );
-	if !isInitted
-		degBerrys.BfieldLst[iB][linId] = zeros(ComplexF64, degBerrys.params.N);
-	end
-end
-
-function initDivBLst( degBerrys::DegBerrys, pos )
-	isInitted, linId = needInitArr( degBerrys.divBLst, pos );
-	if !isInitted
-		degBerrys.divBLst[linId] = zeros(ComplexF64, degBerrys.params.N);
-	end
-end
-
-function getLinkLst( degBerrys::DegBerrys, iDim; dimSh = 0, iSh = 0 )
-	getCurrentArrSh( degBerrys.linkLst[iDim], degBerrys.params; dimSh = dimSh, iSh = iSh );
-end
-
-function getBfieldLst( degBerrys::DegBerrys, iB; dimSh = 0, iSh = 0 )
-	getCurrentArrSh( degBerrys.BfieldLst[iB], degBerrys.params; dimSh = dimSh, iSh = iSh );
 end

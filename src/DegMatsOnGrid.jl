@@ -1,19 +1,19 @@
 # using Infiltrator
 @enum HgridStoreOpt HgridFull=1 Hlayered HthreadedOnly
 
-struct DegMatsOnGrid
+struct DegMatsOnGrid{Telm<:Number}
 	params::DegParams
 	Elst::Array{Vector{Float64}};
-	vLst::Array{Matrix{ComplexF64}};
+	vLst::Array{Matrix{Telm}};
 	
-	HmatLst; # ::Array{Matrix{ComplexF64}};
+	HmatLst; # ::Array{Matrix{Telm}};
 	HgridOpt::HgridStoreOpt;
-	eigWorkTh::ThrStruct{EigCustom.EigWork};
+	eigWorkTh::ThrStruct{EigCustom.EigWork{Telm}};
 	
 	eigenId::Base.RefValue{Int64};
 	eigenIdGrid::Array{Int64};
 	
-	function DegMatsOnGrid( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh )
+	function DegMatsOnGrid{Telm}( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh ) where{Telm<:Number}
 		eigenId = 0;
 		eigenIdGrid = makeArrOverGrid( Int64, params );
 		eigenIdGrid .= 0;
@@ -21,35 +21,35 @@ struct DegMatsOnGrid
 	end
 end
 
-function matsGridBase( params::DegParams, HmatLst, HOpt::HgridStoreOpt )
+function matsGridBase( params::DegParams, HmatLst, HOpt::HgridStoreOpt; typeElm = ComplexF64 )
 	Elst = makeArrOverGrid( Vector{Float64}, params );
-	vLst = makeArrOverGrid( Matrix{ComplexF64}, params );
+	vLst = makeArrOverGrid( Matrix{typeElm}, params );
 	
-	eigWorkTh = thrStructCopy( eigWorkStructFromNum!( params.N ) );
+	eigWorkTh = thrStructCopy( eigWorkStructFromNum!( params.N; typeElm = typeElm ) );
 	
-	return DegMatsOnGrid( params, Elst, vLst, HmatLst, HOpt, eigWorkTh );
+	return DegMatsOnGrid{typeElm}( params, Elst, vLst, HmatLst, HOpt, eigWorkTh );
 end
 
-function matsGridHinternal( params::DegParams, Hopt::HgridStoreOpt )
+function matsGridHinternal( params::DegParams, Hopt::HgridStoreOpt; typeElm = ComplexF64 )
 	if Hopt == HgridFull
-		HmatLst = makeArrOverGrid( Matrix{ComplexF64}, params );
+		HmatLst = makeArrOverGrid( Matrix{typeElm}, params );
 	elseif Hopt == Hlayered
-		HmatLst = makeArrOverGrid( Matrix{	ComplexF64}, params );
+		HmatLst = makeArrOverGrid( Matrix{	typeElm}, params );
 	end
 	
-	return matsGridBase( params, HmatLst, Hopt );
+	return matsGridBase( params, HmatLst, Hopt; typeElm = typeElm );
 end
 
-function matsGridHFull( params::DegParams )
-	matsGridHinternal( params, HgridFull );
+function matsGridHFull( params::DegParams; typeElm = ComplexF64 )
+	matsGridHinternal( params, HgridFull; typeElm = typeElm );
 end
 
-function matsGridHExt( params::DegParams, HmatLst, Hopt::HgridStoreOpt )
-	return matsGridBase( params, HmatLst, HthreadedOnly );
+function matsGridHExt( params::DegParams, HmatLst, Hopt::HgridStoreOpt; typeElm = ComplexF64 )
+	return matsGridBase( params, HmatLst, HthreadedOnly; typeElm = typeElm );
 end
 
-function matsGridHThreaded( params::DegParams, HmatLst )
-	return matsGridHExt( params, HmatLst, HthreadedOnly );
+function matsGridHThreaded( params::DegParams, HmatLst; typeElm = ComplexF64 )
+	return matsGridHExt( params, HmatLst, HthreadedOnly; typeElm = typeElm );
 end
 
 function getHCurrent( matsGrid::DegMatsOnGrid )
@@ -106,6 +106,42 @@ function matsGridInitAll( matsGrid::DegMatsOnGrid )
 	end
 end
 
+function matsInitCells( matsGrid::DegMatsOnGrid, gapLn::Int64 )
+	Threads.@threads for pos in matsGrid.posLst
+		# isCell = false;
+		for iDim = 1:matsGrid.params.nDim
+			# isCell = isCell || ( mod(pos[iDim], gapLn) == 1 );
+			if mod(pos[iDim], gapLn) == 1 # isCell
+				matsGrid.Elst[pos] = zeros(matsGrid.params.N);
+				matsGrid.vLst[pos] = zeros( eltype(eltype(matsGrid.vLst)), matsGrid.params.N, matsGrid.params.N );
+				break;
+			end
+		end
+	end
+end
+
+function matsInitCellsExtraLayer( matsGrid::DegMatsOnGrid, gapLn::Int64 )
+	Threads.@threads for pos in matsGrid.params.posLst
+		if pos[matsGrid.params.nDim] > matsGrid.params.divLst[end]
+			matsInitPos( matsGrid, pos );
+			continue;
+		end
+		for iDim = 1:matsGrid.params.nDim
+			if mod(pos[iDim], gapLn) == 1 # isCell
+				# matsGrid.Elst[pos] = zeros(matsGrid.params.N);
+				# matsGrid.vLst[pos] = zeros( eltype(eltype(matsGrid.vLst)), matsGrid.params.N, matsGrid.params.N );
+				matsInitPos( matsGrid, pos );
+				break;
+			end
+		end
+	end
+end
+
+function matsInitPos( matsGrid::DegMatsOnGrid, pos )
+	matsGrid.Elst[pos] = zeros(matsGrid.params.N);
+	matsGrid.vLst[pos] = zeros( eltype(eltype(matsGrid.vLst)), matsGrid.params.N, matsGrid.params.N );
+end
+
 function eigenAtCurrentLoc( matsGrid::DegMatsOnGrid; noReEigen = true, HmatFun = nothing )
 	idLin = linItCurrent( matsGrid.params );
 	if checkEigenDone( matsGrid, idLin )
@@ -129,6 +165,12 @@ end
 function eigenAtLoc( loc, matsGrid::DegMatsOnGrid; noReEigen = true )
 	setCurrentLoc( matsGrid.params, loc );
 	eigenAtCurrentLoc( matsGrid; noReEigen = noReEigen );
+end
+
+function eigenAtLocForced( pos, matsGrid::DegMatsOnGrid, HmatFun )
+	Hmat = getHLoc( pos, matsGrid );
+	HmatFun(Hmat, matsGrid.params.mesh[pos]);
+	eigenZheevrStruct!( Hmat, matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
 end
 
 function setCurrentDone( matsGrid::DegMatsOnGrid )
@@ -239,14 +281,11 @@ function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
 			# continue;
 		# end
 		# setCurrentLoc( matsGrid.params, pos );
-		# Utils.@timeInfo begin
 		if !isnothing(HmatFun)
 			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
 		end
-		# end
-		eigenAtLoc( pos, matsGrid );
-		 # eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
-		# @infiltrate
+		# @time eigenAtLoc( pos, matsGrid );
+		eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
 	end
 end
 
@@ -259,7 +298,8 @@ function eigenLayer( matsGrid::DegMatsOnGrid, iDim; HmatFun = nothing )
 		if !isnothing(HmatFun)
 			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
 		end
-		eigenAtLoc( pos, matsGrid );
+		# eigenAtLoc( pos, matsGrid );
+		eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
 	end
 end
 
