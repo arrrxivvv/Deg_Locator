@@ -28,7 +28,8 @@ function degBerrysFineSurfaceInit( params::DegParams, ratFine::Int64; enumSaveMe
 	
 	divBLst = Array{Vector{ComplexF64},params.nDim}(undef,params.divLst...);
 	divBSurface = zeros(ComplexF64, params.N);
-	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
+	BfieldLstSurface, _, _ = initBfield( params );
+	# BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
 	
 	degBerrys = DegBerrys( params, matsGrid, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
 	
@@ -75,6 +76,13 @@ function degBerrysInitCells( degBerrys::DegBerrys, gapLn::Int64 )
 	end
 	Threads.@threads for pos in degBerrys.params.posLst
 		degBerrys.divBLst[pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+		iB = 0;
+		for iDim1 = 1 : degBerrys.params.nDim
+			for iDim2 = iDim1+1 : degBerrys.params.nDim
+				iB += 1;
+				degBerrys.BfieldLstSurface[iB][pos] = zeros( eltype(eltype(degBerrys.degMats.vLst)), degBerrys.params.N );
+			end
+		end
 	end
 end
 
@@ -193,6 +201,9 @@ function divBCellLayered( degBerrys::DegBerrys, HmatFun, gapLn )
 			end			
 			Threads.@threads for posOrg in selectdim( degBerrys.params.posLst, degBerrys.params.nDim, i3 )
 				degBerrys.divBLst[posOrg] .= 0;
+				for iB = 1 : degBerrys.BfieldLn
+					degBerrys.BfieldLstSurface[iB][posOrg] .= 0;
+				end
 				for iDim = 1 : degBerrys.params.nDim - 1
 					degBerrys.degMats.params.locItThr[iDim] = (posOrg[iDim]-1)*gapLn + 1;
 				end
@@ -207,9 +218,9 @@ function divBCellLayered( degBerrys::DegBerrys, HmatFun, gapLn )
 								for i2 = 1:gapLn
 									getCurrentLinId( degBerrys.degMats.params );
 									linId = getThrInst( degBerrys.degMats.params.linIdThr );
-									# degBerrys.divBLst[posOrg] .+= (-1)^iBnd .* ( getBfieldLst( degBerrys, iB, degBerrys.degMats.params ) );
-									degBerrys.divBLst[posOrg] .-= degBerrys.BfieldLst[iB][linId];
-									degBerrys.divBLst[posOrg] .+= BfieldLstShLst[iB][linId];
+									degBerrys.BfieldLstSurface[iB][posOrg] .+= degBerrys.BfieldLst[iB][linId];
+									# degBerrys.divBLst[posOrg] .-= degBerrys.BfieldLst[iB][linId];
+									# degBerrys.divBLst[posOrg] .+= BfieldLstShLst[iB][linId];
 									# @infiltrate
 									degBerrys.degMats.params.locItThr[iDim2] += 1;
 									wrapCurrentIdVec( degBerrys.degMats.params );
@@ -220,16 +231,13 @@ function divBCellLayered( degBerrys::DegBerrys, HmatFun, gapLn )
 								wrapCurrentIdVec( degBerrys.degMats.params );
 							end
 							degBerrys.degMats.params.locItThr[iDim1] -= gapLn;
-							# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] += gapLn;
-							# wrapCurrentIdVec( degBerrys.degMats.params );
-						# end
-						# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] -= gapLn;
-						# degBerrys.degMats.params.locItThr[degBerrys.dimLstRev[iB]] -= gapLn;
 						wrapCurrentIdVec( degBerrys.degMats.params );
 					end
 				end
 			end
 		end
+		
+		divBCalcAll( degBerrys, degBerrys.BfieldLstSurface );
 		
 		for arr in arrCopyLst
 			( (x,y)->(x.=y) ).( selectdim(arr, degBerrys.degMats.params.nDim, 1), selectdim(arr, degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end]) );

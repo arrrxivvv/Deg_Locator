@@ -27,7 +27,7 @@ export degBerrysInit, divBSurfaceOutput
 include("DegBerrysFineSurface.jl");
 
 include("divBProfile_splitModules_func.jl")
-export divB_profile_new, divB_profile_flux, divB_profile_flux_cell, divB_profile_rootFind, locRootFindRawProfile
+export divB_profile_new, divB_profile_flux, divB_profile_flux_cell, divB_profile_flux_cell_rerun,  divB_profile_rootFind, locRootFindRawProfile
 
 include("degLocator_funcs_splitModules.jl")
 

@@ -11,7 +11,7 @@ struct DegBerrys
 	divBLst::Array{ Vector{Complex{Float64}} };
 	
 	divBSurface::Vector{ComplexF64};
-	BfieldLstSurface::Array{ComplexF64};
+	BfieldLstSurface; # ::Array{ComplexF64};
 	
 	linkRatioThr::Vector{ThrArray{ComplexF64,1}};
 end
@@ -39,9 +39,9 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = 
 end
 
 function initLinkBfield( params::DegParams )
-	BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
+	# BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
 	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
-	BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
+	# BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
 	
 	szLst = ones(Int64,params.nDim);
 	for iDim = 1 : params.nDim
@@ -50,6 +50,28 @@ function initLinkBfield( params::DegParams )
 		linkLst[iDim] = 
 			Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
 	end
+	# iB = 1;
+	# for iDim1 = 1 : params.nDim
+		# for iDim2 = iDim1+1 : params.nDim
+			# szLst .= params.divLst .+ params.nonPeriodicLst;
+			# szLst[iDim1] = params.divLst[iDim1];
+			# szLst[iDim2] = params.divLst[iDim2];
+			# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
+			# iB += 1;
+		# end
+	# end
+	BfieldLst, BfieldLn, dimLstRev = initBfield( params );
+	
+	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
+	
+	return BfieldLn, dimLstRev, linkLst, BfieldLst, linkRatioThr;
+end
+
+function initBfield( params::DegParams )
+	BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
+	BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
+	
+	szLst = ones(Int64,params.nDim);
 	iB = 1;
 	for iDim1 = 1 : params.nDim
 		for iDim2 = iDim1+1 : params.nDim
@@ -61,9 +83,7 @@ function initLinkBfield( params::DegParams )
 		end
 	end
 	
-	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
-	
-	return BfieldLn, dimLstRev, linkLst, BfieldLst, linkRatioThr;
+	return BfieldLst, BfieldLn, dimLstRev;
 end
 
 function degBerrysEigLayered( params::DegParams; typeElm = ComplexF64 )
@@ -289,6 +309,10 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 end
 
 function divBCalcAll( degBerrys::DegBerrys )
+	divBCalcAll( degBerrys, degBerrys.BfieldLst );
+end
+
+function divBCalcAll( degBerrys::DegBerrys, BfieldLstIn )
 	Threads.@threads for pos in degBerrys.params.posLst
 		# initDivBLst( degBerrys, pos );
 		degBerrys.divBLst[pos] .= 0;
@@ -296,16 +320,35 @@ function divBCalcAll( degBerrys::DegBerrys )
 	for iB = 1 : degBerrys.params.nDim
 		iDimB = degBerrys.dimLstRev[iB];
 		BfieldSh = ShiftedArrays.circshift( 
-			degBerrys.BfieldLst[iB], ntuple( i -> i==iDimB ? -1 : 0, degBerrys.params.nDim ) );
+			BfieldLstIn[iB], ntuple( i -> i==iDimB ? -1 : 0, degBerrys.params.nDim ) );
 		Threads.@threads for pos in degBerrys.params.posLst
 			setCurrentLoc( degBerrys.params, pos );
 			# degBerrys.divBLst[pos] .+= getBfieldLst( degBerrys, iB; dimSh = iDimB, iSh = 1 );
 			degBerrys.divBLst[pos] .+= BfieldSh[pos];
 			# degBerrys.divBLst[pos] .-= getBfieldLst( degBerrys, iB );
-			degBerrys.divBLst[pos] .-= degBerrys.BfieldLst[iB][pos];
+			degBerrys.divBLst[pos] .-= BfieldLstIn[iB][pos];
 		end
 	end
 end
+
+# function divBCalcAll( degBerrys::DegBerrys )
+	# Threads.@threads for pos in degBerrys.params.posLst
+		# # initDivBLst( degBerrys, pos );
+		# degBerrys.divBLst[pos] .= 0;
+	# end
+	# for iB = 1 : degBerrys.params.nDim
+		# iDimB = degBerrys.dimLstRev[iB];
+		# BfieldSh = ShiftedArrays.circshift( 
+			# degBerrys.BfieldLst[iB], ntuple( i -> i==iDimB ? -1 : 0, degBerrys.params.nDim ) );
+		# Threads.@threads for pos in degBerrys.params.posLst
+			# setCurrentLoc( degBerrys.params, pos );
+			# # degBerrys.divBLst[pos] .+= getBfieldLst( degBerrys, iB; dimSh = iDimB, iSh = 1 );
+			# degBerrys.divBLst[pos] .+= BfieldSh[pos];
+			# # degBerrys.divBLst[pos] .-= getBfieldLst( degBerrys, iB );
+			# degBerrys.divBLst[pos] .-= degBerrys.BfieldLst[iB][pos];
+		# end
+	# end
+# end
 
 function divBCalcSurface( degBerrys::DegBerrys )
 	degBerrys.divBSurface .= 0;
