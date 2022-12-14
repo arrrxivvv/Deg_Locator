@@ -9,14 +9,20 @@ function printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst 
 	nBase = 10; 
 	nTop = 50;
 
-	divLst = [80, 16, 16];
+	divLstBase = [80, 32, 32];
+	divLst = copy(divLstBase);
 	
+	isSqrt = true;
 	isFirst = true;
 
 	for mSz in mSzLst, itNum in itNumLst, seed in seedLst, fMain in fMainLst, fMod in fModLst, fMethodMod in fMethodModLst
-		res = Int64( floor( (resTop - resBase) / (nTop - nBase) * (mSz - nBase) ) ) + resBase;
-		divLst[2] = res;
-		divLst[3] = res;
+		if isSqrt
+			divLst .= Int64.( floor.( sqrt(mSz / nBase) .* divLstBase ) );
+		else
+			res = Int64( floor( (resTop - resBase) / (nTop - nBase) * (mSz - nBase) ) ) + resBase;
+			divLst[2] = res;
+			divLst[3] = res;
+		end
 		attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seed; dim = nDim );
 		fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = [fMethodMod, fMod] );
 		
