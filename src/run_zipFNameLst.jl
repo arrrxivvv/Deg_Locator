@@ -1,7 +1,7 @@
 using Utils
 using DegLocatorDiv
 
-function printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst )
+function printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst; nDim = 3, divLstBase = [80, 16, 16] )
 	zipFLstName = "zipFNameLst.txt";
 	zipNameIO = open( zipFLstName, "w" );
 	resBase = 16;
@@ -9,7 +9,7 @@ function printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst 
 	nBase = 10; 
 	nTop = 50;
 
-	divLstBase = [80, 32, 32];
+	# divLstBase = [80, 32, 32];
 	divLst = copy(divLstBase);
 	
 	isSqrt = true;
@@ -40,12 +40,13 @@ end
 fMainLst = ["deg"];
 itNumLst = [100];
 seedLst = [1000];
-nDim = 3;
+nDim = 2;
 fExt = jld2Type;
+divLstBase = [64,64];
 
 fModLst = [""];
 fMethodModLst = ["flux"];
 
 mSzLst = [10:5:60;];
 
-printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst );
+printFLst( mSzLst, itNumLst, seedLst, fMainLst, fModLst, fMethodModLst; nDim = nDim, divLstBase = divLstBase );
