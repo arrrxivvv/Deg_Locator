@@ -107,7 +107,10 @@ function divB_profile_flux_cell_rerun( mSz, divLst, itNum, seedFed; ratFine = 4,
 	tmpArrsFun( paramsFull ) = degTmpArrsCell( paramsFull, ratFine );
 	fModMethod = "fluxCell";
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod] );
+	attrMoreLst = ["ratFine"];
+	valMoreLst = [ratFine];
+	
+	divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod], attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
 function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
@@ -124,69 +127,6 @@ function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", at
 	
 	divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, fMod = fMod, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst, fExt = fExt, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = isOnlyBetween, locType = locType );
 end
-
-# function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
-	# if seedFed > 0
-		# Random.seed!(seedFed);
-	# end
-	# if nDim == 3
-		# HRandFun = H_GUE;
-	# elseif nDim == 2
-		# HRandFun = H_GOE;
-	# end
-	# HLstLst = [ HRandFun(mSz) 
-		# for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
-	
-	# minNum = 0;
-	# maxNum = 2*pi;
-	# paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
-	# tmpArrs = tmpArrsFun( paramsFull );
-	
-	# nLevels = isOnlyBetween ? mSz-1 : mSz;
-	# totalNumLst = zeros(Int64,itNum);
-	# # HLstLst = Vector{Array{Array{ComplexF64}}}(undef,itNum);
-	# locLstPol = [
-		# Vector{Vector{Array{locType}}}(undef,itNum)
-		# for iPol = 1:2];
-	# NLstPol = [
-		# zeros(Int64, itNum, nLevels)
-		# for iPol = 1:2];
-	
-	# # for it = 1 : itNum
-		# # HLstLst[it] = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
-	# # end
-	
-	# for it = 1 : itNum
-		# print( "\rIteration: $it / $itNum         " )
-		# HLst = @view(HLstLst[:,:,it]);
-		# # HLst = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
-		# # @infiltrate
-		# HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
-		# NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
-
-		# # , HLstLst[it]
-	# end
-	
-	# posLstAvg = mean(NLstPol[1]; dims = 1);
-	# posLstStd = std( NLstPol[1]; dims = 1 );
-	# posTotalLst = sum(NLstPol[1]; dims = 2);
-	# posTotalAvg = mean( posTotalLst );
-	# posTotalStd = std( posTotalLst );
-	
-	# for n = 1 : nLevels
-		# println( "$(n): $(posLstAvg[n]) +/- $(round(posLstStd[n]; digits=3))" );
-	# end
-	# println( "Total: $posTotalAvg +/- $(round(posTotalStd; digits=2))" );
-	
-	# fMain = "deg";
-	# attrLst, valLst = ttrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
-	# fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
-	
-	# save( fName, "N", mSz, "seed", seedFed, "NLstPol", NLstPol, "locLstPol", locLstPol, "HLstLst", HLstLst );
-		
-	# @info("GC")
-	# Utils.@timeInfo GC.gc();
-# end
 
 function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	minNum = 0;
@@ -250,8 +190,10 @@ function divB_profile_flux_cell_rerun_detailedOutput( mSz, divLst, itNum, seedFe
 	locFun = locateDivCell_detailedOutput;
 	tmpArrsFun( paramsFull ) = degTmpArrsCell( paramsFull, ratFine );
 	fModMethod = "fluxCell";
+	attrMoreLst = ["ratFine"];
+	valMoreLst = [ratFine];
 	
-	divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod] );
+	divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod], attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
 function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
@@ -262,7 +204,7 @@ end
 
 function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	minNum = 0;
-	maxNum = 2*pi;
+	maxNum = 2*pi;ㄜ
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
 	tmpArrs = tmpArrsFun( paramsFull );
 	
@@ -283,7 +225,9 @@ function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst;
 		# HLst = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
 		# @infiltrate
 		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
-		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it], BfieldLstLst[it], divBLstLst[it] = locFun( tmpArrs...; HmatFun = HmatFun );
+		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it], BfieldLstTmp, divBLstTmp = locFun( tmpArrs...; HmatFun = HmatFun );
+		BfieldLstLst[it] = deepcopy(BfieldLstTmp);
+		divBLstLst[it] = deepcopy(divBLstTmp);
 	end
 	
 	posLstAvg = mean(NLstPol[1]; dims = 1);
