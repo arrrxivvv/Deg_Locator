@@ -1,7 +1,7 @@
 using DegLocatorDiv
 using Utils
 
-mSz = 10;
+mSz = 5;
 
 resRat = 2;
 numRes = 4;
@@ -12,7 +12,7 @@ divLst = copy( divLstBase );
 resBase = 16;
 nBase = 10;
 
-itNum = 1;
+itNum = 10;
 
 seed = 1000;
 
