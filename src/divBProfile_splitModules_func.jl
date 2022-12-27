@@ -204,7 +204,7 @@ end
 
 function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
 	minNum = 0;
-	maxNum = 2*pi;ㄜ
+	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
 	tmpArrs = tmpArrsFun( paramsFull );
 	

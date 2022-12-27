@@ -22,6 +22,50 @@ function calcBfieldDims( nDim::Int64 )
 	return BfieldLn, dimLstRev;
 end
 
+function degBerrysGen( params::DegParams; isFullInit = false, enumSaveMem = memNone, typeElm = ComplexF64 )
+	if enumSaveMem == memNone
+		paramsEig = params;
+	else
+		divLstSlice = deepcopy( params.divLst );
+		divLstSlice[end] = 3;
+		
+		paramsEig = degParamsNonInit( params.N, divLstSlice, params.nDim );
+	end
+	paramsLst = Vector{DegParams}(undef,params.nDim);
+	
+	HmatLst = threaded_zeros( typeElm, params.N, params.N );
+	degMats = matsGridHThreaded( paramsEig, HmatLst; typeElm = typeElm );
+	matsGridInitAll( degMats );
+	
+	iFullStart = 1;
+	if enumSaveMem == memEigLink
+		iFullStart = 2;
+	elseif enumSaveMem == memEigBfield
+		iFullStart = 3;
+	end
+	
+	for iP = 1 : iFullStart-1
+		paramsLst[iP] = paramsEig;
+	end
+	for iP = iFullStart : params.nDim
+		paramsLst[iP] = params;
+	end
+	# paramsLst[1:iFullStart-1] .= degMats.params;
+	# paramsLst[iFullStart:end] .= paramsEig;
+	
+	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( paramsLst[2] );
+	
+	divBLst = Array{Vector{Float64},params.nDim}(undef,params.divLst...);
+	divBSurface = zeros(ComplexF64, params.N);
+	BfieldLstSurface = zeros(ComplexF64, 2, params.nDim, params.N);
+	
+	degBerrys = DegBerrys( params, degMats, BfieldLn, dimLstRev, enumSaveMem, linkLst, BfieldLst, divBLst, divBSurface, BfieldLstSurface, linkRatioThr );
+	
+	degBerrysArrsInit( degBerrys );
+	
+	return degBerrys;
+end
+
 function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = false, enumSaveMem = memNone )
 	BfieldLn, dimLstRev, linkLst, BfieldLst,  linkRatioThr = initLinkBfield( params );
 	
@@ -39,9 +83,7 @@ function degBerrysInit( params::DegParams, degMats::DegMatsOnGrid; isFullInit = 
 end
 
 function initLinkBfield( params::DegParams )
-	# BfieldLn, dimLstRev = calcBfieldDims( params.nDim );
 	linkLst = Vector{Array{ Vector{ComplexF64} , params.nDim}}(undef,params.nDim);
-	# BfieldLst = Vector{Array{ Vector{ComplexF64}, params.nDim}}(undef, BfieldLn);
 	
 	szLst = ones(Int64,params.nDim);
 	for iDim = 1 : params.nDim
@@ -50,16 +92,6 @@ function initLinkBfield( params::DegParams )
 		linkLst[iDim] = 
 			Array{ Vector{ComplexF64}, params.nDim}(undef,szLst...);
 	end
-	# iB = 1;
-	# for iDim1 = 1 : params.nDim
-		# for iDim2 = iDim1+1 : params.nDim
-			# szLst .= params.divLst .+ params.nonPeriodicLst;
-			# szLst[iDim1] = params.divLst[iDim1];
-			# szLst[iDim2] = params.divLst[iDim2];
-			# BfieldLst[iB] = Array{Vector{ComplexF64}, params.nDim }(undef,szLst...);
-			# iB += 1;
-		# end
-	# end
 	BfieldLst, BfieldLn, dimLstRev = initBfield( params );
 	
 	linkRatioThr = [ threaded_zeros( ComplexF64, params.N ) for iDim = 1 : 2 ];
@@ -92,9 +124,6 @@ function degBerrysEigLayered( params::DegParams; typeElm = ComplexF64 )
 	divLstSlice = deepcopy( params.divLst );
 	divLstSlice[end] = 3;
 	
-	# maxLstSlice = deepcopy( params.minLst );
-	# maxLstSlice[end] = params.minLst[end] + 2*params.stepLst[end];
-	
 	paramsSlice = degParamsNonInit( params.N, divLstSlice, params.nDim );
 	
 	HmatLst = threaded_zeros( typeElm, params.N, params.N );
@@ -125,6 +154,26 @@ function degBerrysArrsInitFull( degBerrys::DegBerrys )
 	end
 end
 
+function degBerrysArrsInit( degBerrys::DegBerrys )
+	Threads.@threads for pos in degBerrys.params.posLst
+		degBerrys.divBLst[pos] = zeros(ComplexF64, degBerrys.params.N);
+	end
+	iB = 1;
+	for iDim = 1 : degBerrys.params.nDim
+		for pos in eachindex(  degBerrys.linkLst[iDim])
+			degBerrys.linkLst[iDim][pos] = zeros(ComplexF64, degBerrys.params.N);
+		end
+		for iDim2 = iDim+1 : degBerrys.params.nDim
+			for pos in eachindex( degBerrys.BfieldLst[iB] )
+				degBerrys.BfieldLst[iB][pos] = zeros(ComplexF64, degBerrys.params.N);
+			end
+			iB += 1;
+		end
+	end
+	
+	GC.gc();
+end
+
 function linksCalcSurface( degBerrys::DegBerrys )
 	for iDim = 1 : degBerrys.params.nDim
 		for pos in degBerrys.params.posLst
@@ -147,7 +196,6 @@ function linksCalcSurface( degBerrys::DegBerrys )
 			end
 			setCurrentLoc( degBerrys.params, pos );
 			initLinkLst( degBerrys, iDim, pos );
-			# @infiltrate
 			dotEachCol!( 
 				degBerrys.linkLst[iDim][pos], 
 				getNextVLst( degBerrys.degMats, iDim ),
@@ -193,7 +241,6 @@ function linksCalcAllLayered( degBerrys::DegBerrys, HmatFun )
 		i3Slc = mod(i3,2)+1;
 		i3Prev = mod(i3-1,2)+1;
 		updateParamsRangeSteps( degBerrys.degMats.params.minLst, degBerrys.degMats.params.stepLst, degBerrys.degMats.params );
-		# @infiltrate
 		startNextEigen( degBerrys.degMats );
 		eigenLayer( degBerrys.degMats, i3Slc; HmatFun = HmatFun );
 		
@@ -308,6 +355,31 @@ function BfieldCalcAll( degBerrys::DegBerrys )
 	end
 end
 
+function divBOutput( degBerrys::DegBerrys, HmatFun )
+	if degBerrys.params.nDim == 3 && degBerrys.enumSaveMem == memEigBfield
+		@info("Eigen, link, Bfield and divB layered:")
+		Utils.@timeInfo divBCalcAllLayered( degBerrys, HmatFun );
+	else 
+		if degBerrys.enumSaveMem >= memEig 
+			@info("Eigen and Link layered:")
+			Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
+		else
+			@info("Eigen:")
+			startNextEigen( degBerrys.degMats );
+			Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
+
+			@info("Link:")
+			Utils.@timeInfo linksCalcAll( degBerrys );
+		end
+		@info("Bfield:")
+		Utils.@timeInfo BfieldCalcAll( degBerrys );
+		if degBerrys.params.nDim >= 3
+			@info("DivB:")
+			Utils.@timeInfo divBCalcAll( degBerrys );
+		end
+	end
+end
+
 function divBCalcAll( degBerrys::DegBerrys )
 	divBCalcAll( degBerrys, degBerrys.BfieldLst );
 end
@@ -329,6 +401,153 @@ function divBCalcAll( degBerrys::DegBerrys, BfieldLstIn )
 			degBerrys.divBLst[pos] .-= BfieldLstIn[iB][pos];
 		end
 	end
+end
+
+function divBCalcAllLayered( degBerrys::DegBerrys, HmatFun )
+	BfieldLnLayer = Int64( (degBerrys.params.nDim-2) * (degBerrys.params.nDim-1) / 2 );
+	posLstSlc = selectdim( degBerrys.params.posLst, degBerrys.params.nDim, 1 );
+	
+	degBerrys.degMats.params.minLst .= degBerrys.params.minLst;
+	degBerrys.degMats.params.stepLst .=degBerrys.params.stepLst;
+	degBerrys.degMats.params.stepLst[end] = 0;
+	
+	arrLayers = ( x -> arrSlcLst( x, 
+		degBerrys.degMats.params.nDim, degBerrys.degMats.params.divLst[end] ) );
+	arrLayerShs = ( x -> 
+		[arrShAllLst( x[i3], degBerrys.degMats.params.nDim-1 ) 
+			for i3 = 1 : degBerrys.degMats.params.divLst[end] ] );
+	arrLayerBackup! = ( (arr, i3) -> assignArrOfArrs!( arr[end],  arr[i3]) );
+	vLstSlcs = arrLayers( degBerrys.degMats.vLst );
+	vLstShs = arrLayerShs( vLstSlcs );
+	linkLstSlcs = [
+		arrLayers( degBerrys.linkLst[iDim] )
+		for iDim = 1 : degBerrys.params.nDim];
+	BfieldLstSlcs= [
+		arrLayers( degBerrys.BfieldLst[iB] )
+		for iB = 1 : degBerrys.BfieldLn];
+	linkLstShs = [ arrLayerShs( linkLstSlcs[iDim] ) 
+		for iDim = 1 : degBerrys.params.nDim ];
+	BfieldLstShs = [ arrLayerShs( BfieldLstSlcs[iB] )
+		for iB = 1 : degBerrys.BfieldLn];
+	BLstForDiv = [[ BfieldLstSlcs[iB][i3] 
+		for iB = 1 : degBerrys.BfieldLn ]
+		for i3 = 1 : 2 ]; 
+	BShLstForDiv = [ similar( BLstForDiv[i3], supertype(eltype(BLstForDiv[i3])) )
+		for i3 = 1 : 2 ];
+	# for i3 = 1 : 2
+		# i3Next = mod(i3,2) + 1;
+		# for iB = 1 : BfieldLnLayer
+			# BShLstForDiv[i3][iB] = BLstForDiv[i3Next][iB];
+		# end
+	# end
+	for i3 = 1 : 2
+		for iB = BfieldLnLayer + 1 : degBerrys.params.nDim
+			BShLstForDiv[i3][iB] = BfieldLstShs[iB][i3][degBerrys.dimLstRev[iB]];
+		end
+	end
+	
+	i3Slc = 1;
+	for i3 = 1:degBerrys.params.divLst[end] + 1
+		if i3 <= degBerrys.params.divLst[end]
+			i3Slc = mod(i3-1,2)+1;
+			i3Prev = mod(i3,2)+1;
+		else
+			i3Prev = i3Slc;
+			i3Slc = degBerrys.degMats.params.divLst[end];
+		end
+		
+		if i3 <= degBerrys.params.divLst[end]
+			degBerrys.degMats.params.minLst[end] = degBerrys.params.gridLst[end][i3];
+			updateParamsRangeSteps( degBerrys.degMats.params.minLst, degBerrys.degMats.params.stepLst, degBerrys.degMats.params );
+			
+			startNextEigen( degBerrys.degMats );
+			eigenLayer( degBerrys.degMats, i3Slc; HmatFun = HmatFun );
+			
+			for iDim = 1 : degBerrys.params.nDim-1
+				linkFromVLstSh!.( linkLstSlcs[iDim][i3Slc], vLstShs[i3Slc][iDim], vLstSlcs[i3Slc] );
+			end
+			iB = 1;
+			for iDim1 = 1 : degBerrys.params.nDim-1
+				for iDim2 = iDim1 + 1 : degBerrys.params.nDim-1
+					parity = (-1)^(iDim1+iDim2-1);
+					BfieldFromLinkSh!.( BfieldLstSlcs[iB][i3Slc], linkLstSlcs[iDim1][i3Slc], linkLstSlcs[iDim2][i3Slc], linkLstShs[iDim1][i3Slc][iDim2], linkLstShs[iDim2][i3Slc][iDim1], parity );
+					iB += 1;
+					# ( (b, lSh, l) -> ( b .= lSh ./ l ) ).( BfieldSlcs[iB][i3Slc], linkLstShs[iDim2][i3Slc][iDim1], linkLstSlc[iDim2][i3Slc] );
+					# ( (b, lSh, l) -> ( b .*= l ./ lSh ) ).(BfieldSlcs[iB][i3Slc], linkLstSlc[iDim1][i3Slc], linkLstShs[iDim1][i3Slc][iDim2]);
+					# iB += 1;
+				end
+			end
+		end
+		
+		if i3 == 1 
+			arrLayerBackup!( vLstSlcs, i3Slc );
+			for iDim = 1 : degBerrys.params.nDim
+				arrLayerBackup!( linkLstSlcs[iDim], i3Slc );
+			end
+			for iB = 1 : degBerrys.BfieldLn
+				arrLayerBackup!( BfieldLstSlcs[iB], i3Slc );
+			end
+		end
+		if i3 > 1
+			iDim = degBerrys.params.nDim;
+			linkFromVLstSh!.( linkLstSlcs[iDim][i3Prev], vLstSlcs[i3Slc], vLstSlcs[i3Prev] );
+			iDim2 = degBerrys.params.nDim;
+			iB = BfieldLnLayer + 1;
+			for iDim1 = 1 : degBerrys.params.nDim-1
+				parity = (-1)^(iDim1+iDim2-1);
+				BfieldFromLinkSh!.( BfieldLstSlcs[iB][i3Prev], linkLstSlcs[iDim1][i3Prev], linkLstSlcs[iDim2][i3Prev], linkLstSlcs[iDim1][i3Slc], linkLstShs[iDim2][i3Prev][iDim1], parity );
+				iB += 1;
+			end
+			divBSlc = selectdim( degBerrys.divBLst, degBerrys.params.nDim, i3-1 );
+			
+			for iB = 1 : BfieldLnLayer
+				BShLstForDiv[i3Prev][iB] = BfieldLstSlcs[iB][i3Slc];
+			end
+			
+			divBFromBSh!( divBSlc, BLstForDiv[i3Prev], BShLstForDiv[i3Prev], posLstSlc );
+		end
+		# if i3 == degBerrys.params.divLst[end]
+			# i3Prev = i3Slc;
+			# i3Slc = degBerrys.degMats.params.divLst[end];
+			
+			# iDim = degBerrys.params.nDim;
+			# linkFromVLstSh!.( linkLstSlcs[iDim][i3Prev], vLstSlcs[i3Slc], vLstSlcs[i3Prev] );
+			# iDim2 = degBerrys.params.nDim;
+			# iB = BfieldLnLayer + 1;
+			# for iDim1 = 1 : degBerrys.params.nDim-1
+				# parity = (-1)^(iDim1+iDim2-1);
+				# BfieldFromLinkSh!( BfieldSlcs[iB][i3Prev], linkLstSlcs[iDim1][i3Prev], linkLstSlcs[iDim2][i3Prev], linkLstSlcs[iDim1][i3Slc], linkLstShs[iDim2][i3Prev][iDim1], parity );
+				# iB += 1;
+			# end
+			# divBSlc = selectdim( degBerrys.divBLst, degBerrys.params.nDim, i3 );
+			
+			# divBFromBSh!( divBSlc, BLstForDiv[i3Prev], BShLstForDiv[i3Prev] );
+		# end
+	end
+end
+
+function linkFromVLstSh!( link, vSh, v )
+	dotEachCol!( link, vSh, v );
+	link ./= abs.(link);
+end
+
+function BfieldFromLinkSh!( Bfield, link1, link2, link1Sh2, link2Sh1, parity )
+	Bfield .= parity .* 1/1im .* log.( link2Sh1 ./ link2 ./ link1Sh2 .* link1 );
+end
+
+function divBFromBSh!( divB, BLst, BShLst, posLstSlc )
+	for pos in posLstSlc
+		divB[pos] .= 0;
+		for iDim = 1 : 3
+			divB[pos] .+= BShLst[iDim][pos];
+			divB[pos] .-= BLst[iDim][pos];
+		end
+	end
+	# divB .= 0;
+	# for iDim = 1 : 3
+		# divB .+= BShLst[iDim];
+		# divB .-= BLst[iDim];
+	# end
 end
 
 # function divBCalcAll( degBerrys::DegBerrys )

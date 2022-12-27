@@ -6,24 +6,26 @@ end
 function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun )
 	thresNon0 = 1e-6;
 	
-	if degBerrys.enumSaveMem >= memEig
-		@info("Eigen and Link layered:")
-		Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
-	else
-		@info("Eigen:")
-		startNextEigen( degBerrys.degMats );
-		Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
+	# if degBerrys.enumSaveMem >= memEig
+		# @info("Eigen and Link layered:")
+		# Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
+	# else
+		# @info("Eigen:")
+		# startNextEigen( degBerrys.degMats );
+		# Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
 
-		@info("Link:")
-		Utils.@timeInfo linksCalcAll( degBerrys );
-	end
+		# @info("Link:")
+		# Utils.@timeInfo linksCalcAll( degBerrys );
+	# end
 	
-	@info("Bfield:")
-	Utils.@timeInfo BfieldCalcAll( degBerrys );
+	# @info("Bfield:")
+	# Utils.@timeInfo BfieldCalcAll( degBerrys );
+	
+	divBOutput( degBerrys, HmatFun );
 	
 	if degBerrys.params.nDim >= 3
-		@info("DivB:")
-		Utils.@timeInfo divBCalcAll( degBerrys );
+		# @info("DivB:")
+		# Utils.@timeInfo divBCalcAll( degBerrys );
 		non0ArrCmplx = degBerrys.divBLst;
 	elseif degBerrys.params.nDim == 2
 		non0ArrCmplx = degBerrys.BfieldLst[1];
@@ -123,13 +125,14 @@ function degTmpArrs( params::DegParams, enumSaveMem::EnumSaveMem )
 	# if params.nDim == 2
 		# typeHElem = Float64;
 	# end
-	if enumSaveMem == memNone
-		matsFull = matsGridHThreaded( params, threaded_zeros(typeHElem,params.N,params.N); typeElm = typeHElem );
-		matsGridInitAll( matsFull );
-		degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
-	elseif enumSaveMem >= memEig
-		degBerrysFull = degBerrysEigLayered( params; typeElm = typeHElem );
-	end
+	# if enumSaveMem == memNone
+		# matsFull = matsGridHThreaded( params, threaded_zeros(typeHElem,params.N,params.N); typeElm = typeHElem );
+		# matsGridInitAll( matsFull );
+		# degBerrysFull = degBerrysInit( params, matsFull; isFullInit = true );
+	# elseif enumSaveMem >= memEig
+		# degBerrysFull = degBerrysEigLayered( params; typeElm = typeHElem );
+	# end
+	degBerrysFull = degBerrysGen( params; enumSaveMem = enumSaveMem );
 	non0Arr = non0ArrInit( params );
 	return degBerrysFull, non0Arr;
 end
