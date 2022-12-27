@@ -13,7 +13,7 @@ import LinearAlgebra: BlasFloat, BlasInt
 # @enum EnumDegMethod degMethodFlux=1 degMethodRootFind=2
 # @enum EnumSaveMem memNone=1 memEig=2 memEigLink=3
 # @enum EnumRootEig eigFull=1 eigLanczos=2
-@enum EnumSaveMem memNone=1 memEig=2 memEigLink=3 rootFind=4 rootFindLanczos=5
+@enum EnumSaveMem memNone=1 memEig=2 memEigLink=3 memEigBfield rootFind rootFindLanczos
 export EnumSaveMem, memNone, memEig, memEigLink, rootFind, rootFindLanczos
 
 include("DegParams.jl");

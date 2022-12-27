@@ -4,6 +4,7 @@ module Utils
 using LinearAlgebra
 using EllipsisNotation
 using Logging; using LoggingExtras;
+using ShiftedArrays
 
 const fileType = ".pdf";
 const jldType = ".jld";
@@ -36,6 +37,9 @@ export timeMemStr, timeInfo
 
 include("Utils_sort_perms.jl")
 export permuteArr!, permuteCol2d!, permute1d!
+
+include("Utils_arrManip.jl")
+export arrSlcLst, arrShAllLst, assignArrOfArrs!
 
 function colabIOreset()
 	if isdefined(Main, :IJulia)
@@ -228,7 +232,5 @@ function shIdVec!( idVec, nDim, iSh )
 		iSh = iSh >> 1;
 	end
 end
-
-
 
 end

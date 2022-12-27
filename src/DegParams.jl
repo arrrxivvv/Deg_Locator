@@ -1,4 +1,6 @@
 using ShiftedArrays
+using ThreadedArrays
+
 struct DegParams
 	divLst::Vector{Int64};
 	nDim::Int64;
