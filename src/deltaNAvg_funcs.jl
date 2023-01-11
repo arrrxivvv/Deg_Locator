@@ -24,7 +24,7 @@ function deltaN_avg_fromFile( avgNum, N, param_divide, seed; fileNameMod = "", d
 		fileNameMain = "locDistilled";
 		levelLn = N-1;
 	elseif opt == optDistill2
-		fileNameMain = "deglocDistilled";
+		fileNameMain = "deg_locDistilled";
 		levelLn = N-1;
 	else 
 		fileNameMain = "deg";
@@ -96,7 +96,7 @@ function deltaNCum_avg_fromFile( avgNum, N, param_divide, seed; fileNameMod = ""
 	return deltaNCumSqAvg;
 end
 
-function deltaN_var_fromFile( avgNum, N, param_divide, seed; fileNameMod = "", dim = nothing, pow = 2, opt = nothing )
+function deltaN_var_fromFile( avgNum, N, param_divide, seed; fileNameMod = "", dim = nothing, pow = 2, opt = nothing, fExt = jld2Type )
 	fileNameAttr = fileNameAttrFunc( N, param_divide, avgNum,  seed; dim = dim );
 	fileNameAttr = string( fileNameAttr, fileNameMod );
 	optDistill = "distill";
@@ -105,16 +105,16 @@ function deltaN_var_fromFile( avgNum, N, param_divide, seed; fileNameMod = "", d
 		fileNameMain = "locDistilled";
 		levelLn = N-1;
 	elseif opt == optDistill2
-		fileNameMain = "deglocDistilled";
+		fileNameMain = "deg_locDistilled";
 		levelLn = N-1;
 	else 
 		fileNameMain = "deg";
 		levelLn = N;
 	end
 	degFileName = string( fileNameMain, "_", fileNameAttr );
-	varFileName = string( degFileName, jldType );
+	varFileName = string( degFileName, fExt );
 	@info(varFileName);
-	if opt == optDistill || opt == optDistilled2
+	if opt == optDistill || opt == optDistill2
 		locLstPol = load( varFileName, "locDistilledLst" );
 	else
 		posLocLst = load(varFileName, "posLocLst");
@@ -165,7 +165,6 @@ function deltaN_avg_lst( Nlst = [10], avgNum = 100, param_divide_num = 26 )
 	end
 end
 
-
 function deltaN_avg_lst_fromFile( Nlst = [10], avgNum = 100, param_divide = 26, seed = -1; dim = nothing, fileNameMod = "", fileNameOutMod = "", pow = 2, opt=nothing )
 	if opt == "distill" || opt == "distill2"
 		filenameMain = "deltaN_distill";
@@ -184,7 +183,9 @@ function deltaN_avg_lst_fromFile( Nlst = [10], avgNum = 100, param_divide = 26, 
 			filenameAttr = string( filenameAttr, "_", fileNameOutMod);
 		end
 		filenameNpy = string( filenameMain, "_",  filenameAttr, npyType );
+		fNameJld = filenameMain * "_" * filenameAttr * jld2Type;
 		npzwrite( filenameNpy, deltaNsq );
+		save( fNameJld, "deltaNsq", deltaNsq );
 	end
 end
 
@@ -218,6 +219,8 @@ function varG_lst_fromFile( Nlst = [10], avgNum = 100, param_divide = 26, seed =
 		end
 		filenameNpy = string( filenameMain, "_",  filenameAttr, npyType );
 		npzwrite( filenameNpy, GstdLst );
+		fNameJld = filenameMain * "_" * filenameAttr * jld2Type;
+		save( fNameJld, "GstdLst", GstdLst );
 	end
 end
 
@@ -239,6 +242,8 @@ function deltaN_var_lst_fromFile( Nlst = [10], avgNum = 100, param_divide = 26, 
 		end
 		filenameNpy = string( filenameMain, "_",  filenameAttr, npyType );
 		npzwrite( filenameNpy, GstdLst );
+		fNameJld = filenameMain * "_" * filenameAttr * jld2Type;
+		save( fNameJld, "deltaNvar", GstdLst );
 	end
 end
 

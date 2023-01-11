@@ -146,8 +146,6 @@ function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
 		HLst = @view(HLstLst[:,:,it]);
-		# HLst = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
-		# @infiltrate
 		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
 		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
 	end
@@ -202,7 +200,7 @@ function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed; nDim = 3
 	return divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, fMod = fMod, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst, fExt = fExt, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = isOnlyBetween, locType = locType );
 end
 
-function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
+function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64, alpha = 1 )
 	minNum = 0;
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
@@ -222,8 +220,6 @@ function divB_profile_base_detailedOutput( mSz, divLst, itNum, seedFed, HLstLst;
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
 		HLst = @view(HLstLst[:,:,it]);
-		# HLst = DegLocatorDiv.HlstFunc(H_GUE,paramsFull.nDim,paramsFull.N);
-		# @infiltrate
 		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
 		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it], BfieldLstTmp, divBLstTmp = locFun( tmpArrs...; HmatFun = HmatFun );
 		BfieldLstLst[it] = deepcopy(BfieldLstTmp);

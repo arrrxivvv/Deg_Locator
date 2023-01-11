@@ -129,6 +129,18 @@ function Hmat_3comb!( Hmat, xLst, Hlst )
 	end
 end
 
+function Hmat_3comb!( Hmat, xLst, Hlst, Hoffset; c1 = 1, cOff = 1 )
+	Hmat .= 0;
+	for it = 1:length(xLst)
+		# for ii in eachindex(Hmat)
+			# Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		# end
+		Hmat .+= c1 .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
+	end
+	
+	Hmat .+= cOff .* Hoffset;
+end
+
 function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio=nothing )
 	if isnothing(ratio)
 		ratio = fill(1,length(xLst));
@@ -144,12 +156,25 @@ end
 function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cOff = 1 )
 	Hmat .= 0;
 	for it = 1:length(xLst)
-		for ii in eachindex(Hmat)
-			Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
-		end
+		# for ii in eachindex(Hmat)
+			# Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		# end
+		Hmat .+= c1 .* ratio[it] .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
 	end
 	
-	Hmat .+= cOff * Hoffset;
+	Hmat .+= cOff .* Hoffset;
+end
+
+function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cOff = 1 )
+	Hmat .= 0;
+	for it = 1:length(xLst)
+		# for ii in eachindex(Hmat)
+			# Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		# end
+		Hmat .+= c1 .* ratio[it] .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
+	end
+	
+	Hmat .+= cOff .* Hoffset;
 end
 	
 end

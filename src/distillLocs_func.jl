@@ -742,17 +742,26 @@ function flushToPure!( flushedLst, lstPure, idPure2 )
 	return idPure2
 end
 
-function distillLocsFromFile( avgNum, N, param_divide, seed; fMain = "deg", fMod = "", fExt = jld2Type, dim = 3, pow = 2, avgNumLoc = avgNum, scale = degOptDefaultLst[1], ratio = degOptDefaultLst[2], alpha = degOptDefaultLst[3], enumSaveMem = memNone, thresNM = rtFndDefaultLst[1], thresEDeg = rtFndDefaultLst[2] )
+function distillLocsFromFile( avgNum, N, param_divide, seed; fMain = "deg", fMod = "", fExt = jld2Type, dim = 3, pow = 2, avgNumLoc = avgNum, scale = degOptDefaultLst[1], ratio = degOptDefaultLst[2], alpha = degOptDefaultLst[3], enumSaveMem = memNone, thresNM = rtFndDefaultLst[1], thresEDeg = rtFndDefaultLst[2], isNewFlux = false )
 	attrLst, valLst = fAttrOptLstFunc( N, param_divide, avgNum, seed; dim = dim, scale = scale, ratio = ratio, alpha = alpha, enumSaveMem = enumSaveMem, thresNM = thresNM, thresEDeg = thresEDeg );
 	varFileName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
 	@info(varFileName);
-	posLocLst = load(varFileName, "posLocLst");
-	negLocLst = load(varFileName, "negLocLst");
-	posNlst = load(varFileName, "posNlst");
-	negNlst = load(varFileName, "negNlst");
+	if isNewFlux
+		locLstPols = load( varFileName, "locLstPol" );
+		locNPol = load( varFileName, "NLstPol" );
+		posLocLst = locLstPols[1];
+		negLocLst = locLstPols[2];
+		posNlst = locNPol[1];
+		negNlst = locNPol[2];
+	else
+		posLocLst = load(varFileName, "posLocLst");
+		negLocLst = load(varFileName, "negLocLst");
+		posNlst = load(varFileName, "posNlst");
+		negNlst = load(varFileName, "negNlst");
+		locLstPols = [posLocLst, negLocLst];
+		locNPol = [posNlst, negNlst];
+	end
 	
-	locLstPols = [posLocLst, negLocLst];
-	locNPol = [posNlst, negNlst];
 	# @infiltrate
 	locNCumPol = distillLocN( avgNumLoc, N, locNPol );
 	
