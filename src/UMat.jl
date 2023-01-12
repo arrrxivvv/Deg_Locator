@@ -2,7 +2,7 @@ module UMat
 using LinearAlgebra
 using CUDA
 
-export Hmat_3sin, H_GUE, H_GOE, Hmat_3GUE, Hmat_3comb, Hmat_3comb!,  U_mat_QWZ_raw, Hmat_3comb_ratio, Hmat_3comb_ratio!, Hmat_3comb_ratio_Hoffset!, H_GUElst_orth!
+export Hmat_3sin, H_GUE, H_GOE, Hmat_3GUE, Hmat_3comb, Hmat_3comb!,  U_mat_QWZ_raw, Hmat_3comb_ratio, Hmat_3comb_ratio!, Hmat_3comb_ratio_Hoffset!, Hmat_3comb_offset!, H_GUElst_orth!, Hmat_3comb_HLstGen, Hmat_3comb_offset_HLstGen
 
 function U_element_fun( N, tau, V1, V2, ang1, ang2, k1, k2 )
 	U_ans = 0;
@@ -122,23 +122,40 @@ end
 function Hmat_3comb!( Hmat, xLst, Hlst )
 	Hmat .= 0;
 	for it = 1:length(xLst)
-		# for ii in eachindex(Hmat)
-			# Hmat[ii] += ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
-		# end
 		Hmat .+= cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] ;
 	end
+end
+
+function Hmat_3comb_HLstGen( mSz::Int64, nDim::Int64, HRandFun )
+	return [ HRandFun(mSz) 
+		for iCos = 1:2, iDim = 1:nDim ];
 end
 
 function Hmat_3comb!( Hmat, xLst, Hlst, Hoffset; c1 = 1, cOff = 1 )
 	Hmat .= 0;
 	for it = 1:length(xLst)
-		# for ii in eachindex(Hmat)
-			# Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
-		# end
 		Hmat .+= c1 .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
 	end
 	
 	Hmat .+= cOff .* Hoffset;
+end
+
+function Hmat_3comb_offset!( Hmat, xLst, HLst, HOffset; c1 = 1, cOff = 1 )
+	Hmat .= 0;
+	Hmat_3comb!( Hmat, xLst, HLst );
+	Hmat .= c1 .* Hmat .+ cOff .* HOffset;
+end
+
+function Hmat_3comb_offset!( Hmat, xLst, HLstAll; c1 = 1, cOff = 1 )
+	HLst = HLstAll[1];
+	HOffset = HLstAll[2];
+	Hmat_3comb_offset!( Hmat, xLst, HLst, HOffset; c1 = c1, cOff = cOff );
+end
+
+function Hmat_3comb_offset_HLstGen( mSz::Int64, nDim::Int64, HRandFun )
+	HCosLst = Hmat_3comb_HLstGen( mSz, nDim, HRandFun );
+	HOffset = HRandFun(mSz);
+	return [ HCosLst, HOffset ]
 end
 
 function Hmat_3comb_ratio!( Hmat, xLst, Hlst, ratio=nothing )
@@ -165,16 +182,16 @@ function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cO
 	Hmat .+= cOff .* Hoffset;
 end
 
-function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cOff = 1 )
-	Hmat .= 0;
-	for it = 1:length(xLst)
-		# for ii in eachindex(Hmat)
-			# Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
-		# end
-		Hmat .+= c1 .* ratio[it] .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
-	end
+# function Hmat_3comb_ratio_Hoffset!( Hmat, xLst, Hlst, ratio, Hoffset; c1 = 1, cOff = 1 )
+	# Hmat .= 0;
+	# for it = 1:length(xLst)
+		# # for ii in eachindex(Hmat)
+			# # Hmat[ii] += c1 * ratio[it] * ( cos(xLst[it]) * Hlst[1,it][ii] + sin(xLst[it]) * Hlst[2,it][ii] );
+		# # end
+		# Hmat .+= c1 .* ratio[it] .* ( cos(xLst[it]) .* Hlst[1,it] .+ sin(xLst[it]) .* Hlst[2,it] );
+	# end
 	
-	Hmat .+= cOff .* Hoffset;
-end
+	# Hmat .+= cOff .* Hoffset;
+# end
 	
 end
