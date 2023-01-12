@@ -81,12 +81,35 @@ function divB_profile_rootFind( mSz, divLst, itNum, seedFed; nDim = 3, thresVal 
 	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = true, locType = Float64, fMod = [fModMethod, fMod], attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
-function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone, fMod = "")
+function divB_profile_flux(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone, fMod = "", HRandFun = nothing, alpha = 1 )
 	locFun = locateDiv;
 	tmpArrsFun( paramsFull ) = degTmpArrs( paramsFull, enumSaveMem );
 	fModMethod = "flux";
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod,fMod] );
+	if HRandFun == nothing
+		if nDim == 3
+			HRandFun = H_GUE;
+		else
+			HRandFun = H_GOE;
+		end
+	end
+	
+	attrMoreLst = [];
+	valMoreLst = [];
+	
+	if alpha == 1
+		HLstFun = ( (m) -> Hmat_3comb_HLstGen( m, nDim, HRandFun ) );
+		HmatFun = Hmat_3comb!;
+	else
+		HLstFun = ( (m) -> Hmat_3comb_offset_HLstGen( m, nDim, HRandFun ) );
+		HmatFun = (H, xLst, HLst) -> Hmat_3comb_offset!( H, xLst, HLst; c1 = sqrt(alpha/3), cOff = sqrt(1-alpha)  );
+		push!( attrMoreLst, "alpha" );
+		push!( valMoreLst, alpha );
+	end
+	
+	HmatFunLst, HLstLst = HmatFunGen( mSz, itNum, HLstFun, HmatFun; seedFed = seedFed );
+	
+	divB_profile_base( mSz, divLst, itNum; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod,fMod], HmatFunLst = HmatFunLst, HLstLst = HLstLst, seedFed = seedFed, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
 function divB_profile_flux_cell( mSz, divLst, itNum, seedFed; ratFine = 4, nDim = 3, fMod = "" )
@@ -113,22 +136,22 @@ function divB_profile_flux_cell_rerun( mSz, divLst, itNum, seedFed; ratFine = 4,
 	divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, locFun = locFun, tmpArrsFun = tmpArrsFun, fMod = [fModMethod, fMod], attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
 end
 
-function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
-	if seedFed > 0
-		Random.seed!(seedFed);
-	end
-	if nDim == 3
-		HRandFun = H_GUE;
-	elseif nDim == 2
-		HRandFun = H_GOE;
-	end
-	HLstLst = [ HRandFun(mSz) 
-		for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
+# function divB_profile_base( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
+	# if seedFed > 0
+		# Random.seed!(seedFed);
+	# end
+	# if nDim == 3
+		# HRandFun = H_GUE;
+	# elseif nDim == 2
+		# HRandFun = H_GOE;
+	# end
+	# HLstLst = [ HRandFun(mSz) 
+		# for iCos = 1:2, iDim = 1 : nDim, it = 1:itNum];
 	
-	divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, fMod = fMod, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst, fExt = fExt, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = isOnlyBetween, locType = locType );
-end
+	# divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = nDim, fMod = fMod, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst, fExt = fExt, locFun = locFun, tmpArrsFun = tmpArrsFun, isOnlyBetween = isOnlyBetween, locType = locType );
+# end
 
-function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
+function divB_profile_base( mSz, divLst, itNum; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, HmatFunLst, isOnlyBetween = false, locType = Int64, HLstLst = nothing, seedFed = -1 )
 	minNum = 0;
 	maxNum = 2*pi;
 	paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
@@ -145,9 +168,9 @@ function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod
 	
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
-		HLst = @view(HLstLst[:,:,it]);
-		HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
-		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
+		# HLst = @view(HLstLst[:,:,it]);
+		# HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
+		NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFunLst[it] );
 	end
 	
 	posLstAvg = mean(NLstPol[1]; dims = 1);
@@ -170,6 +193,49 @@ function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod
 	@info("GC")
 	Utils.@timeInfo GC.gc();
 end
+
+# function divB_profile_base( mSz, divLst, itNum, seedFed, HLstLst; nDim = 3, fMod = "", attrMoreLst = [], valMoreLst = [], fExt = jld2Type, locFun, tmpArrsFun, isOnlyBetween = false, locType = Int64 )
+	# minNum = 0;
+	# maxNum = 2*pi;
+	# paramsFull = degParamsInit( mSz, divLst, minNum, maxNum, nDim );
+	# tmpArrs = tmpArrsFun( paramsFull );
+	
+	# nLevels = isOnlyBetween ? mSz-1 : mSz;
+	# totalNumLst = zeros(Int64,itNum);
+	# locLstPol = [
+		# Vector{Vector{Array{locType}}}(undef,itNum)
+		# for iPol = 1:2];
+	# NLstPol = [
+		# zeros(Int64, itNum, nLevels)
+		# for iPol = 1:2];
+	
+	# for it = 1 : itNum
+		# print( "\rIteration: $it / $itNum         " )
+		# HLst = @view(HLstLst[:,:,it]);
+		# HmatFun = (H,xLst) -> Hmat_3comb!( H, xLst, HLst );
+		# NLstPol[1][it,:], NLstPol[2][it,:], locLstPol[1][it], locLstPol[2][it] = locFun( tmpArrs...; HmatFun = HmatFun );
+	# end
+	
+	# posLstAvg = mean(NLstPol[1]; dims = 1);
+	# posLstStd = std( NLstPol[1]; dims = 1 );
+	# posTotalLst = sum(NLstPol[1]; dims = 2);
+	# posTotalAvg = mean( posTotalLst );
+	# posTotalStd = std( posTotalLst );
+	
+	# for n = 1 : nLevels
+		# println( "$(n): $(posLstAvg[n]) +/- $(round(posLstStd[n]; digits=3))" );
+	# end
+	# println( "Total: $posTotalAvg +/- $(round(posTotalStd; digits=2))" );
+	
+	# fMain = "deg";
+	# attrLst, valLst = ttrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim, attrMoreLst = attrMoreLst, valMoreLst = valMoreLst );
+	# fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	# save( fName, "N", mSz, "seed", seedFed, "NLstPol", NLstPol, "locLstPol", locLstPol, "HLstLst", HLstLst );
+		
+	# @info("GC")
+	# Utils.@timeInfo GC.gc();
+# end
 
 function divB_profile_flux_detailedOutput(mSz, divLst, itNum, seedFed; nDim = 3, enumSaveMem = memNone, fMod = "")
 	locFun = locateDiv_detailedOutput;
@@ -289,4 +355,19 @@ function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = ""
 		
 	@info("GC")
 	Utils.@timeInfo GC.gc();
+end
+
+function HmatFunGen( mSz::Int64, itNum::Int64, HLstFun, HmatFun; isNewGen = true, HLstLst = nothing, seedFed = -1 )
+	if isNewGen
+		if seedFed > 0
+			Random.seed!(seedFed);
+		end
+		HLstLst = [ 
+			HLstFun( mSz ) 
+			for it = 1 : itNum ];
+	end
+	HmatFunLst = [
+		( H, xLst ) -> HmatFun( H, xLst, HLstLst[it] )
+		for it = 1 : itNum ];
+	return HmatFunLst, HLstLst;
 end
