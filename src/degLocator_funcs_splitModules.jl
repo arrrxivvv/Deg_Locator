@@ -1,25 +1,10 @@
-function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
-	posNLst, negNLst, posLocLst, negLocLst, BfieldLst, divBLst = locateDiv_detailedOutput( degBerrys, non0Arr; HmatFun = HmatFun );
+function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun, yesGC = true )
+	posNLst, negNLst, posLocLst, negLocLst, BfieldLst, divBLst = locateDiv_detailedOutput( degBerrys, non0Arr; HmatFun = HmatFun, yesGC = yesGC );
 	return posNLst, negNLst, posLocLst, negLocLst;
 end
 
-function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun )
-	thresNon0 = 1e-6;
-	
-	# if degBerrys.enumSaveMem >= memEig
-		# @info("Eigen and Link layered:")
-		# Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
-	# else
-		# @info("Eigen:")
-		# startNextEigen( degBerrys.degMats );
-		# Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
-
-		# @info("Link:")
-		# Utils.@timeInfo linksCalcAll( degBerrys );
-	# end
-	
-	# @info("Bfield:")
-	# Utils.@timeInfo BfieldCalcAll( degBerrys );
+function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun, thresNon0 = 1e-6, yesGC = true )
+	# thresNon0 = 1e-6;
 	
 	divBOutput( degBerrys, HmatFun );
 	
@@ -38,8 +23,10 @@ function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun )
 	
 	@info("find Non0")
 	Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
-	@info("GC")
-	Utils.@timeInfo GC.gc();
+	if yesGC
+		@info("GC")
+		Utils.@timeInfo GC.gc();
+	end
 	
 	if degBerrys.params.nDim == 2
 		NLstPol[1] .+= NLstPol[2];
@@ -48,50 +35,6 @@ function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun )
 	
 	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2], degBerrys.BfieldLst, degBerrys.divBLst; 
 end
-
-# function locateDiv( degBerrys::DegBerrys, non0Arr; HmatFun )
-	# thresNon0 = 1e-6;
-	
-	# if degBerrys.enumSaveMem >= memEig
-		# @info("Eigen and Link layered:")
-		# Utils.@timeInfo linksCalcAllLayered( degBerrys, HmatFun );
-	# else
-		# @info("Eigen:")
-		# startNextEigen( degBerrys.degMats );
-		# Utils.@timeInfo eigenAll( degBerrys.degMats; HmatFun = HmatFun );
-
-		# @info("Link:")
-		# Utils.@timeInfo linksCalcAll( degBerrys );
-	# end
-	
-	# @info("Bfield:")
-	# Utils.@timeInfo BfieldCalcAll( degBerrys );
-	
-	# if degBerrys.params.nDim >= 3
-		# @info("DivB:")
-		# Utils.@timeInfo divBCalcAll( degBerrys );
-		# non0ArrCmplx = degBerrys.divBLst;
-	# elseif degBerrys.params.nDim == 2
-		# non0ArrCmplx = degBerrys.BfieldLst[1];
-	# end
-	# Threads.@threads for pos in degBerrys.params.posLst
-		# for n = 1:degBerrys.params.N
-			# non0Arr[pos,n] = real( non0ArrCmplx[pos][n] );
-		# end
-	# end
-	
-	# @info("find Non0")
-	# Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
-	# @info("GC")
-	# Utils.@timeInfo GC.gc();
-	
-	# if degBerrys.params.nDim == 2
-		# NLstPol[1] .+= NLstPol[2];
-		# locLstPol[1] .= vcat.( locLstPol[1], locLstPol[2] );
-	# end
-	
-	# return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2]; 
-# end
 
 function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
 	isDegArr = [[zeros(Bool,degBerrys.params.divLst...)
