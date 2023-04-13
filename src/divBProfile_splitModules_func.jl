@@ -275,9 +275,6 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	linkLstThrough = deepcopy(linkLst3);
 	assignArrOfArrs!( linkLstThrough, 1 );
 	zakLstLst = [ [ zeros(mSz) for pos in paramsLayer.posLst ] for it = 1 : itNum ];
-	# for it = 1 : itNum
-		# assignArrOfArrs!( zakLstLst[it], 1 );
-	# end
 	
 	HLstLst = HLstRandomGen( mSz, itNum, nDim, seedFed; HRandFun = H_GOE );
 	
@@ -288,18 +285,18 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	locLstPolLayer = [ Vector{Matrix{Int64}}(undef,0) for iPol = 1:2 ];
 	
 	NLst = zeros(Int64, mSz, div3, itNum);
-	locLst = [ [ zeros(Int64, 0, nDim) for iM = 1:mSz ] for it = 1 : itNum ];
+	locLst = [ [ zeros(Int64, 0, nDim) for iM = 1:mSz ] for it = 1 : itNum, i3 = 1 : div3 ];
 	
 	iPol2d = 1;
 	for it = 1 : itNum
+		print( "\rIteration: $it / $itNum         " )
 		for i3 = 1 : div3
 			Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim,it]) );
 			HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum );
 			NLst[:,i3,it], NLstPolLayer[2], locLstPolLayer[1], locLstPolLayer[2] = locateDiv( degBerrysLayer, non0Lst; HmatFun = HmatFunLayer, yesGC = false );
-			for iM = 1 : mSz
-				locLst[it][iM] = vcat( locLst[it][iM], hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3,it]) ) );
+			for iM = 1 : mSz, i3 = 1 : div3
+				locLst[it, i3][iM] = hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3,it]) );
 			end
-			# @infiltrate
 			
 			if i3 == 1
 				assignArrOfArrs!( vLstFirst, degBerrysLayer.degMats.vLst );
@@ -323,7 +320,6 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 				assignArrOfArrs!( vLstPrev, degBerrysLayer.degMats.vLst );
 			end
 		end
-		# @infiltrate
 		@info("GC: ")
 		Utils.@timeInfo GC.gc();
 	end
@@ -334,6 +330,87 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	
 	save( fName, "N", mSz, "seed", seedFed, "NLst", NLst, "locLst", locLst, "HLstLst", HLstLst, "zakLstLst", zakLstLst );
 end
+
+# function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt = jld2Type )
+	# nDim = 3;
+	# nDimLayer = nDim-1;
+	# div3 = divLst[nDim];
+	# HLstFun = H_GOE;
+	# divLstLayer = divLst[1:nDim-1];
+	
+	# minNum = 0;
+	# maxNum = 2*pi;
+	
+	# paramsFull = degParamsPeriodic( mSz, divLst, minNum, maxNum, nDim );
+	# paramsLayer = degParamsPeriodic( mSz, divLstLayer, minNum, maxNum, nDim-1 );
+	
+	# degBerrysLayer, non0Lst = degTmpArrs( paramsLayer, memNone );
+	# vLstPrev = deepcopy( degBerrysLayer.degMats.vLst );
+	# vLstFirst = deepcopy( vLstPrev );
+	# linkLst3 = deepcopy( degBerrysLayer.linkLst[1] );
+	# linkLstThrough = deepcopy(linkLst3);
+	# assignArrOfArrs!( linkLstThrough, 1 );
+	# zakLstLst = [ [ zeros(mSz) for pos in paramsLayer.posLst ] for it = 1 : itNum ];
+	# # for it = 1 : itNum
+		# # assignArrOfArrs!( zakLstLst[it], 1 );
+	# # end
+	
+	# HLstLst = HLstRandomGen( mSz, itNum, nDim, seedFed; HRandFun = H_GOE );
+	
+	# H3sum = zeros( Float64, mSz, mSz );
+	# x3LstLst = [ [ paramsFull.gridLst[nDim][i3] ] for i3 = 1:div3 ];
+	
+	# NLstPolLayer = [zeros(Int64, mSz) for iPol = 1:2];
+	# locLstPolLayer = [ Vector{Matrix{Int64}}(undef,0) for iPol = 1:2 ];
+	
+	# NLst = zeros(Int64, mSz, div3, itNum);
+	# locLst = [ [ zeros(Int64, 0, nDim) for iM = 1:mSz ] for it = 1 : itNum ];
+	
+	# iPol2d = 1;
+	# for it = 1 : itNum
+		# print( "\rIteration: $it / $itNum         " )
+		# for i3 = 1 : div3
+			# Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim,it]) );
+			# HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum );
+			# NLst[:,i3,it], NLstPolLayer[2], locLstPolLayer[1], locLstPolLayer[2] = locateDiv( degBerrysLayer, non0Lst; HmatFun = HmatFunLayer, yesGC = false );
+			# for iM = 1 : mSz
+				# locLst[it][iM] = vcat( locLst[it][iM], hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3,it]) ) );
+			# end
+			# # @infiltrate
+			
+			# if i3 == 1
+				# assignArrOfArrs!( vLstFirst, degBerrysLayer.degMats.vLst );
+			# else
+				# Threads.@threads for pos in paramsLayer.posLst
+					# dotEachCol!( linkLst3[pos], degBerrysLayer.degMats.vLst[pos], vLstPrev[pos] );
+					# linkLst3[pos] .= linkLst3[pos] ./ abs.(linkLst3[pos]);
+					
+					# linkLstThrough[pos] .*= linkLst3[pos];
+				# end
+			# end
+			# if i3 == div3
+				# Threads.@threads for pos in paramsLayer.posLst
+					# dotEachCol!( linkLst3[pos], vLstFirst[pos], degBerrysLayer.degMats.vLst[pos] );
+					# linkLst3[pos] .= linkLst3[pos] ./ abs.(linkLst3[pos]);
+					
+					# linkLstThrough[pos] .*= linkLst3[pos];
+					# zakLstLst[it][pos] .= real.( log.(linkLstThrough[pos]) ./ (2*pi*1im) );
+				# end
+			# else
+				# assignArrOfArrs!( vLstPrev, degBerrysLayer.degMats.vLst );
+			# end
+		# end
+		# # @infiltrate
+		# @info("GC: ")
+		# Utils.@timeInfo GC.gc();
+	# end
+	
+	# fMain = "deg_GOE3";
+	# attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
+	# fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	# save( fName, "N", mSz, "seed", seedFed, "NLst", NLst, "locLst", locLst, "HLstLst", HLstLst, "zakLstLst", zakLstLst );
+# end
 
 function locRootFindRawProfile( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type, thresVal = 1e-9, thresSz = 1e-9 )
 	if seedFed > 0
