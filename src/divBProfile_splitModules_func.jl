@@ -294,7 +294,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 			Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim,it]) );
 			HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum );
 			NLst[:,i3,it], NLstPolLayer[2], locLstPolLayer[1], locLstPolLayer[2] = locateDiv( degBerrysLayer, non0Lst; HmatFun = HmatFunLayer, yesGC = false );
-			for iM = 1 : mSz, i3 = 1 : div3
+			for iM = 1 : mSz
 				locLst[it, i3][iM] = hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3,it]) );
 			end
 			

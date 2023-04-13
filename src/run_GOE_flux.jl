@@ -6,6 +6,7 @@ nlst = [10:5:60;];
 nDim = 2;
 
 divLstBase = [64,64];
+divLstBase = [128,128,16];
 divLst = copy( divLstBase );
 
 resBase = 16;
@@ -20,6 +21,7 @@ for n in nlst
 	
 	println( "n = $n, res = $(divLst)" );
 	with_logger( errLogger )do 
-		@time divB_profile_flux( n, divLst, itNum, seed; enumSaveMem = memEig, nDim = nDim );
+		# @time divB_profile_flux( n, divLst, itNum, seed; enumSaveMem = memEig, nDim = nDim );
+		@time divB_profile_GOE_layered( n, divLst, itNum, 1000; fMod = "" )
 	end
 end
