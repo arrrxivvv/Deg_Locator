@@ -517,31 +517,22 @@ function fFunc_stat_diff_mod_3d_from_file( N, param_divide, num_it, seedFedStart
 	return fFuncLst;
 end
 
-function parity_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
+function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
 	divNum = param_divide[1];
-	fMain = "deg_GOE_3d_full";
-	# fMain = "parityArr";
+	fMain = "deg_GOE_3d";
 	attrLst = deepcopy(attrLstBase);
 	valLst = [N, param_divide, itNum, seed];
 	if !isnothing(dim)
 		attrLst = insert!( attrLst, 1, "dim" );
 		valLst = insert!( valLst, 1, dim );
 	end
-	# @infiltrate
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
 	@info(fName);
 	tFull = @timed begin
-		parity2dLst = load( fName, "parity2dLst" ) ;
+		zakLstLst = load( fName, "zakLstLst" ) ;
 	end
 	@info("read file: ");
 	@info( timeMemStr( tFull.time, tFull.bytes ) );
-	# @infiltrate
-	# tFull = @timed begin
-		# parity2dArr = [ parity2dLst[it][d][x,y][n] for d=1:dim, it=itNum, x=1:divNum, y=1:divNum, n=1:N ];
-	# end
-	# @info("lst to arr: ");
-	# @info( timeMemStr( tFull.time, tFull.bytes ) )
-	# @infiltrate
 	parityCorrArr = [[ zeros( N ) for x = 1:divNum, y = 1:divNum ] for d = 1 : dim ];
 	tmpArr1 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
 	tmpArr2 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
@@ -580,6 +571,70 @@ function parity_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod );
 	save( oFName, "parityCorr", parityCorrArr );
 end
+
+# function parity_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
+	# divNum = param_divide[1];
+	# fMain = "deg_GOE_3d_full";
+	# # fMain = "parityArr";
+	# attrLst = deepcopy(attrLstBase);
+	# valLst = [N, param_divide, itNum, seed];
+	# if !isnothing(dim)
+		# attrLst = insert!( attrLst, 1, "dim" );
+		# valLst = insert!( valLst, 1, dim );
+	# end
+	# # @infiltrate
+	# fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
+	# @info(fName);
+	# tFull = @timed begin
+		# parity2dLst = load( fName, "parity2dLst" ) ;
+	# end
+	# @info("read file: ");
+	# @info( timeMemStr( tFull.time, tFull.bytes ) );
+	# # @infiltrate
+	# # tFull = @timed begin
+		# # parity2dArr = [ parity2dLst[it][d][x,y][n] for d=1:dim, it=itNum, x=1:divNum, y=1:divNum, n=1:N ];
+	# # end
+	# # @info("lst to arr: ");
+	# # @info( timeMemStr( tFull.time, tFull.bytes ) )
+	# # @infiltrate
+	# parityCorrArr = [[ zeros( N ) for x = 1:divNum, y = 1:divNum ] for d = 1 : dim ];
+	# tmpArr1 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
+	# tmpArr2 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
+	# # @infiltrate
+	# itNumLess = Int64( floor( itNum / 10 ) );
+	# for d = 1 : dim
+		# println("d = ", string(d));
+		# for it = 1 : itNumLess
+			# ( arr -> arr.= 0 ).(tmpArr2[it]);
+			# @time begin
+			# for x = 1 : divNum
+				# for y = 1 : divNum
+					# # print("d = ", string(d), ", it = ", string(it), ", x,y=", string([x,y]), "\r");
+					# @time begin
+					# circshift!( tmpArr1[it], parity2dLst[it][d], (-x+1,-y+1) );
+					# end
+					# # circshift!.( tmpArr2, tempArr1, -y+1 );
+					# @time begin
+					# ( (vara1,varb1)->(vara1 .= vara1 .+ varb1 .* parity2dLst[it][d][x,y] ) ).( tmpArr2[it], tmpArr1[it] );
+					# end
+					# # @infiltrate
+					# # parityCorrArr[d] .= parityCorrArr[d] .+ ( var2->( var->var .* parity2dLst[it][d][x][y] ).(var2) ).( tmpArr ) ;
+					# # parityCorrArr[d] .= parityCorrArr[d] .+ ( var2->( var->var .* parity2dLst[it][d][x][y] ).(var2) ).( circshift.( circshift( parity2dLst[it][d], -x+1 ), -y+1 ) ) ;
+					# # parity2dLst[it][d][x][y][n] * circshift.( circshift( parity2dLst[it][d], -x+1 ), -y+1 );
+				# end
+			# end
+			# end
+			# # @infiltrate
+		# end
+		# for it = 1 : itNum
+			# parityCorrArr[d] .= parityCorrArr[d] .+ tmpArr2[it];
+		# end
+	# end
+	# # @infiltrate
+	# oFmain = "parityCorr_GOE";
+	# oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod );
+	# save( oFName, "parityCorr", parityCorrArr );
+# end
 
 function parity_corr_GOE_arr_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
 	divNum = param_divide[1];
