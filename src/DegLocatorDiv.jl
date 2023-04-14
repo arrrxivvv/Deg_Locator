@@ -272,6 +272,6 @@ include("deltaNAvg_funcs.jl")
 export deltaN_avg, deltaN_avg_fromFile, deltaN_avg_lst, deltaN_avg_lst_fromFile, varG_fromFile, varG_lst_fromFile, deltaN_var_lst_fromFile, deltaN_var_fromFile, deltaNCum_avg_fromFile, deltaNCum_avg_lst_fromFile, deltaN_var_fromFileDirect
 
 include("fFunc_stat.jl")
-export FfuncObj, fFunc_stat, fFunc_stat_from_file,  fFunc_stat_across_from_file, fFunc_stat_diff_from_file, fFunc_stat_diff_full_from_file, fFunc_stat_diff_full_3d_from_file, fFunc_stat_diff_mod_3d_from_file, parity_corr_GOE_from_file, parity_corr_GOE_arr_from_file, locLst_to_locDensity_fromfile, parityCorr_GOE_AvgStd_fromFile
+export FfuncObj, fFunc_stat, fFunc_stat_from_file,  fFunc_stat_across_from_file, fFunc_stat_diff_from_file, fFunc_stat_diff_full_from_file, fFunc_stat_diff_full_3d_from_file, fFunc_stat_diff_mod_3d_from_file, zak_corr_GOE_from_file, zakArr_corr_GOE_from_file,  parity_corr_GOE_from_file, parity_corr_GOE_arr_from_file, locLst_to_locDensity_fromfile, parityCorr_GOE_AvgStd_fromFile
 
 end

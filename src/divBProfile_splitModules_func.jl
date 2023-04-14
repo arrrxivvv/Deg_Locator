@@ -290,6 +290,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	iPol2d = 1;
 	for it = 1 : itNum
 		print( "\rIteration: $it / $itNum         " )
+		assignArrOfArrs!(linkLstThrough,1);
 		for i3 = 1 : div3
 			Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim,it]) );
 			HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum );
