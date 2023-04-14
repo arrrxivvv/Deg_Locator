@@ -517,9 +517,10 @@ function fFunc_stat_diff_mod_3d_from_file( N, param_divide, num_it, seedFedStart
 	return fFuncLst;
 end
 
-function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
+function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type, fModOut = "" )
+	fModOut = fMod * fModOut;
 	divNum = param_divide[1];
-	fMain = "deg_GOE_3d";
+	fMain = "deg_GOE3";
 	attrLst = deepcopy(attrLstBase);
 	valLst = [N, param_divide, itNum, seed];
 	if !isnothing(dim)
@@ -528,48 +529,117 @@ function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = 
 	end
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
 	@info(fName);
-	tFull = @timed begin
-		zakLstLst = load( fName, "zakLstLst" ) ;
-	end
 	@info("read file: ");
-	@info( timeMemStr( tFull.time, tFull.bytes ) );
-	parityCorrArr = [[ zeros( N ) for x = 1:divNum, y = 1:divNum ] for d = 1 : dim ];
-	tmpArr1 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
-	tmpArr2 = [[ zeros(N) for y = 1:divNum, x = 1:divNum ] for it = 1 : itNum];
-	# @infiltrate
-	itNumLess = Int64( floor( itNum / 10 ) );
-	for d = 1 : dim
-		println("d = ", string(d));
-		for it = 1 : itNumLess
-			( arr -> arr.= 0 ).(tmpArr2[it]);
-			@time begin
-			for x = 1 : divNum
-				for y = 1 : divNum
-					# print("d = ", string(d), ", it = ", string(it), ", x,y=", string([x,y]), "\r");
-					@time begin
-					circshift!( tmpArr1[it], parity2dLst[it][d], (-x+1,-y+1) );
-					end
-					# circshift!.( tmpArr2, tempArr1, -y+1 );
-					@time begin
-					( (vara1,varb1)->(vara1 .= vara1 .+ varb1 .* parity2dLst[it][d][x,y] ) ).( tmpArr2[it], tmpArr1[it] );
-					end
-					# @infiltrate
-					# parityCorrArr[d] .= parityCorrArr[d] .+ ( var2->( var->var .* parity2dLst[it][d][x][y] ).(var2) ).( tmpArr ) ;
-					# parityCorrArr[d] .= parityCorrArr[d] .+ ( var2->( var->var .* parity2dLst[it][d][x][y] ).(var2) ).( circshift.( circshift( parity2dLst[it][d], -x+1 ), -y+1 ) ) ;
-					# parity2dLst[it][d][x][y][n] * circshift.( circshift( parity2dLst[it][d], -x+1 ), -y+1 );
-				end
-			end
-			end
-			# @infiltrate
-		end
-		for it = 1 : itNum
-			parityCorrArr[d] .= parityCorrArr[d] .+ tmpArr2[it];
+	zakArrLst = load( fName, "zakLstLst" ); 
+	zakArrArr = zeros( N, divNum, divNum, itNum );
+	itDim = 4;
+	Threads.@threads for it = 1:itNum
+		for n = 1:N, x = 1:divNum, y = 1:divNum
+			zakArrArr[n,x,y,it] = zakArrLst[it][x,y][n];
 		end
 	end
-	# @infiltrate
-	oFmain = "parityCorr_GOE";
+	zakArrAvg = mean( zakArrArr; dims = itDim );
+	zakArrStd = std( zakArrArr; dims = itDim );
+	zakCorrArr = zeros( N, divNum, divNum, itNum );
+	zakCorrArrAvg = zeros( N, divNum, divNum );
+	zakCorrArrStd = zeros( N, divNum, divNum );
+	zakArrSh = zeros( N, divNum, divNum );
+	# zakArrSh2 = zeros( N, divNum, divNum);
+	zakArrSh2 = zeros( N, divNum, divNum, itNum);
+	zakArrTmp = zeros( N, divNum, divNum );
+	
+	shArr = [ (0,-x+1,-y+1,0) for x=1:divNum, y=1:divNum ];
+	dArea = (2*pi/divNum)^2;
+	
+	itNumLess = Int64( floor( itNum / 10 ) );
+	itDim = 4;
+	zakArrArr .= zakArrArr .- zakArrAvg;
+	# for it = 1 : itNum #Less
+		# @time begin
+		# zakArrNow = selectdim(zakArrArr, itDim, it);
+		# for x = 1 : divNum
+			# for y = 1 : divNum
+				# circshift!( zakArrSh2, zakArrNow, shArr[x,y] );
+				# # @infiltrate
+				# selectdim( zakCorrArr, itDim, it ) .= selectdim( zakCorrArr, itDim, it ) .+ @view(zakArrArr[:,x,y,it]) .* zakArrSh2 .* dArea;
+			# end
+		# end
+		# end
+	# end
+	@time begin
+	for x = 1 : divNum
+		for y = 1 : divNum
+			zakArrSh2 = ShiftedArrays.circshift( zakArrArr, shArr[x,y] );
+			Threads.@threads for it = 1 : itNum #Less
+				selectdim( zakCorrArr, itDim, it ) .= selectdim( zakCorrArr, itDim, it ) .+ @view(zakArrArr[:,x,y,it]) .* selectdim(zakArrSh2,itDim,it) .* dArea;
+			end
+		end
+	end
+	end
+	zakCorrArrAvg = mean( zakCorrArr; dims = itDim );
+	zakCorrArrStd = std( zakCorrArr; dims = itDim );
+	oFmain = "zakCorrStats";
+	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod = fModOut );
+	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd );
+end
+
+function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
+	divNum = param_divide[1];
+	fMain = "deg_GOE3";
+	attrLst = deepcopy(attrLstBase);
+	valLst = [N, param_divide, itNum, seed];
+	if !isnothing(dim)
+		attrLst = insert!( attrLst, 1, "dim" );
+		valLst = insert!( valLst, 1, dim );
+	end
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
+	@info(fName);
+	@info("read file: ");
+	zakArrLst = load( fName, "zakLstLst" ) ;
+	zakArrAvg = [ zeros( N ) for x = 1:divNum, y = 1:divNum ];
+	zakArrStd = [ zeros( N ) for x = 1:divNum, y = 1:divNum ];
+	zakCorrArr = [[ zeros( N ) for x = 1:divNum, y = 1:divNum ] for it = 1 : itNum ];
+	zakCorrArrAvg = [ zeros( N ) for x = 1:divNum, y = 1:divNum ];
+	zakCorrArrAvg = [ zeros( N ) for x = 1:divNum, y = 1:divNum ];
+	zakCorrArrStd = [ zeros( N ) for x = 1:divNum, y = 1:divNum ];
+	zakArrSh = [ zeros(N) for x = 1:divNum, y= 1:divNum ];
+	zakArrSh2 = [ zeros(N) for x = 1:divNum, y= 1:divNum ];
+	zakArrTmp = [ zeros(N) for x = 1:divNum, y= 1:divNum ];
+	
+	for it = 1:itNum
+		( ( avg, arr )->( avg .= avg .+ arr ./ itNum ) ).( zakArrAvg, zakArrLst[it] );
+	end
+	for it = 1:itNum
+		( (var, arr, avg)->( var .= var .+ ( arr .- avg ).^2 ) ).( zakArrStd, zakArrLst[it], zakArrAvg );
+	end
+	( arr -> sqrt.( arr ./ itNum ) ).( zakArrStd );
+	shArr = [ (-x+1,-y+1) for x=1:divNum, y=1:divNum ];
+	dArea = (2*pi/divNum)^2;
+	
+	itNumLess = Int64( floor( itNum / 10 ) );
+	for it = 1 : itNum #Less
+		# assignArrOfArrs!( zakArrSh, zakArrLst[it] );
+		# @infiltrate
+		( ( a, aAvg )->( a .= a .- aAvg ) ).( zakArrLst[it], zakArrAvg );
+		@time begin
+		for x = 1 : divNum
+			for y = 1 : divNum
+				circshift!( zakArrSh2, zakArrLst[it], shArr[x,y] );
+				( (vara1,varb1)->(vara1 .= vara1 .+ varb1 .* zakArrLst[it][x,y] .* dArea ) ).( zakCorrArr[it], zakArrSh2 );
+			end
+		end
+		end
+	end
+	for it = 1 : itNum
+		((arrSum, arrIt)->( arrSum .= arrSum .+ arrIt ./ itNum )).( zakCorrArrAvg, zakCorrArr[it] );
+	end
+	for it = 1 : itNum
+		((arrVar, arrIt, arrAvg)->( arrVar .= arrVar .+ ( arrIt .- arrAvg ).^2 )).( zakCorrArrStd, zakCorrArr[it], zakCorrArrAvg );
+	end
+	( arr -> sqrt.(arr./itNum) ).( zakCorrArrStd );
+	oFmain = "zakCorrStats";
 	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod );
-	save( oFName, "parityCorr", parityCorrArr );
+	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd );
 end
 
 # function parity_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
