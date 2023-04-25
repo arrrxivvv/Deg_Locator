@@ -517,7 +517,15 @@ function fFunc_stat_diff_mod_3d_from_file( N, param_divide, num_it, seedFedStart
 	return fFuncLst;
 end
 
-function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type, fModOut = "" )
+function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type, fModOut = "", itNumStop = 0 )
+	if itNumStop == 0
+		itNumStop = itNum;
+	else
+		if fModOut == ""
+			fModOut = fModOut * "_";
+		end
+		fModOut = fModOut * "itStop_" * string(itNumStop);
+	end
 	fModOut = fMod * fModOut;
 	divNum = param_divide[1];
 	fMain = "deg_GOE3";
@@ -531,16 +539,18 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	@info(fName);
 	@info("read file: ");
 	zakArrLst = load( fName, "zakLstLst" ); 
-	zakArrArr = zeros( N, divNum, divNum, itNum );
+	zakArrArr = zeros( N, divNum, divNum, itNumStop );
 	itDim = 4;
-	Threads.@threads for it = 1:itNum
+	Threads.@threads for it = 1:itNumStop
 		for n = 1:N, x = 1:divNum, y = 1:divNum
 			zakArrArr[n,x,y,it] = zakArrLst[it][x,y][n];
 		end
 	end
 	zakArrAvg = mean( zakArrArr; dims = itDim );
+	zakAvg = mean(zakArrAvg);
 	zakArrStd = std( zakArrArr; dims = itDim );
-	zakCorrArr = zeros( N, divNum, divNum, itNum );
+	zakStd = std( zakArrArr );
+	zakCorrArr = zeros( N, divNum, divNum, itNumStop );
 	zakCorrArrAvg = zeros( N, divNum, divNum );
 	zakCorrArrStd = zeros( N, divNum, divNum );
 	zakArrSh = zeros( N, divNum, divNum );
@@ -553,7 +563,7 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	
 	itNumLess = Int64( floor( itNum / 10 ) );
 	itDim = 4;
-	zakArrArr .= zakArrArr .- zakArrAvg;
+	zakArrArr .= zakArrArr .- zakAvg;
 	# for it = 1 : itNum #Less
 		# @time begin
 		# zakArrNow = selectdim(zakArrArr, itDim, it);
@@ -570,7 +580,7 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	for x = 1 : divNum
 		for y = 1 : divNum
 			zakArrSh2 = ShiftedArrays.circshift( zakArrArr, shArr[x,y] );
-			Threads.@threads for it = 1 : itNum #Less
+			Threads.@threads for it = 1 : itNumStop #Less
 				selectdim( zakCorrArr, itDim, it ) .= selectdim( zakCorrArr, itDim, it ) .+ @view(zakArrArr[:,x,y,it]) .* selectdim(zakArrSh2,itDim,it) .* dArea;
 			end
 		end
@@ -580,7 +590,7 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	zakCorrArrStd = std( zakCorrArr; dims = itDim );
 	oFmain = "zakCorrStats";
 	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd );
+	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd, "zakAvg", zakAvg, "zakStd", zakStd );
 end
 
 function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )
