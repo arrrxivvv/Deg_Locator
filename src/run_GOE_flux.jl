@@ -28,6 +28,7 @@ for n in nlst
 		# @time divB_profile_flux( n, divLst, itNum, seed; enumSaveMem = memEig, nDim = nDim );
 		# @time divB_profile_GOE_layered( n, divLst, itNum, 1000; fMod = "" )
 		
-		@time zakArr_corr_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
+		# @time zakArr_corr_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
+		@time deg_GOE3_zak_resave( n, divLst, itNum, seed; fMod = fMod );
 	end
 end

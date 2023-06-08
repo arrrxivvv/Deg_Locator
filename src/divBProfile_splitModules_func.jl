@@ -332,6 +332,19 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	save( fName, "N", mSz, "seed", seedFed, "NLst", NLst, "locLst", locLst, "HLstLst", HLstLst, "zakLstLst", zakLstLst );
 end
 
+function deg_GOE3_zak_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type )
+	fMain = "deg_GOE3";
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	zakLstLst = load( fName, "zakLstLst" );
+	
+	fMainOut = "zakLstLst";
+	fNameOut = fNameFunc( fMainOut, attrLst, valLst, fExt; fMod = fMod );
+	
+	save( fNameOut, "zakLstLst", zakLstLst );
+end
+
 # function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt = jld2Type )
 	# nDim = 3;
 	# nDimLayer = nDim-1;
