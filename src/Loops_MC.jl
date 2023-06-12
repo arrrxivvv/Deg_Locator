@@ -36,13 +36,26 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 
 	BfieldLst = [ rand( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
 	linkLst = [ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
+	for pos in posLst, dim = 1 : nDim
+		if BfieldLst[dim][pos]
+			for dimLink in linkDimLst[dim]
+				linkLst[dimLink][pos] = !linkLst[dimLink][pos];
+				for dimLinkSh in linkDimLst[dim]
+					if dimLinkSh != dimLink
+						linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
+					end
+					# @infiltrate
+				end
+			end
+			# @infiltrate
+		end
+	end
+	
+	numBfieldLst = zeros(Int64, itNum, nDim);
+	numLinkLst = zeros(Int64, itNum, nDim);
 
 	idLayerLst = zeros( UInt, divNum );
 	dELst = zeros(divNum);
-
-	# cArea = 1;
-	# cPerim = 1;
-	# beta = 1;
 	
 	rejLst = zeros(divNum);
 	for it = 1 : itNum
@@ -50,20 +63,6 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 		for dim = 1 : nDim
 			@view(zakLstLst[:,:,dim,it]) .= dropdims( reduce( xor, BfieldLst[dim]; dims = dim, init = false ); dims = dim );
 			
-			for pos in posLst
-				if BfieldLst[dim][pos]
-					for dimLink in linkDimLst[dim]
-						linkLst[dimLink][pos] = !linkLst[dimLink][pos];
-						for dimLinkSh in linkDimLst[dim]
-							if dimLinkSh != dimLink
-								linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
-							end
-							# @infiltrate
-						end
-					end
-					# @infiltrate
-				end
-			end
 			# @infiltrate
 		end
 		for dim = 1 : nDim
@@ -71,41 +70,48 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 			idLayerLst .= mod.( idLayerLst, lnLayer ) .+ 1;
 			dELst .= 0;
 			rand!(rejLst);
-			# Threads.@threads 
-			for iLayer = 1 : divNum
-				dELst[iLayer] -= cArea * boolToOnePN( BfieldLst[dim][posLstDimLst[dim][idLayerLst[iLayer]]] );
+			Threads.@threads for iLayer = 1 : divNum
+				posLayer = posLstDimLst[dim,iLayer][idLayerLst[iLayer]];
+				dELst[iLayer] -= cArea * boolToOnePN( BfieldLst[dim][posLayer] );
 				for dimLink in linkDimLst[dim]
-					dELst[iLayer] -= cPerim * boolToOnePN( linkLst[dimLink][posLstDimLst[dim][idLayerLst[iLayer]]] );
+					dELst[iLayer] -= cPerim * boolToOnePN( linkLst[dimLink][posLayer] );
 					for dimLinkSh in linkDimLst[dim]
 						if dimLinkSh != dimLink
-							dELst[iLayer] -= cPerim * boolToOnePN( linkLst[dimLink][posLstShLst[dimLinkSh,1][posLstDimLst[dim][idLayerLst[iLayer]]]] );
+							dELst[iLayer] -= cPerim * boolToOnePN( linkLst[dimLink][posLstShLst[dimLinkSh,1][posLayer]] );
 						end
 					end
 				end
 				# @infiltrate
 				if dELst[iLayer] < 0 || rejLst[iLayer] < exp( - beta * dELst[iLayer] )
-					BfieldLst[dim][posLstDimLst[dim][idLayerLst[iLayer]]] = !BfieldLst[dim][posLstDimLst[dim][idLayerLst[iLayer]]];
+					BfieldLst[dim][posLayer] = !BfieldLst[dim][posLayer];
 					for dimLink in linkDimLst[dim]
-						linkLst[dimLink][posLstDimLst[dim][idLayerLst[iLayer]]] = !linkLst[dimLink][posLstDimLst[dim][idLayerLst[iLayer]]];
+						linkLst[dimLink][posLayer] = !linkLst[dimLink][posLayer];
 						for dimLinkSh in linkDimLst[dim]
 							if dimLinkSh != dimLink
-								linkLst[dimLink][posLstShLst[dimLinkSh,1][posLstDimLst[dim][idLayerLst[iLayer]]]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][posLstDimLst[dim][idLayerLst[iLayer]]]];
+								linkLst[dimLink][posLstShLst[dimLinkSh,1][posLayer]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][posLayer]];
 							end
 						end
 					end
 					# @infiltrate
 				end
-				# @infiltrate
 			end
+			# @infiltrate it >= 200
+		end
+		for dim = 1 : nDim
+			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
+			numLinkLst[it,dim] = sum( linkLst[dim] );
 		end
 	end
+	
+	# numBfieldLst = [ sum(BfieldLst[dim]) for dim = 1 : nDim ];
+	# numLinkLst = [ sum( linkLst[dim] ) for dim = 1 : nDim ]
 	
 	fMain = "loops_MC";
 	attrLst = ["divNum","itNum","cArea","cPerim","beta"];
 	valLst = [Int64(divNum),Int64(itNum), cArea, cPerim,beta];
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
 	
-	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta );
+	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
 end
 
 function MCLinkUpdate( BfieldLst, linkLst,  )
