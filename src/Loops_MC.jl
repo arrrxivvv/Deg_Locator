@@ -4,10 +4,14 @@ using ShiftedArrays
 using FilenameManip
 using Random
 using JLD2
+using Statistics
 
 # using Infiltrator
 
 export loops_MC
+
+fMainLoopsMC = "loops_MC";
+attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
 
 function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1 )
 	nDim = 3;
@@ -103,15 +107,40 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 		end
 	end
 	
-	# numBfieldLst = [ sum(BfieldLst[dim]) for dim = 1 : nDim ];
-	# numLinkLst = [ sum( linkLst[dim] ) for dim = 1 : nDim ]
+	xyDims = [1,2];
+	zakMeanLst = dropdims( mean( zakMeanLst; dims = xyDims ); dims = xyDims );
 	
-	fMain = "loops_MC";
-	attrLst = ["divNum","itNum","cArea","cPerim","beta"];
-	valLst = [Int64(divNum),Int64(itNum), cArea, cPerim,beta];
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	# ["divNum","itNum","cArea","cPerim","beta"];
+	valLst = Any[divNum,itNum, cArea, cPerim,beta];
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
 	
-	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
+	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst );
+end
+
+function zakAvgFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	zakLstLst = load(fName, "zakLstLst");
+	
+	xyDims = (1,2);
+	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
+	
+	fMainOut = fMainLoopsMC * "_zakMeanLst";
+	fNameOut = fNameFunc( fMainOut, attrLst, valLstAny, jld2Type; fMod = fMod );
+	
+	save( fNameOut, "zakMeanLst", zakMeanLst );
 end
 
 function MCLinkUpdate( BfieldLst, linkLst,  )
