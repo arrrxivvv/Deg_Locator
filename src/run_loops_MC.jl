@@ -2,15 +2,15 @@ using Loops_MC
 # using Infiltrator
 using DelimitedFiles
 
-itNumLst = [300];
+itNumLst = [30000];
 
-cAreaLst = [0:0.5:8;];
-# cPerimLst = [0:0.5:3;];
-cPerimLst = [0];
+cAreaLst = [0.5:0.5:1.5];
+cPerimLst = [0.5:0.5:3;];
+# cPerimLst = [0];
 
 betaLst = 1;
 
-divNumLst = [16];
+divNumLst = [64];
 
 fNameLst = Vector{String}(undef,0);
 

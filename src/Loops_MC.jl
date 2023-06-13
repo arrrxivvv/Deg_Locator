@@ -13,7 +13,7 @@ export loops_MC
 fMainLoopsMC = "loops_MC";
 attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
 
-function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1 )
+function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1, itNumSample = 100 )
 	nDim = 3;
 	divLst = fill(div, nDim);
 	posLst = CartesianIndices((divNum,divNum,divNum));
@@ -110,13 +110,16 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	xyDims = (1,2);
 	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
 	
+	itStep = Int64( floor(itNum / itNumSample) );
+	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
+	
 	fMain = fMainLoopsMC;
 	attrLst = attrLstLoops;
 	# ["divNum","itNum","cArea","cPerim","beta"];
 	valLst = Any[divNum,itNum, cArea, cPerim,beta];
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
 	
-	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst );
+	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
 	
 	return fName;
 end
