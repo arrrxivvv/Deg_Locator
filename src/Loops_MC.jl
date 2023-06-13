@@ -108,7 +108,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	end
 	
 	xyDims = [1,2];
-	zakMeanLst = dropdims( mean( zakMeanLst; dims = xyDims ); dims = xyDims );
+	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
 	
 	fMain = fMainLoopsMC;
 	attrLst = attrLstLoops;
