@@ -145,6 +145,31 @@ function zakAvgFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta =
 	save( fNameOut, "zakMeanLst", zakMeanLst );
 end
 
+function zakSampleLstFromFile( divNum, itNum; itNumSample = 100, fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	zakLstLst = load(fName, "zakLstLst");
+	
+	itStep = Int64( floor(itNum / itNumSample) );
+	
+	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
+	
+	fMainOut = fMain * "_zakSamples";
+	fNameOut = fNameFunc( fMainOut, attrLst, valLstAny, jld2Type; fMod = fMod );
+	
+	save( fNameOut, "zakLstSampleLst", zakLstSampleLst );
+end
+
 function MCLinkUpdate( BfieldLst, linkLst,  )
 	for dim = 1 : nDim
 	end
