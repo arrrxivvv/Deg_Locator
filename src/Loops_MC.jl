@@ -117,6 +117,8 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
 	
 	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst );
+	
+	return fName;
 end
 
 function zakAvgFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
