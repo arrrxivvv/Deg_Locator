@@ -4,7 +4,7 @@ using DelimitedFiles
 
 itNumLst = [30000];
 
-cAreaLst = [0.5:0.5:1.5];
+cAreaLst = [0.5:0.5:1.5;];
 cPerimLst = [0.5:0.5:3;];
 # cPerimLst = [0];
 

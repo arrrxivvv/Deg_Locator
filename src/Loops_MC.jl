@@ -5,6 +5,7 @@ using FilenameManip
 using Random
 using JLD2
 using Statistics
+using Distributions
 
 # using Infiltrator
 
@@ -19,6 +20,13 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	posLst = CartesianIndices((divNum,divNum,divNum));
 	posLstShLst = [ ShiftedArrays.circshift( posLst, ntuple( ( i -> ( i == dim ? (-1)^iPol : 0 ) ), nDim ) ) for dim = 1 : nDim, iPol = 1 : 2 ];
 	
+	probInit = exp( -cArea ) / ( 1 + exp( -cArea ) );
+	
+	distInit = Binomial( 1, probInit );
+	
+	itStep = Int64( floor(itNum / itNumSample) );
+	lnSample = Int64( floor( itNum / itStep ) );
+	
 	linkDimLst = [ zeros(Int64, nDim-1) for dim = 1 : nDim ];
 	dim = 1;
 	for dim = 1:nDim
@@ -30,7 +38,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 			end
 		end
 	end
-	# @infiltrate
+	@infiltrate
 
 	posLstDimLst = [ selectdim( posLst, dim, it ) for dim = 1 : nDim, it = 1 : divNum ];
 
@@ -38,8 +46,16 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 
 	zakLstLst = zeros( Bool, divNum, divNum, nDim, itNum );
 
-	BfieldLst = [ rand( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
+	BfieldLst = [ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
 	linkLst = [ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
+	
+	for dim = 1 : nDim
+		rand!( distInit, BfieldLst[dim] );
+	end
+	
+	BfieldSampleLst = [[ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
+	linkSampleLst = [[ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
+	# @infiltrate
 	for pos in posLst, dim = 1 : nDim
 		if BfieldLst[dim][pos]
 			for dimLink in linkDimLst[dim]
@@ -54,6 +70,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 			# @infiltrate
 		end
 	end
+	# @infiltrate
 	
 	numBfieldLst = zeros(Int64, itNum, nDim);
 	numLinkLst = zeros(Int64, itNum, nDim);
@@ -62,6 +79,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	dELst = zeros(divNum);
 	
 	rejLst = zeros(divNum);
+	itSample = 1;
 	for it = 1 : itNum
 		print( "it = ", it, "         \r" )
 		for dim = 1 : nDim
@@ -69,6 +87,15 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 			
 			# @infiltrate
 		end
+		
+		if mod( it, itStep ) == 0
+			Threads.@threads for dim = 1 : nDim
+				linkSampleLst[itSample][dim] .= linkLst[dim];
+				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
+			end
+			itSample += 1;
+		end
+		
 		for dim = 1 : nDim
 			rand!( idLayerLst );
 			idLayerLst .= mod.( idLayerLst, lnLayer ) .+ 1;
@@ -110,7 +137,6 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	xyDims = (1,2);
 	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
 	
-	itStep = Int64( floor(itNum / itNumSample) );
 	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
 	
 	fMain = fMainLoopsMC;
@@ -119,7 +145,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 	valLst = Any[divNum,itNum, cArea, cPerim,beta];
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
 	
-	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
+	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
 	
 	return fName;
 end
