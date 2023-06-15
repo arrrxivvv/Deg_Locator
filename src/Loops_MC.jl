@@ -9,10 +9,19 @@ using Distributions
 
 # using Infiltrator
 
-export loops_MC
+export loops_MC, loops_MC_smart
 
 fMainLoopsMC = "loops_MC";
 attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
+
+struct ParamsLoops
+	nDim::Int64;
+	divNum::Int64;
+	divLst::Vector{Int64};
+	posLst::AbstractArray{CartesianIndex{N}, N} where N;
+	posLstShLst::Vector{AbstractArray{CartesianIndex{N}, N}} where N;
+	
+end
 
 function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1, itNumSample = 100 )
 	nDim = 3;
@@ -38,7 +47,7 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 			end
 		end
 	end
-	@infiltrate
+	# @infiltrate
 
 	posLstDimLst = [ selectdim( posLst, dim, it ) for dim = 1 : nDim, it = 1 : divNum ];
 
@@ -127,6 +136,158 @@ function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1,
 				end
 			end
 			# @infiltrate it >= 200
+		end
+		for dim = 1 : nDim
+			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
+			numLinkLst[it,dim] = sum( linkLst[dim] );
+		end
+	end
+	
+	xyDims = (1,2);
+	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
+	
+	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
+	
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	# ["divNum","itNum","cArea","cPerim","beta"];
+	valLst = Any[divNum,itNum, cArea, cPerim,beta];
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
+	
+	return fName;
+end
+
+function loops_MC_smart( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1, itNumSample = 100 )
+	nDim = 3;
+	divLst = fill(div, nDim);
+	posLst = CartesianIndices(ntuple(x->divNum,nDim));
+	posLstShLst = [ ShiftedArrays.circshift( posLst, ntuple( ( i -> ( i == dim ? (-1)^iPol : 0 ) ), nDim ) ) for dim = 1 : nDim, iPol = 1 : 2 ];
+	
+	probInit = exp( -cArea ) / ( 1 + exp( -cArea ) );
+	
+	distInit = Binomial( 1, probInit );
+	
+	itStep = Int64( floor(itNum / itNumSample) );
+	lnSample = Int64( floor( itNum / itStep ) );
+	
+	linkDimLst = [ zeros(Int64, nDim-1) for dim = 1 : nDim ];
+	dim = 1;
+	for dim = 1:nDim
+		iDLink = 1;
+		for dimLink = 1 : nDim
+			if dimLink != dim
+				linkDimLst[dim][iDLink] = dimLink;
+				iDLink += 1;
+			end
+		end
+	end
+
+	posLstDimLst = [ selectdim( posLst, dim, it ) for dim = 1 : nDim, it = 1 : divNum ];
+	posLayerLst = CartesianIndices( ntuple(x->divNum,nDim-1) );
+	posALst = Vector{CartesianIndex{nDim}}(undef,Int64(divNum^(nDim)/2));
+	posBLst = Vector{CartesianIndex{nDim}}(undef,Int64(divNum^(nDim)/2));
+	
+	posABLst = [posALst, posBLst];
+	
+	iA = 1; iB = 1;
+	for pos in posLst
+		sumId = 0;
+		for dim = 1 : nDim-1
+			sumId += pos[dim];
+		end
+		if sumId % 2 == 0
+			posALst[iA] = pos;
+			iA += 1;
+		else
+			posBLst[iB] = pos;
+			iB += 1;
+		end
+	end
+
+	lnLayer = divNum^2;
+
+	zakLstLst = zeros( Bool, divNum, divNum, nDim, itNum );
+
+	BfieldLst = [ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
+	linkLst = [ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ];
+	
+	for dim = 1 : nDim
+		rand!( distInit, BfieldLst[dim] );
+	end
+	
+	BfieldSampleLst = [[ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
+	linkSampleLst = [[ zeros( Bool, divNum, divNum, divNum ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
+	# @infiltrate
+	for pos in posLst, dim = 1 : nDim
+		if BfieldLst[dim][pos]
+			for dimLink in linkDimLst[dim]
+				linkLst[dimLink][pos] = !linkLst[dimLink][pos];
+				for dimLinkSh in linkDimLst[dim]
+					if dimLinkSh != dimLink
+						linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
+					end
+				end
+			end
+		end
+	end
+	
+	numBfieldLst = zeros(Int64, itNum, nDim);
+	numLinkLst = zeros(Int64, itNum, nDim);
+
+	idLayerLst = zeros( UInt, divNum );
+	dELst = zeros(divNum);
+	
+	rejLst = zeros(divNum);
+	itSample = 1;
+	for it = 1 : itNum
+		print( "it = ", it, "         \r" )
+		for dim = 1 : nDim
+			@view(zakLstLst[:,:,dim,it]) .= dropdims( reduce( xor, BfieldLst[dim]; dims = dim, init = false ); dims = dim );
+		end
+		
+		if mod( it, itStep ) == 0
+			Threads.@threads for dim = 1 : nDim
+				linkSampleLst[itSample][dim] .= linkLst[dim];
+				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
+			end
+			itSample += 1;
+		end
+		
+		for dim = 1 : nDim
+			rand!( idLayerLst );
+			idLayerLst .= mod.( idLayerLst, lnLayer ) .+ 1;
+			dELst .= 0;
+			rand!(rejLst);
+			# Threads.@threads for iLayer = 1 : divNum
+			for iAB = 1 : 2
+				Threads.@threads for pos in posABLst[iAB]
+					dE = 0;
+					dE -= cArea * boolToOnePN( BfieldLst[dim][pos] );
+					for dimLink in linkDimLst[dim]
+						dE -= cPerim * boolToOnePN( linkLst[dimLink][pos] );
+						for dimLinkSh in linkDimLst[dim]
+							if dimLinkSh != dimLink
+								dE -= cPerim * boolToOnePN( linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] );
+							end
+						end
+					end
+					pSwitch = rand();
+					if pSwitch < exp( - beta * dE ) / ( 1 + exp( - beta * dE ) )
+						BfieldLst[dim][pos] = !BfieldLst[dim][pos];
+						for dimLink in linkDimLst[dim]
+							linkLst[dimLink][pos] = !linkLst[dimLink][pos];
+							for dimLinkSh in linkDimLst[dim]
+								if dimLinkSh != dimLink
+									linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
+								end
+							end
+						end
+					end
+				end
+			end
+			# end
 		end
 		for dim = 1 : nDim
 			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
