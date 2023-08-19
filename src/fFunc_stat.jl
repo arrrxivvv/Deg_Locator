@@ -559,7 +559,7 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	zakArrTmp = zeros( N, divNum, divNum );
 	
 	shArr = [ (0,-x+1,-y+1,0) for x=1:divNum, y=1:divNum ];
-	dArea = (2*pi/divNum)^2;
+	dArea = (1/divNum)^2;
 	
 	itNumLess = Int64( floor( itNum / 10 ) );
 	itDim = 4;

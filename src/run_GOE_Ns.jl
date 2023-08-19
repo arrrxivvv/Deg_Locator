@@ -1,6 +1,6 @@
-itNum = 500;
-resLow = 80;
-resHigh = 80;
+itNum = 100;
+resLow = 64;
+resHigh = 64;
 dRes = resHigh - resLow;
 nDim = 3;
 
@@ -32,7 +32,8 @@ for n in nLst
 	# @time parity_corr_GOE_arr_from_file( n, divLst, itNum, seed; dim = nDim, fMod = fMod );
 	# @time divB_profile_GOE_3d( [4], 2, 1, seed; isSaveMem = true );
 	GC.gc();
-	@time parityAvg_fromFile( n, divLst, itNum, seed; dim = 3, fMod = fMod );
+	# @time parityAvg_fromFile( n, divLst, itNum, seed; dim = 3, fMod = fMod );
+	@time parityCorr_GOE_AvgStd_fromFile( n, divLst, itNum, seed; dim = 3 );
 end
 
 # @time divB_profile_GOE_3d( [4], 2, 1, seed; isSaveMem = true );

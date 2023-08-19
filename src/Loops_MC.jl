@@ -7,7 +7,7 @@ using JLD2
 using Statistics
 using Distributions
 
-# using Infiltrator
+using Infiltrator
 
 export loops_MC, loops_MC_smart
 
@@ -308,7 +308,146 @@ function loops_MC_smart( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPeri
 	
 	save( fName, "zakLstLst", zakLstLst, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
 	
+	fMainZakLst = fMainLoopsMC * "_" * "zakLstAllMean";
+	fMainZakSample = fMainLoopsMC * "_" * "zakLstSampleMean";
+	
+	fNameZakLst = fNameFunc( fMainZakLst, attrLstLoops, valLst, jld2Type; fMod = fMod );
+	fNameZakSample = fNameFunc( fMainZakSample, attrLstLoops, valLst, jld2Type; fMod = fMod );
+	
+	save( fNameZakLst, "zakLstLst", zakLstLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
+	save( fNameZakSample, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
+	
 	return fName;
+end
+
+function loopsSamplesResaveFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	numBfieldLst = load( fName, "numBfieldLst" );
+	numLinkLst = load( fName, "numLinkLst" );
+	linkSampleLst = load( fName, "linkSampleLst" );
+	BfieldSampleLst = load( fName, "BfieldSampleLst" );
+	
+	oFName = "loopsSample"
+	
+	oFName = fNameFunc( oFName, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	save( oFName, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
+end
+
+function zakResaveFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	zakLstLst = load( fName, "zakLstLst" );
+	zakMeanLst = load( fName, "zakMeanLst" );
+	zakLstSampleLst = load( fName, "zakLstSampleLst" );
+	
+	fMainOut = fMainLoopsMC * "_" * "zakLstAllMean";
+	fMainOutSample = fMainLoopsMC * "_" * "zakLstSampleMean";
+	
+	fNameOut = fNameFunc( fMainOut, attrLstLoops, valLst, jld2Type; fMod = fMod );
+	fNameOutSample = fNameFunc( fMainOutSample, attrLstLoops, valLst, jld2Type; fMod = fMod );
+	
+	save( fNameOut, "zakLstLst", zakLstLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
+	save( fNameOutSample, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
+end
+
+function linkBfieldLstGenerateFromFile( divNum, itNum; cArea = 1, cPerim = 1, beta = 1, fMod = "", isValLstFloat = false )
+	fMain = "loopsSample";
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	linkSampleLst = load( fName, "linkSampleLst" );
+	BfieldSampleLst = load( fName, "BfieldSampleLst" );
+	
+	lnSample = length( linkSampleLst );
+	nDim = 3;
+	
+	linkNumLst = [ sum( linkSampleLst[it][dim] ) for it = 1 : lnSample, dim = 1 : nDim ];
+	linkPlotLst = [ zeros(nDim,2,linkNumLst[it,dim]) for it = 1 : lnSample, dim = 1 : nDim ];
+	
+	# @infiltrate
+	
+	posLst = CartesianIndices( linkSampleLst[1][1] );
+	
+	divStep = 1 / divNum;
+	
+	for it = 1 : lnSample
+		print( " it = ", it, "             \r" )
+		for dim = 1 : nDim
+			iLnk = 0;
+			for pos in posLst
+				if linkSampleLst[it][dim][pos]
+					iLnk += 1;
+					for iD = 1 : nDim
+						linkPlotLst[it,dim][iD,1,iLnk] = pos[iD];
+						linkPlotLst[it,dim][iD,2,iLnk] = pos[iD];
+					end
+					linkPlotLst[it,dim][dim,2,iLnk] += 1;
+				end
+			end
+			linkPlotLst[it,dim] .-= 1;
+			linkPlotLst[it,dim] .*= divStep;
+		end
+	end
+	
+	oFMain = "linkLstForMathematica";
+	oFName = fNameFunc( oFMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	save( oFName, "linkPlotLst", linkPlotLst );
+end
+
+function linkBfieldPlotLstSliceResave( divNum, itNum; itLst, cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false, fMod = "" )
+	fMain = "linkLstForMathematica";
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	linkPlotLst = load( fName, "linkPlotLst" );
+	
+	@infiltrate
+	
+	linkPlotLstSlice = linkPlotLst[itLst, :];
+	
+	oFMain = fMain * "_" * "sliced";
+	oFName = fNameFunc( oFMain, attrLst, valLst, jld2Type; fMod = fMod ); 
+	
+	save( oFName, "linkPlotLstSlice", linkPlotLstSlice );
 end
 
 function zakAvgFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
@@ -333,6 +472,122 @@ function zakAvgFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta =
 	fNameOut = fNameFunc( fMainOut, attrLst, valLstAny, jld2Type; fMod = fMod );
 	
 	save( fNameOut, "zakMeanLst", zakMeanLst );
+end
+
+function zakCorrFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = fMainLoopsMC;
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ];
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	zakLstLstBool = load(fName, "zakLstLst");;
+	
+	shArr = [ (-x+1,-y+1) for x=1:divNum, y=1:divNum ];
+	dArea = (1/divNum)^2;
+	
+	zakCorrLst = zeros( size(zakLstLstBool) );
+	zakLstLst = zeros( Int64, size(zakLstLstBool) )
+	zakLstLst .= 2 .* zakLstLstBool .- 1;
+	
+	zakLstLstShLst = [ ShiftedArrays.circshift( zakLstLst, shArr[x,y] ) for x = 1:divNum, y = 1:divNum ];
+	
+	zakXYColsLst = [ @view( zakLstLst[x:x,y:y,:,:] ) for x = 1 : divNum, y = 1 : divNum ];
+	
+	@infiltrate
+	
+	zakLstCopy = similar(zakCorrLst);
+	
+	itDim = 4;
+	
+	for x = 1 : divNum, y = 1 : divNum
+		print( "x = ", x, ", y = ", y, ",      \r" );
+		# zakLstLstSh = ShiftedArrays.circshift( zakLstLst, shArr[x,y] );
+		
+		# @time zakLstCopy .= zakLstLstShLst[x,y];
+		# @time zakLstCopy .*= zakXYColsLst[x,y];
+		# @time zakLstCopy .*= dArea;
+		# @time zakCorrLst .+= zakLstCopy;
+		# Threads.@threads 
+		for it = 1 : itNum
+			@view(zakCorrLst[:,:,:,it]) .+= @view(zakLstLstShLst[x,y][:,:,:,it]) .* @view(zakLstLst[x:x,y:y,:,it]) .* dArea;
+			# @infiltrate
+		end
+		# zakArrSh2 = ShiftedArrays.circshift( zakLstLst, shArr[x,y] );
+			# Threads.@threads for it = 1 : itNum #Less
+				# selectdim( zakCorrLst, itDim, it ) .= selectdim( zakCorrLst, itDim, it ) .+ @view(zakLstLst[x:x,y:y,:,it]) .* selectdim(zakArrSh2,itDim,it) .* dArea;
+			# end
+	end
+	
+	dimAvg = 4;
+	zakCorrAvgLst = dropdims( mean( zakCorrLst; dims = dimAvg ); dims = dimAvg );
+	zakCorrStdLst = dropdims( std( zakCorrLst; dims = dimAvg ); dims = dimAvg );
+	
+	@infiltrate
+	
+	oFmain = "loops_MC_zakCorr";
+	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod );
+	save( oFName, "zakCorrLst", zakCorrLst, "zakCorrAvgLst", zakCorrAvgLst, "zakCorrStdLst", zakCorrStdLst );
+end
+
+function zakCorrResaveFromFile( divNum, itNum; fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false, isAvgStdSaved = true )
+	fMain = "loops_MC_zakCorr";
+	
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ]; 
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	if isAvgStdSaved
+		zakCorrAvgLst = load( fName, "zakCorrAvgLst" );
+		zakCorrStdLst = load( fName, "zakCorrStdLst" );
+	else
+		zakCorrLst = load( fName, "zakCorrLst" );
+		dimAvg = 4;
+		zakCorrAvgLst = dropdims( mean( zakCorrLst; dims = dimAvg ); dims = dimAvg );
+		zakCorrStdLst = dropdims( std( zakCorrLst; dims = dimAvg ); dims = dimAvg );
+	end
+	
+	oFMain = "loops_MC_zakCorrStats";
+	
+	oFName = fNameFunc( oFMain, attrLst, valLst, jld2Type; fMod = fMod );
+	save( oFName, "zakCorrAvgLst", zakCorrAvgLst, "zakCorrStdLst", zakCorrStdLst );
+end
+
+function zakCorrSampleFromFile( divNum, itNum; itSampleStep = 100, fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )
+	fMain = "loops_MC_zakCorr";
+	
+	attrLst = attrLstLoops;
+	valLstAny = Any[ divNum, itNum, cArea, cPerim, beta ];
+	valLstFloat = [ divNum, itNum, cArea, cPerim, beta ]; 
+	
+	valLst = valLstAny;
+	if isValLstFloat
+		valLst = valLstFloat;
+	end
+	
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	zakCorrLst = load( fName, "zakCorrLst" );
+	
+	zakCorrSampleLst = zakCorrLst[:,:,:,itSampleStep:itSampleStep:itNum];
+	
+	oFMain = "loops_MC_zakCorrSample";
+	oFName = fNameFunc( oFMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	save( oFName, "zakCorrSampleLst", zakCorrSampleLst );
 end
 
 function zakSampleLstFromFile( divNum, itNum; itNumSample = 100, fMod = "", cArea = 1, cPerim = 1, beta = 1, isValLstFloat = false )

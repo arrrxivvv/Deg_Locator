@@ -315,7 +315,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 					linkLst3[pos] .= linkLst3[pos] ./ abs.(linkLst3[pos]);
 					
 					linkLstThrough[pos] .*= linkLst3[pos];
-					zakLstLst[it][pos] .= real.( log.(linkLstThrough[pos]) ./ (2*pi*1im) );
+					zakLstLst[it][pos] .= real.( log.(linkLstThrough[pos]) ./ (pi*1im) );
 				end
 			else
 				assignArrOfArrs!( vLstPrev, degBerrysLayer.degMats.vLst );
