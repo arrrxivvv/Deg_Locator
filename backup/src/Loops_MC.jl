@@ -11,9 +11,6 @@ using Distributions
 
 export loops_MC, loops_MC_smart, loops_MC_staggeredCube
 
-oFNameLoopsMain = "loopsSample";
-oFNameLoopsStartMain = "loopsStartSample";
-
 fMainLoopsMC = "loops_MC";
 attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
 attrLstLoopsFerro = deepcopy(attrLstLoops);
@@ -28,7 +25,7 @@ struct ParamsLoops
 	
 end
 
-function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1, itNumSample = 100, isInit0 = false, cFerro = 0 )
+function loops_MC( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, beta = 1, itNumSample = 100, isInit0 = false )
 	nDim = 3;
 	divLst = fill(div, nDim);
 	posLst = CartesianIndices((divNum,divNum,divNum));
@@ -385,7 +382,7 @@ function loops_MC_smart( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPeri
 	fMain = fMainLoopsMC;
 	attrLst = cFerro == 0 ? attrLstLoops : attrLstLoopsFerro;
 	# ["divNum","itNum","cArea","cPerim","beta"];
-	valLst = Any[divNum, itNum, cArea, cPerim, beta];
+	valLst = Any[divNum,itNum, cArea, cPerim,beta];
 	if cFerro != 0
 		push!( valLst, cFerro );
 	end
@@ -404,13 +401,15 @@ function loops_MC_smart( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPeri
 	save( fNameZakLst, "zakLstLst", zakLstLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
 	save( fNameZakSample, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
 	
-	# oFNameLoopsMain = "loopsSample";
-	oFNameLoops = fNameFunc( oFNameLoopsMain, attrLst, valLst, jld2Type; fMod = fModOut );
+	oFNameLoops = "loopsSample";
+	
+	oFNameLoops = fNameFunc( oFNameLoops, attrLst, valLst, jld2Type; fMod = fModOut );
+	
 	save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
 	
-	# oFNameLoopsStartMain = "loopsStartSample";
-	oFNameLoopsStart = fNameFunc( oFNameLoopsStartMain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
+	oFNameLoopsStart = "loopsStartSample";
+	oFNameLoopsStart = fNameFunc( oFNameLoopsStart, attrLst, valLst, jld2Type; fMod = fModOut );
+	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst  )
 	
 	return fName;
 end
@@ -987,8 +986,7 @@ function MCLinkUpdate( BfieldLst, linkLst,  )
 end
 
 function boolToOnePN( varBool::Bool )
-	# return -(-1).^varBool;
-	return varBool ? 1 : -1;
+	return -(-1).^varBool;
 end
 
 end #endmodule
