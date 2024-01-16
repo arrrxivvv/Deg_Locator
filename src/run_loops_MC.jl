@@ -44,11 +44,12 @@ divNumLst = [64];
 
 fNameLst = Vector{String}(undef,0);
 
-methodLoops = loops_MC_staggeredCube;
+# methodLoops = loops_MC_staggeredCube;
 # methodLoops = Loops_MC.loops_MC_staggeredCube_old;
 # methodLoops = loops_MC_smart;
 # methodLoops = Loops_MC.loops_MC_smart_old;
 # methodLoops = loops_MC;
+methodLoops = loops_MC_methods;
 
 # for itNum in itNumLst, cArea in cAreaLst, cPerim in cPerimLst, beta in betaLst, divNum in divNumLst
 @time for itNum in itNumLst, cFerroRatio in cFerroRatioLst, cRatio in cRatioLst, beta in betaLst, divNum in divNumLst, isInit0 in isInit0Lst, sgnArea in sgnAreaLst, sgnPerim in sgnPerimLst
