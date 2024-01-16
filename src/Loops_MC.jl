@@ -53,6 +53,9 @@ struct ParamsLoops{N}
 end
 
 abstract type LoopsUpdater end
+function updateLoops( updater::LoopsUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	error( "Loops_MC: updater not defined yet" );
+end
 
 struct ABUpdater{N,N_1} <: LoopsUpdater
 	posLstDimLst;
@@ -61,7 +64,7 @@ struct ABUpdater{N,N_1} <: LoopsUpdater
 	
 	pFlipLst::Array{Float64};
 	
-	function ABUpdater( params::ParamsLoops; cArea, cPerim, cFerroSigned )
+	function ABUpdater( params::ParamsLoops; cArea::Float64, cPerim::Float64, cFerroSigned::Float64 )
 		posLstDimLst = [ selectdim( params.posLst, dim, it ) for dim = 1 : params.nDim, it = 1 : params.divNum ];
 		posLayerLst = CartesianIndices( ntuple(x->params.divNum,params.nDim-1) );
 		
@@ -90,14 +93,11 @@ struct ABUpdater{N,N_1} <: LoopsUpdater
 	end
 end
 
-function updateLoops( BfieldLst, linkLst, params::ParamsLoops; updater::LoopsUpdater )
-	error( "Loops_MC: updater not defined yet" );
-end
-
-function updateLoops( BfieldLst, linkLst, linkFerroLst, params::ParamsLoops; updater::ABUpdater )
+function updateLoops( updater::ABUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
 	for dim = 1 : params.nDim
 		for iAB = 1 : 2
 			Threads.@threads for pos in updater.posABLst[iAB,dim]
+				# @time begin
 				iArea = BfieldLst[dim][pos] + 1;
 				iL = 1;
 				for iLnkDim in 1 : params.nDimLayer
@@ -113,29 +113,106 @@ function updateLoops( BfieldLst, linkLst, linkFerroLst, params::ParamsLoops; upd
 					iLFerro += linkFerroLst[iLnkDim,dim][pos];
 					iLFerro += linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
 				end
+				# end
+				# @time begin
 				pSwitchRand = rand();
-				pFlip = updater.pFlipLst[iLFerro, iL, iArea];
-				if pSwitchRand < pFlip
-					BfieldLst[dim][pos] = !BfieldLst[dim][pos];
-					for iLnkDim in 1 : params.nDimLayer
-						dimLink = params.linkDimLst[dim][iLnkDim];
-						dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-						linkLst[dimLink][pos] = !linkLst[dimLink][pos];
-						linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
-					end
-					for iLnkDim = 1 : params.nDimLayer
-						linkFerroLst[iLnkDim,dim][pos] = !linkFerroLst[iLnkDim,dim][pos];
-						dimLink = params.linkDimLst[dim][iLnkDim];
-						dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-						linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
-					end
+				if pSwitchRand < updater.pFlipLst[iLFerro, iL, iArea];
+					flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
 				end
+				# end
+				# @infiltrate
 			end
 		end
 	end
 end
 
-function loops_MC_methods( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPerim = 1, cFerro = 0, beta = 1, itNumSample = 100, itStartSample = 50, isInit0 = false )
+struct StaggeredCubeUpdater{N,Nplus1} <: LoopsUpdater
+	posLstSh0::CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}};
+	posLstAdvOrNot::Vector{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}} }};
+	posShOrNotLst::Vector{Vector{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}}}};
+	posStagCubeLst::Vector{Array{CartesianIndex{N},Nplus1}};
+	idStagLst::CartesianIndices{Nplus1,NTuple{Nplus1,Base.OneTo{Int64}}};
+	
+	pFlipLst::Array{Float64};
+	
+	iDimLst::UnitRange{Int64};
+	iIsShLst::UnitRange{Int64};
+	randIDimLst::Array{Int64,Nplus1};
+	randIShLst::Array{Int64,Nplus1};
+	
+	function StaggeredCubeUpdater( params::ParamsLoops; cArea::Float64, cPerim::Float64, cFerroSigned::Float64 )
+		posLstSh0 = ShiftedArrays.circshift( params.posLst, ntuple(x->0,params.nDim) );
+		posLstAdvanced = [ ShiftedArrays.circshift( params.posLst, ntuple( ( i -> ( i == dim ? -1 : 0 ) ), params.nDim ) ) for dim = 1 : params.nDim ];
+		posLstAdvOrNot = pushfirst!( posLstAdvanced, ShiftedArrays.circshift( params.posLst, ntuple(x->0,params.nDim) ) );
+		posShOrNotLst = [ [ posLstSh0, posLstAdvanced[dim] ] for dim = 1 : params.nDim ];
+		posShOrNotArr = [ (iSh == 1 ? posLstSh0 : posLstAdvanced[dim]) for dim = 1 : params.nDim, iSh = 1:2 ];
+		
+		coordsStagA = ntuple( iDim -> 1:2:params.divLst[iDim], params.nDim );
+		coordsStagB = ntuple( iDim -> 2:2:params.divLst[iDim], params.nDim );
+		posStagCubeLstA = @view( params.posLst[coordsStagA...] );
+		posStagCubeLstB = @view( params.posLst[coordsStagB...] );
+		posStagCubeLst = [ cat( @view( posLstAdvOrNot[iAdv][coordsStagA...]), @view(posLstAdvOrNot[iAdv][coordsStagB...]); dims = params.nDim+1 ) for iAdv = 1 : params.nDim+1 ];
+		idStagLst = CartesianIndices( posStagCubeLst[1] );
+		
+		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
+		
+		iDimLst = 1:params.nDim;
+		iIsShLst = 1:2;
+		randIDimLst = similar( posStagCubeLst[1], Int64 );
+		randIShLst = similar(randIDimLst);
+		
+		new{params.nDim,params.nDim+1}( posLstSh0, posLstAdvOrNot, posShOrNotLst, posStagCubeLst, idStagLst, pFlipLst, iDimLst, iIsShLst, randIDimLst, randIShLst );
+	end
+end
+
+function updateLoops( updater::StaggeredCubeUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	for iAdv = 1 : params.nDim+1
+		rand!( updater.randIDimLst, updater.iDimLst );
+		rand!( updater.randIShLst, updater.iIsShLst );
+		Threads.@threads for idStag in updater.idStagLst
+			posCube = updater.posStagCubeLst[iAdv][idStag];
+			pos = updater.posShOrNotLst[updater.randIDimLst[idStag]][updater.randIShLst[idStag]][posCube];
+			iArea = BfieldLst[updater.randIDimLst[idStag]][pos] + 1;
+			iL = 1;
+			for iLnkDim in 1 : params.nDimLayer
+				dimLink = params.linkDimLst[updater.randIDimLst[idStag]][iLnkDim];
+				dimLinkSh = params.linkDimShLst[updater.randIDimLst[idStag]][iLnkDim];
+				iL += linkLst[dimLink][pos];
+				iL += linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
+			end
+			iLFerro = 1;
+			for iLnkDim = 1 : params.nDimLayer
+				dimLink = params.linkDimLst[updater.randIDimLst[idStag]][iLnkDim];
+				dimLinkSh = params.linkDimShLst[updater.randIDimLst[idStag]][iLnkDim];
+				iLFerro += linkFerroLst[iLnkDim,updater.randIDimLst[idStag]][pos];
+				iLFerro += linkFerroLst[iLnkDim,updater.randIDimLst[idStag]][params.posLstShLst[dimLinkSh,1][pos]];
+			end
+			pSwitch = rand();
+			pFlip = updater.pFlipLst[iLFerro, iL, iArea];
+			if pSwitch < pFlip
+				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
+				# BfieldLst[randIDimLst[idStag]][pos] = !BfieldLst[randIDimLst[idStag]][pos];
+				# for iLnkDim in 1 : nDimLayer
+					# dimLink = linkDimLst[randIDimLst[idStag]][iLnkDim];
+					# dimLinkSh = linkDimShLst[randIDimLst[idStag]][iLnkDim];
+					# linkLst[dimLink][pos] = !linkLst[dimLink][pos];
+					# linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
+				# end
+				# for iLnkDim = 1 : nDimLayer
+					# linkFerroLst[iLnkDim,randIDimLst[idStag]][pos] = !linkFerroLst[iLnkDim,randIDimLst[idStag]][pos];
+					# dimLink = linkDimLst[randIDimLst[idStag]][iLnkDim];
+					# dimLinkSh = linkDimShLst[randIDimLst[idStag]][iLnkDim];
+					# linkFerroLst[iLnkDim,randIDimLst[idStag]][posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[iLnkDim,randIDimLst[idStag]][posLstShLst[dimLinkSh,1][pos]];
+				# end
+			end
+			# end
+			# @infiltrate
+		end
+		# @infiltrate
+	end
+end
+
+function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::UnionAll, fMod = "", cArea = 1, cPerim = 1, cFerro = 0, beta = 1, itNumSample = 100, itStartSample = 50, isInit0 = false )
 	cFerroSigned = cFerro;
 	nDim = 3;
 	params = ParamsLoops( divNum, nDim );
@@ -175,17 +252,17 @@ function loops_MC_methods( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPe
 	
 	pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
 
-	abUpdater = ABUpdater( params; cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-	posLstDimLst = abUpdater.posLstDimLst;
-	posLayerLst = abUpdater.posLayerLst;
-	posABLst = abUpdater.posABLst;
+	updater = updaterType( params; cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
+	# posLstDimLst = updater.posLstDimLst;
+	# posLayerLst = updater.posLayerLst;
+	# posABLst = updater.posABLst;
 
-	lnLayer = divNum^2;
+	# lnLayer = divNum^2;
 
-	idLayerLst = zeros( UInt, divNum );
-	dELst = zeros(divNum);
+	# idLayerLst = zeros( UInt, divNum );
+	# dELst = zeros(divNum);
 	
-	rejLst = zeros(divNum);
+	# rejLst = zeros(divNum);
 	itSample = 1;
 	for it = 1 : itNum
 		print( "it = ", it, "         \r" )
@@ -208,7 +285,7 @@ function loops_MC_methods( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPe
 			end
 		end
 		
-		updateLoops( BfieldLst, linkLst, linkFerroLst, params; updater = abUpdater );
+		updateLoops( updater, BfieldLst, linkLst, linkFerroLst, params );
 		
 		for dim = 1 : nDim
 			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
@@ -236,7 +313,6 @@ function loops_MC_methods( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPe
 	if cFerro != 0
 		push!( valLst, cFerro );
 	end
-	# @infiltrate
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	
 	save( fName, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta );
@@ -310,6 +386,22 @@ function genPFlipLst( ; cArea, cPerim, cFerroSigned = 0 )
 	end
 	
 	return pFlipLst;
+end
+
+function flipBLinkAtPos( params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}; pos::CartesianIndex{D}, dim::Int64 ) where {D}
+	BfieldLst[dim][pos] = !BfieldLst[dim][pos];
+	for iLnkDim in 1 : params.nDimLayer
+		dimLink = params.linkDimLst[dim][iLnkDim];
+		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
+		linkLst[dimLink][pos] = !linkLst[dimLink][pos];
+		linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
+	end
+	for iLnkDim = 1 : params.nDimLayer
+		linkFerroLst[iLnkDim,dim][pos] = !linkFerroLst[iLnkDim,dim][pos];
+		dimLink = params.linkDimLst[dim][iLnkDim];
+		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
+		linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
+	end
 end
 
 function boolToOnePN( varBool::Bool )

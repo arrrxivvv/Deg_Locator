@@ -51,6 +51,9 @@ fNameLst = Vector{String}(undef,0);
 # methodLoops = loops_MC;
 methodLoops = loops_MC_methods;
 
+# updaterType = Loops_MC.ABUpdater;
+updaterType = Loops_MC.StaggeredCubeUpdater;
+
 # for itNum in itNumLst, cArea in cAreaLst, cPerim in cPerimLst, beta in betaLst, divNum in divNumLst
 @time for itNum in itNumLst, cFerroRatio in cFerroRatioLst, cRatio in cRatioLst, beta in betaLst, divNum in divNumLst, isInit0 in isInit0Lst, sgnArea in sgnAreaLst, sgnPerim in sgnPerimLst
 	# fName = loops_MC( divNum, itNum; cPerim = cPerim, cArea = cArea, beta = beta );
@@ -59,7 +62,8 @@ methodLoops = loops_MC_methods;
 	cPerimAbs = beta / cRatioSq;
 	cPerim = sgnPerim * cPerimAbs;
 	cFerro = cPerimAbs * cFerroRatio;
-	@time fNameSmart = methodLoops( divNum, itNum; cPerim = cPerim, cArea = cArea, cFerro = cFerro, beta = betaBase, fMod = fModSmart, isInit0 = isInit0 );
+	# @time fNameSmart = methodLoops( divNum, itNum; cPerim = cPerim, cArea = cArea, cFerro = cFerro, beta = betaBase, fMod = fModSmart, isInit0 = isInit0 );
+	@time fNameSmart = methodLoops( divNum, itNum; cPerim = cPerim, cArea = cArea, cFerro = cFerro, beta = betaBase, fMod = fModSmart, isInit0 = isInit0, updaterType = updaterType );
 	# @infiltrate
 	# push!( fNameLst, fName );	
 	push!( fNameLst, fNameSmart );
