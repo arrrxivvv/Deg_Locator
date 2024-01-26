@@ -2,8 +2,8 @@ using Loops_MC
 # using Infiltrator
 using DelimitedFiles
 
-# itNumLst = [30000];
-itNumLst = [100];
+itNumLst = [30000];
+# itNumLst = [100];
 
 # cAreaLst = [0.5:0.5:1.5;];
 cAreaLst = [2:1:10;];
@@ -14,15 +14,15 @@ cPerimLst = -[2];
 fModSmart = "smart";
 
 # betaLst = [0.2,0.5,1,2,3,10,100];
-# betaLst = [0.2,1,3,10];
+betaLst = [0.2,1,3,10];
 # betaLst = [5:1:15;];
 # betaLst = [10];
-betaLst = [1];
+# betaLst = [10];
 betaBase = 1;
-# cRatioLst = exp.( [-2:0.4:2;] );
+cRatioLst = exp.( [-2:0.4:2;] );
 # cRatioLst = exp.( [-5:1:-1;] );
 # cRatioLst = exp.( [-3:1:-3;] );
-cRatioLst = exp.( [-1:1:-1;] );
+# cRatioLst = exp.( [-1:1:-1;] );
 # cFerroLst = [0:0.1:1;];
 # cFerroLst = [0];
 # cFerroRatioLst = exp.( [-1:1:5;] );
@@ -71,3 +71,4 @@ updaterType = Loops_MC.StaggeredCubeUpdater;
 end
 
 writedlm( "fileList.txt", fNameLst );
+	

@@ -53,7 +53,12 @@ struct ParamsLoops{N}
 end
 
 abstract type LoopsUpdater end
+
 function updateLoops( updater::LoopsUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	error( "Loops_MC: updater not defined yet" );
+end
+
+function getUpdaterFMod( updaterType::(Type{T} where T <: LoopsUpdater) )
 	error( "Loops_MC: updater not defined yet" );
 end
 
@@ -126,6 +131,10 @@ function updateLoops( updater::ABUpdater, BfieldLst::Vector{Array{Bool,D}}, link
 	end
 end
 
+function getUpdaterFMod( updaterType::Type{ABUpdater} )
+	return "upAB";
+end
+
 struct StaggeredCubeUpdater{N,Nplus1} <: LoopsUpdater
 	posLstSh0::CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}};
 	posLstAdvOrNot::Vector{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}} }};
@@ -191,19 +200,6 @@ function updateLoops( updater::StaggeredCubeUpdater, BfieldLst::Vector{Array{Boo
 			pFlip = updater.pFlipLst[iLFerro, iL, iArea];
 			if pSwitch < pFlip
 				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
-				# BfieldLst[randIDimLst[idStag]][pos] = !BfieldLst[randIDimLst[idStag]][pos];
-				# for iLnkDim in 1 : nDimLayer
-					# dimLink = linkDimLst[randIDimLst[idStag]][iLnkDim];
-					# dimLinkSh = linkDimShLst[randIDimLst[idStag]][iLnkDim];
-					# linkLst[dimLink][pos] = !linkLst[dimLink][pos];
-					# linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][posLstShLst[dimLinkSh,1][pos]];
-				# end
-				# for iLnkDim = 1 : nDimLayer
-					# linkFerroLst[iLnkDim,randIDimLst[idStag]][pos] = !linkFerroLst[iLnkDim,randIDimLst[idStag]][pos];
-					# dimLink = linkDimLst[randIDimLst[idStag]][iLnkDim];
-					# dimLinkSh = linkDimShLst[randIDimLst[idStag]][iLnkDim];
-					# linkFerroLst[iLnkDim,randIDimLst[idStag]][posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[iLnkDim,randIDimLst[idStag]][posLstShLst[dimLinkSh,1][pos]];
-				# end
 			end
 			# end
 			# @infiltrate
@@ -212,7 +208,11 @@ function updateLoops( updater::StaggeredCubeUpdater, BfieldLst::Vector{Array{Boo
 	end
 end
 
-function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::UnionAll, fMod = "", cArea = 1, cPerim = 1, cFerro = 0, beta = 1, itNumSample = 100, itStartSample = 50, isInit0 = false )
+function getUpdaterFMod( updaterType::Type{StaggeredCubeUpdater} )
+	return "upStagCube";
+end
+
+function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} where T <: LoopsUpdater), fMod = "", cArea = 1, cPerim = 1, cFerro = 0, beta = 1, itNumSample = 100, itStartSample = 50, isInit0 = false )
 	cFerroSigned = cFerro;
 	nDim = 3;
 	params = ParamsLoops( divNum, nDim );
@@ -253,16 +253,7 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::UnionAll, fM
 	pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
 
 	updater = updaterType( params; cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-	# posLstDimLst = updater.posLstDimLst;
-	# posLayerLst = updater.posLayerLst;
-	# posABLst = updater.posABLst;
-
-	# lnLayer = divNum^2;
-
-	# idLayerLst = zeros( UInt, divNum );
-	# dELst = zeros(divNum);
 	
-	# rejLst = zeros(divNum);
 	itSample = 1;
 	for it = 1 : itNum
 		print( "it = ", it, "         \r" )
@@ -299,11 +290,13 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::UnionAll, fM
 	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
 	
 	fModOut = fMod;
+	fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
 	if isInit0
-		if !isempty(fMod)
-			fModOut *= "_";
-		end
-		fModOut *= "isInit0";
+		# if !isempty(fMod)
+			# fModOut *= "_";
+		# end
+		# fModOut *= "isInit0";
+		fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
 	end
 	
 	fMain = fMainLoopsMC;
@@ -409,11 +402,16 @@ function boolToOnePN( varBool::Bool )
 	return varBool ? 1 : -1;
 end
 
+include("loops_MC_run_funcs.jl")
+export runLoopMC_withParams
+
 include("loops_MC_methods_seperate_funcs.jl")
 export loops_MC, loops_MC_smart, loops_MC_staggeredCube
 
 include("loops_MC_resave_funcs.jl")
 
 include("loops_MC_old_funcs.jl")
+
+
 
 end #endmodule
