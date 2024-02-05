@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runFull;
+runChoice = runSaveParam;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -19,14 +19,14 @@ elseif runChoice == runSaveParam
 	isRunSaveParam = true;
 end
 
-# fModSmart = "smart";
+fModSmartOld = "smart";
 # fModStag = "stag";
-# fMod = fModStag;
-fMod = "";
+fMod = fModSmartOld;
+# fMod = "";
 
-isFModMethod = true;
+isFModMethod = false;
 
-isTestingParam = true;
+isTestingParam = false;
 
 itNumLst = [30000];
 

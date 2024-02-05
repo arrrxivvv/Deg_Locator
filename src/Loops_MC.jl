@@ -16,6 +16,8 @@ oFNameLoopsMain = "loopsSample";
 oFNameLoopsStartMain = "loopsStartSample";
 oFNameLoopsNumMain = "loopsNum";
 
+dirLog = "./log/";
+
 fMainLoopsMC = "loops_MC";
 attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
 attrLstLoopsFerro = deepcopy(attrLstLoops);
@@ -73,7 +75,7 @@ struct ABUpdater{N,N_1} <: LoopsUpdater
 		posLstDimLst = [ selectdim( params.posLst, dim, it ) for dim = 1 : params.nDim, it = 1 : params.divNum ];
 		posLayerLst = CartesianIndices( ntuple(x->params.divNum,params.nDim-1) );
 		
-		posABLst = [ Vector{CartesianIndex{params.nDim}}(undef,Int64(params.divNum^(params.nDim)/2)); for iAB = 1 : 2, iDim = 1 : params.nDim ];
+		posABLst = [ Vector{CartesianIndex{params.nDim}}(undef,Int64(params.divNum^(params.nDim)/2)) for iAB = 1 : 2, iDim = 1 : params.nDim ];
 		
 		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
 		

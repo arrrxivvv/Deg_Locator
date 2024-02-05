@@ -198,7 +198,7 @@ function loops_MC_smart( divNum = 64, itNum = 10000; fMod = "", cArea = 1, cPeri
 	posLstDimLst = [ selectdim( posLst, dim, it ) for dim = 1 : nDim, it = 1 : divNum ];
 	posLayerLst = CartesianIndices( ntuple(x->divNum,nDim-1) );
 	
-	posABLst = [ Vector{CartesianIndex{nDim}}(undef,Int64(divNum^(nDim)/2)); for iAB = 1 : 2, iDim = 1 : nDim ];
+	posABLst = [ Vector{CartesianIndex{nDim}}(undef,Int64(divNum^(nDim)/2)) for iAB = 1 : 2, iDim = 1 : nDim ];
 	
 	for iDim = 1 : nDim
 		iA = 1; iB = 1;
