@@ -6,6 +6,14 @@ fNameFileLstLst = "fNameFileLstLst.txt";
 fNameFileLstJld2Lst = "fNameFileLstJld2Lst.txt";
 fNameSaveParamsLst = "fNameSaveParamsLst.txt";
 
+function paramsFromBetaRatio( beta, cRatio, cFerroRatio )
+	cRatioSq = sqrt(cRatio);
+	cArea = sgnArea * beta * cRatioSq;
+	cPerimAbs = beta / cRatioSq;
+	cPerim = sgnPerim * cPerimAbs;
+	cFerro = cPerimAbs * cFerroRatio;
+end
+
 function runLoopMC_withParams( updaterType::(Type{T} where T <: LoopsUpdater), itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, betaLst::Vector{Float64}, cRatioLst::Vector{Float64}, cFerroRatioLst::Vector, sgnAreaLst::Vector{Int64}, sgnPerimLst::Vector{Int64}, isInit0Lst::Vector{Bool}; fMod = "", betaBase = 1 )
 	@time for itNum in itNumLst, divNum in divNumLst, beta in betaLst, cRatio in cRatioLst, cFerroRatio in cFerroRatioLst, sgnArea in sgnAreaLst, sgnPerim in sgnPerimLst, isInit0 in isInit0Lst
 		cRatioSq = sqrt(cRatio);
