@@ -336,7 +336,7 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} whe
 end
 
 function updateLinkFrom0ByB( BfieldLst, linkLst, linkFerroLst, params::ParamsLoops )
-	for pos in params.posLst, dim = 1 : params.nDim
+	for dim = 1 : params.nDim, pos in params.posLst
 		if BfieldLst[dim][pos]
 			for dimLink in params.linkDimLst[dim]
 				linkLst[dimLink][pos] = !linkLst[dimLink][pos];
@@ -351,10 +351,11 @@ function updateLinkFrom0ByB( BfieldLst, linkLst, linkFerroLst, params::ParamsLoo
 				dimLink = params.linkDimLst[dim][lnkDim];
 				for dimLinkSh in params.linkDimLst[dim]
 					if dimLinkSh != dimLink
-						linkFerroLst[lnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]] = linkFerroLst[lnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
+						linkFerroLst[lnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[lnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
 					end
 				end
 			end
+			@infiltrate
 		end
 	end
 end

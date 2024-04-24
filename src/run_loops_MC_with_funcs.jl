@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runSaveParam;
+runChoice = runFileLst;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -20,10 +20,12 @@ elseif runChoice == runSaveParam
 end
 
 fModSmartOld = "smart";
-# fModStag = "stag";
-fMod = fModSmartOld;
+fModStag = "stag";
+# fMod = fModSmartOld;
+fMod = fModStag;
 # fMod = "";
 
+# isFModMethod = true;
 isFModMethod = false;
 
 isTestingParam = false;
@@ -53,6 +55,10 @@ divNumLst = [64];
 
 fNameLst = Vector{String}(undef,0);
 
+# fMainCollect = Loops_MC.oFNameLoopsMain;
+fMainCollect = Loops_MC.oFNameLoopsNumMain;
+# fMainCollect = Loops_MC.oFNameLoopsStartMain;
+
 if isTestingParam
 	itNumLst = [100];
 
@@ -74,9 +80,9 @@ if isRunSim
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, itNumLst, divNumLst, betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst, isInit0Lst; fMain = Loops_MC.oFNameLoopsNumMain, fMod = fMod, isFModMethod = isFModMethod );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, itNumLst, divNumLst, betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst, isInit0Lst; fMain = fMainCollect, fMod = fMod, isFModMethod = isFModMethod );
 end
 
 if isRunSaveParam
-	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, itNumLst, divNumLst, betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst, isInit0Lst; fMod = fMod );
+	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, itNumLst, divNumLst, betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst, isInit0Lst; fMod = fMod, isFModMethod = isFModMethod );
 end

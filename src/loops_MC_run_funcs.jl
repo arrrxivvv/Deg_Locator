@@ -57,10 +57,14 @@ function genFNameLstLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNu
 		GC.gc()
 	end
 	
-	fLstMain = fMain * "_fileLst";
+	fLstMain = fMain * "_fLst";
 	fLstJld2Main = fLstMain * "Jld2";
 	attrLstFLst = ["div", "it", "beta", "cRatio", "cFerroRatio", "isInit0", "sgnArea", "sgnPerim"];
-	valLstFLst = Any[divNumLst[[1,end]],itNumLst[[1,end]],betaLst[[1,end]],round.(cRatioLst[[1,end]]; digits=rndDigits),cFerroRatioLst[[1,end]], isInit0Lst[[1,end]], sgnAreaLst[[1,end]], sgnPerimLst[[1,end]]];
+	valIsInit0 = length(isInit0Lst) > 1 ? 2 : isInit0Lst[1];
+	valSgnArea = length(sgnAreaLst) > 1 ? 2 : sgnAreaLst[1];
+	valSgnPerim = length(sgnPerimLst) > 1 ? 2 : sgnPerimLst[1];
+	# valLstFLst = Any[divNumLst[[1,end]],itNumLst[[1,end]],betaLst[[1,end]],round.(cRatioLst[[1,end]]; digits=rndDigits),cFerroRatioLst[[1,end]], isInit0Lst[[1,end]], sgnAreaLst[[1,end]], sgnPerimLst[[1,end]]];
+	valLstFLst = Any[divNumLst[[1,end]],itNumLst[[1,end]],betaLst[[1,end]],round.(cRatioLst[[1,end]]; digits=rndDigits),cFerroRatioLst[[1,end]], valIsInit0, valSgnArea, valSgnPerim];
 	fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModWithMethod );
 	fLstJld2Name = fNameFunc( fLstJld2Main, attrLstFLst, valLstFLst, jld2Type; fMod = fModWithMethod );
 	writedlm( fLstName, fNameLst );
@@ -82,7 +86,7 @@ function saveParamsLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNum
 	if isFModMethod
 		fModWithMethod = Utils.strAppendWith_( fMod, getUpdaterFMod( updaterType ) )
 	end
-	cAreaLst = zeros( length(betaLst), length(cRatioLst), length(cFerroRatioLst), length(sgnAreaLst), length(sgnPerimLst), length(isInit0Lst) );
+	cAreaLst = zeros( length(betaLst), length(cRatioLst), length(cFerroRatioLst), length(sgnAreaLst), length(sgnPerimLst) );
 	cPerimLst = similar(cAreaLst);
 	cFerroLst = similar(cAreaLst);
 	for iIt = 1 : length(itNumLst), iDiv = 1 : length(divNumLst), iBeta = 1 : length(betaLst), iRatio = 1 : length(cRatioLst), iFerroRatio = 1 : length(cFerroRatioLst), iSgnArea = 1 : length(sgnAreaLst), iSgnPerim = 1 : length(sgnPerimLst), iInit0 = 1 : length(isInit0Lst)
@@ -98,9 +102,9 @@ function saveParamsLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNum
 		cPerim = sgnPerim * cPerimAbs;
 		cFerro = cPerimAbs * cFerroRatio;
 		
-		cAreaLst[iBeta, iRatio, iFerroRatio, iInit0, iSgnArea, iSgnPerim] = cArea;
-		cPerimLst[iBeta, iRatio, iFerroRatio, iInit0, iSgnArea, iSgnPerim] = cPerim;
-		cFerroLst[iBeta, iRatio, iFerroRatio, iInit0, iSgnArea, iSgnPerim] = cFerro;
+		cAreaLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cArea;
+		cPerimLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cPerim;
+		cFerroLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cFerro;
 	end
 	
 	cAreaLstStr = string.(cAreaLst);
