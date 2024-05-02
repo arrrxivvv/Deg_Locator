@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runFileLst;
+runChoice = runSaveParam;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -29,17 +29,22 @@ fMod = fModStag;
 isFModMethod = false;
 
 isTestingParam = false;
+# isTestingParam = true;
 
 itNumLst = [30000];
+# itNumLst = [10000];
 
 cAreaLst = [2:1:10;];
 cPerimLst = -[2];
 
 # betaLst = [0.2,0.5,1,2,3,10,100];
 betaLst = [0.2,1,3,10];
+# betaLst = [0.2:0.2:3;];
 # betaLst = [5:1:15;];
 betaBase = 1;
 cRatioLst = exp.( [-2:0.4:2;] );
+# cRatioLst = exp.( [-1:1:1;] );
+# cRatioLst = exp.( [-1:0.4:1;] );
 # cRatioLst = exp.( [-5:1:-1;] );
 # cRatioLst = exp.( [-3:1:-3;] );
 # cRatioLst = exp.( [-1:1:-1;] );
@@ -48,6 +53,8 @@ cRatioLst = exp.( [-2:0.4:2;] );
 cFerroRatioLst = [0];
 sgnAreaLst = [1,-1];
 sgnPerimLst = [1,-1];
+# sgnAreaLst = [1];
+# sgnPerimLst = [1];
 
 isInit0Lst = [false,true];
 
@@ -67,7 +74,7 @@ if isTestingParam
 	cRatioLst = exp.( [-1:1:-1;] );
 	cFerroRatioLst = [0];
 	sgnAreaLst = [1];
-	sgnPerimLst = [-1];
+	sgnPerimLst = [1];
 
 	isInit0Lst = [false];
 end

@@ -8,7 +8,7 @@ using Statistics
 using Distributions
 using Utils
  
-using Infiltrator
+# using Infiltrator
 
 export loops_MC_methods, loops_MC, loops_MC_smart, loops_MC_staggeredCube
 
@@ -19,9 +19,29 @@ oFNameLoopsNumMain = "loopsNum";
 dirLog = "./log/";
 
 fMainLoopsMC = "loops_MC";
-attrLstLoops = ["divNum","itNum","cArea","cPerim","beta"];
-attrLstLoopsFerro = deepcopy(attrLstLoops);
-attrLstLoopsFerro = push!( attrLstLoopsFerro, "cFerro" );
+attrLstLoops = ["divNum","itNum","cArea","cPerim"];
+attrLstLoopsBeta = push!( deepcopy(attrLstLoops), "beta" );
+attrFerro = "cFerro";
+attrLstLoopsFerro = push!( deepcopy(attrLstLoops), attrFerro );
+attrLstLoopsBetaFerro = push!( deepcopy( attrLstLoopsBeta ), attrFerro );
+
+function getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; cFerro = 0, beta = nothing )
+	valLst = Any[divNum, itNum, cArea, cPerim];
+	if isnothing(beta)
+		attrLstNoFerro = attrLstLoops;
+		attrLstFerro = attrLstLoopsFerro;
+	else
+		attrLstNoFerro = attrLstLoopsBeta;
+		attrLstFerro = attrLstLoopsBetaFerro;
+		push!(valLst, beta);
+	end
+	attrLst = cFerro == 0 ? attrLstNoFerro : attrLstFerro;
+	if cFerro != 0
+		push!( valLst, cFerro );
+	end
+	
+	return attrLst, valLst;
+end
 
 struct ParamsLoops{N}
 	nDim::Int64;
@@ -214,7 +234,20 @@ function getUpdaterFMod( updaterType::Type{StaggeredCubeUpdater} )
 	return "upStagCube";
 end
 
-function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} where T <: LoopsUpdater), fMod = "", cArea = 1, cPerim = 1, cFerro = 0, beta = 1, itNumSample = 100, itStartSample = 50, isInit0 = false )
+
+function getFModLoopsMC( fMod::String, updaterType::Type{<:LoopsUpdater}, isInit0::Bool=false; isFModMethod = true )
+	fModOut = fMod;
+	if isFModMethod
+		fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
+	end
+	if isInit0
+		fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
+	end
+	
+	return fModOut;
+end
+
+function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} where T <: LoopsUpdater), fMod = "", cArea = 1, cPerim = 1, cFerro = 0, isBeta = false, beta = nothing, itNumSample = 100, itStartSample = 50, isInit0 = false )
 	cFerroSigned = cFerro;
 	nDim = 3;
 	params = ParamsLoops( divNum, nDim );
@@ -291,23 +324,20 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} whe
 	
 	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
 	
-	fModOut = fMod;
-	fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
-	if isInit0
-		# if !isempty(fMod)
-			# fModOut *= "_";
-		# end
-		# fModOut *= "isInit0";
-		fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
-	end
+	# fModOut = fMod;
+	# fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
+	# if isInit0
+		# # if !isempty(fMod)
+			# # fModOut *= "_";
+		# # end
+		# # fModOut *= "isInit0";
+		# fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
+	# end
+	fModOut = getFModLoopsMC( fMod, updaterType, isInit0 );
 	
 	fMain = fMainLoopsMC;
-	attrLst = cFerro == 0 ? attrLstLoops : attrLstLoopsFerro;
-	# ["divNum","itNum","cArea","cPerim","beta"];
-	valLst = Any[divNum, itNum, cArea, cPerim, beta];
-	if cFerro != 0
-		push!( valLst, cFerro );
-	end
+	valLst = Any[divNum, itNum, cArea, cPerim];
+	attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; beta = beta, cFerro = cFerro );
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	
 	save( fName, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta );
@@ -355,7 +385,7 @@ function updateLinkFrom0ByB( BfieldLst, linkLst, linkFerroLst, params::ParamsLoo
 					end
 				end
 			end
-			@infiltrate
+			# @infiltrate
 		end
 	end
 end
@@ -415,6 +445,6 @@ include("loops_MC_resave_funcs.jl")
 
 include("loops_MC_old_funcs.jl")
 
-
+include("loops_MC_attr_printing.jl");
 
 end #endmodule
