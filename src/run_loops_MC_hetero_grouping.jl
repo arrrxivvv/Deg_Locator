@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runSaveParam;
+runChoice = runFull;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -37,33 +37,33 @@ isInit0Lst = [false];
 divNumLst = [64];
 # itNumLst = [10000];
 # itNumLst = [2000];
-# itNumLstLst = [[10000],[2000]];
-itNumLstLst = [[200],[100]];
+itNumLstLst = [[10000],[2000]];
+# itNumLstLst = [[50],[30]];
 
 cFerroRatioLst = [0];
 sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
-cRadiusLst = [1:0.2:1.2;];
-cAngleLst = [0.6:0.2:0.6;].*pi/2;
+cRadiusLst = [0.6:0.2:3;];
+cAngleLst = [0.6:0.2:0.8;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
 # cAreaLst = [-1.0];
-# cAreaLst = [-7:1.0:7;];
-cAreaLst = [-7:1.0:-7;];
+cAreaLst = [-7:1.0:7;];
+# cAreaLst = [-7:1.0:-7;];
 cPerimLst = [-1.0:-1:-3;];
 lnCPerim = length(cPerimLst);
 cAreaLstScaledLst = cAreaLst .* [1:lnCPerim;]';
 cFerroLst = [0.0];
 cartesianGrp = Loops_MC.CartesianParamsGroup( cAreaLst, cPerimLst, cFerroLst );
-cartesianGrpLst = [Loops_MC.CartesianParamsGroup( @view(cAreaLstScaledLst[:,iGrp]), cPerimLst[iGrp:iGrp], cFerroLst ) for iGrp = 1 : lnCPerim];
+cartesianGrpLstShort = Loops_MC.ParamsGroup[cartesianGrp];
+cartesianGrpLst = Loops_MC.ParamsGroup[Loops_MC.CartesianParamsGroup( cAreaLstScaledLst[:,iGrp], cPerimLst[iGrp:iGrp], copy(cFerroLst) ) for iGrp = 1 : lnCPerim];
 
 paramsGroupLstFlat = [radiusGrp,cartesianGrp];
 
 paramsGroupLst = Loops_MC.ParamsGroup[radiusGrp,cartesianGrp];
 radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
-cartesianGrpLst = Loops_MC.ParamsGroup[cartesianGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
@@ -109,7 +109,6 @@ updaterType = Loops_MC.StaggeredCubeUpdater;
 
 itNumLstIn = itNumLstLst;
 paramsGroupLst = paramsGroupLstLst;
-
 
 if isRunSim
 	# for paramsGrpLst in paramsGroupLstLst

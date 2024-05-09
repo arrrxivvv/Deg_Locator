@@ -259,8 +259,9 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} whe
 	linkDimLst = params.linkDimLst;
 	linkDimShLst = params.linkDimShLst;
 	
-	itStep = Int64( floor(itNum / itNumSample) );
+	itStep = max( Int64( floor(itNum / itNumSample) ), 1 );
 	lnSample = Int64( floor( itNum / itStep ) );
+	itStartSample = min( itStartSample, itNum );
 	
 	zakLstLst = zeros( Bool, divNum, divNum, nDim, itNum );
 
@@ -324,15 +325,6 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} whe
 	
 	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
 	
-	# fModOut = fMod;
-	# fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
-	# if isInit0
-		# # if !isempty(fMod)
-			# # fModOut *= "_";
-		# # end
-		# # fModOut *= "isInit0";
-		# fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
-	# end
 	fModOut = getFModLoopsMC( fMod, updaterType, isInit0 );
 	
 	fMain = fMainLoopsMC;
@@ -351,14 +343,12 @@ function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} whe
 	save( fNameZakLst, "zakLstLst", zakLstLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
 	save( fNameZakSample, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
 	
-	# oFNameLoopsMain = "loopsSample";
 	oFNameLoops = fNameFunc( oFNameLoopsMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
 	
 	oFNameLoopsNum = fNameFunc( oFNameLoopsNumMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	save( oFNameLoopsNum, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
 	
-	# oFNameLoopsStartMain = "loopsStartSample";
 	oFNameLoopsStart = fNameFunc( oFNameLoopsStartMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
 	
