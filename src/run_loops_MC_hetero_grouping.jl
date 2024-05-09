@@ -30,56 +30,40 @@ isTestingParam = false;
 # cAreaLst = [2:1:10;];
 # cPerimLst = -[2];
 
-# # betaLst = [0.2,0.5,1,2,3,10,100];
-# # betaLst = [0.2,1,3,10];
-# betaLst = [0.2:0.2:3;];
-# # betaLst = [5:1:15;];
-# betaBase = 1;
-# # cRatioLst = exp.( [-2:0.4:2;] );
-# cRatioLst = exp.( [-1:1:1;] );
-# # cRatioLst = exp.( [-1:0.4:1;] );
-# # cRatioLst = exp.( [-5:1:-1;] );
-# # cRatioLst = exp.( [-3:1:-3;] );
-# # cRatioLst = exp.( [-1:1:-1;] );
-# # cFerroLst = [0:0.1:1;];
-# # cFerroRatioLst = exp.( [-1:1:5;] );
-# cFerroRatioLst = [0];
-# # sgnAreaLst = [1,-1];
-# # sgnPerimLst = [1,-1];
-# sgnAreaLst = [1];
-# sgnPerimLst = [1];
-
-isInit0Lst = [false,true];
-
-divNumLst = [64];
-
 fNameLst = Vector{String}(undef,0);
 
-itNumLst = [10000];
-itNumLstLst = {[10000],[2000]};
+# isInit0Lst = [false,true];
+isInit0Lst = [false];
+divNumLst = [64];
+# itNumLst = [10000];
+# itNumLst = [2000];
+# itNumLstLst = [[10000],[2000]];
+itNumLstLst = [[200],[100]];
+
 cFerroRatioLst = [0];
 sgnAreaLst = [1];
 sgnPerimLst = [1];
-
-isInit0Lst = [false];
-
-cRadiusLst = [0.2:0.2:3;];
-cAngleLst = [0.6:0.2:0.8;].*pi/2;
-# cAngleLst = [0.2:0.2:0.2;].*pi/2;
+# cRadiusLst = [0.2:0.2:3;];
+cRadiusLst = [1:0.2:1.2;];
+cAngleLst = [0.6:0.2:0.6;].*pi/2;
+# cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
-
 # cAreaLst = [-1.0];
-cAreaLst = [-7:1.0:7;];
+# cAreaLst = [-7:1.0:7;];
+cAreaLst = [-7:1.0:-7;];
 cPerimLst = [-1.0:-1:-3;];
 lnCPerim = length(cPerimLst);
 cAreaLstScaledLst = cAreaLst .* [1:lnCPerim;]';
 cFerroLst = [0.0];
 cartesianGrp = Loops_MC.CartesianParamsGroup( cAreaLst, cPerimLst, cFerroLst );
-cartesianGrpLst = [Loops_MC.CartesianParamsGroup( @view(cAreaLstScaledLst[:,iGrp]), cPerimLst, cFerroLst ) for iGrp = 1 : lnCPerim];
+cartesianGrpLst = [Loops_MC.CartesianParamsGroup( @view(cAreaLstScaledLst[:,iGrp]), cPerimLst[iGrp:iGrp], cFerroLst ) for iGrp = 1 : lnCPerim];
+
+paramsGroupLstFlat = [radiusGrp,cartesianGrp];
 
 paramsGroupLst = Loops_MC.ParamsGroup[radiusGrp,cartesianGrp];
-radiusGrpLst = [Loops_MC.ParamsGroup[radiusGrp]];
+radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
+cartesianGrpLst = Loops_MC.ParamsGroup[cartesianGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
@@ -118,18 +102,25 @@ end
 # updaterType = Loops_MC.ABUpdater;
 updaterType = Loops_MC.StaggeredCubeUpdater;
 
-# paramsGroupLst = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
+# paramsGroupLstFlat = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
+
+# itNumLst = itNumLst;
+# paramsGroupLst = paramsGroupLstFlat;
+
+itNumLstIn = itNumLstLst;
+paramsGroupLst = paramsGroupLstLst;
+
 
 if isRunSim
-	for paramsGrpLst in paramsGroupLstLst
-		Loops_MC.runLoopMC_withParamsGroup( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrpLst; fMod = fMod );
-	end
+	# for paramsGrpLst in paramsGroupLstLst
+	Loops_MC.runLoopMC_withParamsGroup( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMod = fMod );
+	# end
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGroupLst; fMain = fMainCollect, fMod = fMod );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMain = fMainCollect, fMod = fMod );
 end
 
 if isRunSaveParam
-	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGroupLst; fMod = fMod );
+	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMod = fMod );
 end

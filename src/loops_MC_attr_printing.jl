@@ -1,7 +1,7 @@
 #Loops_MC funcs
 #printing attribute values
 
-function summarizeArrAttr( arr::Array )
+function summarizeArrAttr( arr::AbstractArray )
 	if isempty(arr)
 		throw( ArgumentError( "array is empty" ) );
 	elseif length(arr) == 1
@@ -19,7 +19,7 @@ function roundKeepInt( num::Number; digits )
 	end
 end
 
-function summarizeArrAttrRound( arr::Array{<:Number}; digs = 3 )
+function summarizeArrAttrRound( arr::AbstractArray{<:Number}; digs = 3 )
 	arrAttr = summarizeArrAttr( arr );
 	if !(eltype(arr) <: Int)
 		arrAttr = roundKeepInt.( arrAttr; digits = digs );

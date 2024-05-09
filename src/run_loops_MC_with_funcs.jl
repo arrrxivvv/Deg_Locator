@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runSaveParam;
+runChoice = runFileLst;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -22,7 +22,7 @@ end
 fModSmartOld = "smart";
 fModStag = "stag";
 # fMod = fModSmartOld;
-fMod = fModStag;
+# fMod = fModStag;
 # fMod = "";
 
 # isFModMethod = true;

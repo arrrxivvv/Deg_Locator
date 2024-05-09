@@ -6,6 +6,9 @@ fNameFileLstLst = "fNameFileLstLst.txt";
 fNameFileLstJld2Lst = "fNameFileLstJld2Lst.txt";
 fNameSaveParamsLst = "fNameSaveParamsLst.txt";
 
+attrLstLttc = ["div", "it", "isInit0"];
+getAttrLstLttc() = deepcopy(attrLstLttc);
+
 abstract type ParamsGroup end
 
 errMsgParamsGrpUndefined = "params group not implemented";
@@ -79,32 +82,6 @@ function getGroupValLst( grp::BetaParamsGroup; digs = 3 )
 	append!( valLst, summarizeArrAttrRound.( [grp.betaLst, grp.cRatioLst, grp.cFerroRatioLst]; digs = digs ), summarizeArrBoolAttr.([grp.sgnAreaLst, grp.sgnPerimLst]) );
 	return valLst;
 end
-
-# function paramsLstFromGroup( grp::BetaParamsGroup )
-	# betaLst = grp.betaLst;
-	# cRatioLst = grp.cRatioLst;
-	# cFerroRatioLst = grp.cFerroRatioLst;
-	# sgnAreaLst = grp.sgnAreaLst;
-	# sgnPerimLst = grp.sgnPerimLst;
-	# cAreaLst = zeros( length(betaLst), length(cRatioLst), length(cFerroRatioLst), length(sgnAreaLst), length(sgnPerimLst) );
-	# cPerimLst = similar(cAreaLst);
-	# cFerroLst = similar(cAreaLst);
-	
-	# for iBeta = 1 : length(betaLst), iRatio = 1 : length(cRatioLst), iFerroRatio = 1 : length(cFerroRatioLst), iSgnArea = 1 : length(sgnAreaLst), iSgnPerim = 1 : length(sgnPerimLst), iInit0 = 1 : length(isInit0Lst)
-		# cRatio = cRatioLst[iRatio];
-		# beta = betaLst[iBeta];
-		# cFerroRatio = cFerroRatioLst[iFerroRatio];
-		# sgnArea = sgnAreaLst[iSgnArea];
-		# sgnPerim = sgnPerimLst[iSgnPerim];
-		# cArea, cPerim, cFerro = paramsFromBetaRatio( beta, cRatio, cFerroRatio, sgnArea, sgnPerim );
-		
-		# cAreaLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cArea;
-		# cPerimLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cPerim;
-		# cFerroLst[iBeta, iRatio, iFerroRatio, iSgnArea, iSgnPerim] = cFerro;
-	# end
-	
-	# return cAreaLst, cPerimLst, cFerroLst;
-# end
 
 function paramsFromBetaRatio( beta, cRatio, cFerroRatio, sgnArea, sgnPerim )
 	cRatioSq = sqrt(cRatio);
@@ -181,11 +158,11 @@ function getGroupValLst( grp::RadiusParamsGroup; digs = 3 )
 end
 
 struct CartesianParamsGroup <: ParamsGroup
-	cAreas::Vector{Float64};
-	cPerims::Vector{Float64};
-	cFerros::Vector{Float64};
+	cAreas::AbstractVector{Float64};
+	cPerims::AbstractVector{Float64};
+	cFerros::AbstractVector{Float64};
 	
-	groupParamsLst::Vector{<:Vector};
+	groupParamsLst::Vector{<:AbstractVector};
 	paramsLst::Vector{<:Array{Float64}};
 	
 	function CartesianParamsGroup( cAreas, cPerims, cFerros )
@@ -219,6 +196,16 @@ function getGroupValLst( grp::CartesianParamsGroup; digs = 3 )
 	return valLst;
 end
 
+function getAttrValGroup( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrp::ParamsGroup )
+	attrLstFLst = getAttrLstLttc();
+	valLstFLst = Any[];
+	append!( valLstFLst, summarizeArrAttr.( [divNumLst, itNumLst] ), summarizeArrBoolAttr.([isInit0Lst]) );
+	append!( attrLstFLst, getGroupAttr( paramsGrp ) );
+	append!( valLstFLst, getGroupValLst( paramsGrp ) );
+	
+	return attrLstFLst, valLstFLst;
+end
+
 function getAttrValGroupsSummarized( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup} )
 	attrLstFLst = ["div", "it", "isInit0"];
 	valLstFLst = Any[];
@@ -226,6 +213,28 @@ function getAttrValGroupsSummarized( divNumLst::Vector{Int64}, itNumLst::Vector{
 	for iGrp = 1 : length(paramsGrpLst)
 		append!( attrLstFLst, getGroupAttr( paramsGrpLst[iGrp] ) );
 		append!( valLstFLst, getGroupValLst( paramsGrpLst[iGrp] ) );
+	end
+	
+	return attrLstFLst, valLstFLst;
+end
+
+function getAttrValGroupsItNumLstSummarized( divNumLst::Vector{Int64}, itNumLstLst::Vector{Vector{Int64}}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; isAbbrev = false )
+	attrLstFLst = ["div", "it", "isInit0"];
+	itNumLst = deepcopy(itNumLstLst);
+	paramsGrpLst = deepcopy(paramsGrpLstLst);
+	itNumLst = append!(itNumLst...);
+	paramsGrpLst = append!( paramsGrpLst... );
+	valLstFLst = Any[];
+	append!( valLstFLst, summarizeArrAttr.( [divNumLst, itNumLst] ), summarizeArrBoolAttr.([isInit0Lst]) );
+	for iGrp = 1 : length(paramsGrpLst)
+		attrLstTmp = getGroupAttr( paramsGrpLst[iGrp] );
+		valLstTmp = getGroupValLst( paramsGrpLst[iGrp] );
+		if isAbbrev
+			attrLstTmp = attrLstTmp[1:1];
+			valLstTmp = valLstTmp[1:1];
+		end
+		append!( attrLstFLst, attrLstTmp );
+		append!( valLstFLst, valLstTmp );
 	end
 	
 	return attrLstFLst, valLstFLst;
@@ -245,17 +254,20 @@ function getParamLstFromGroupLst( grpLst::Vector{<:ParamsGroup} )
 end
 
 function runLoopMC_withParamsGroup( updaterType::(Type{T} where T <: LoopsUpdater), itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMod = "", betaBase = 1 )
-	# lnGrpLst = length(ParamsGroup);
-	# cAreaLst = Vector{Array{Float64}}(undef, lnGrpLst);
-	# cPerimLst = similar(cAreaLst);
-	# cFerroLst = similar(cAreaLst);
-	
-	# for iGrp = 1 : lnGrpLst
-		# cAreaLst[iParamLst], cPerimLst[iParamLst], cFerroLst[iParamLst] = paramsLstFromGroup( paramsGrpLst[iGrp] );
-	# end
 	cAreaLst, cPerimLst, cFerroLst = getParamLstFromGroupLst( paramsGrpLst );
 	
 	runLoopMC_withParamsBase( updaterType, itNumLst, divNumLst, isInit0Lst, cAreaLst, cPerimLst, cFerroLst; fMod = fMod );
+end
+
+function runLoopMC_withParamsGroup( updaterType::(Type{T} where T <: LoopsUpdater), itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMod = "", betaBase = 1 )
+	# @infiltrate
+	if length(itNumLstLst) != length(paramsGrpLstLst)
+		throw(ArgumentError("itNumLstLst and paramsGrpLstLst lengths different"));
+	end
+	
+	for iItLst = 1 : length(itNumLstLst)
+		runLoopMC_withParamsGroup( updaterType, itNumLstLst[iItLst], divNumLst, isInit0Lst, paramsGrpLstLst[iItLst] );
+	end
 end
 
 function runLoopMC_withParamsBase( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, cAreaLst::Vector{Array{Float64}}, cPerimLst::Vector{Array{Float64}}, cFerroLst::Vector{Array{Float64}}; fMod = "" )
@@ -272,59 +284,295 @@ function runLoopMC_withParamsBase( updaterType::Type{<:LoopsUpdater}, itNumLst::
 	end
 end
 
+# function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3 )
+	# # lnGrpLst = length( paramsGrpLst );
+	# # cAreaLsts, cPerimLsts, cFerroLsts = getParamLstFromGroupLst( paramsGrpLst );
+	# # fNameLst = Vector{String}(undef,0);
+	# # fNameArr = [ Array{String}( undef, length(itNumLst), length(divNumLst), length(isInit0Lst), size(cAreaLsts[iGrp])... ) for iGrp = 1 : lnGrpLst ];
+	# # for iIt = 1 : length(itNumLst), iDiv = 1 : length(divNumLst), iInit0 = 1 : length(isInit0Lst), iParamLst = 1 : length(paramsGrpLst)
+		# # cAreaLst = cAreaLsts[iParamLst];
+		# # cPerimLst = cPerimLsts[iParamLst];
+		# # cFerroLst = cFerroLsts[iParamLst];
+		# # for idParam in CartesianIndices(cAreaLst)
+			# # itNum = itNumLst[iIt];
+			# # divNum = divNumLst[iDiv];
+			# # isInit0 = isInit0Lst[iInit0];
+			# # cArea = cAreaLst[idParam];
+			# # cPerim = cPerimLst[idParam];
+			# # cFerro = cFerroLst[idParam];
+			
+			# # attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; cFerro = cFerro );
+			# # fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
+			# # fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModFull );
+			
+			# # push!( fNameLst, fName );
+			# # # fNameArr[iIt,iDiv,iInit0,iParamLst][idParam] = fName;
+			# # fNameArr[iParamLst][iIt,iDiv,iInit0,idParam] = fName;
+			# # GC.gc()
+		# # end
+	# # end
+	# # fNameArr, fNameLst = genFNameLstInJuliaArr( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrpLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	# fNameLst, fGrpLstName = genFNameGrpLsArrSaved( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrpLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	
+	# fLstMain = fMain * "_fLst";
+	# fLstJld2Main = fLstMain * "Jld2";
+	# fLstJld2MasterMain = fLstMain * "Jld2" * "Master";
+	# attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst );
+	# fModFLst = getFModLoopsMC( fMod, updaterType );
+	# fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
+	# fLstJld2MasterName = fNameFunc( fLstJld2MasterMain, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+	# fLstJld2NameLst = Vector{String}(undef, length(paramsGrpLst));
+	# for iGrp = 1 : length(paramsGrpLst)
+		# attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst[[iGrp]] );
+		# fLstJld2NameLst[iGrp] = fNameFunc( fLstJld2Main, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+		# save( fLstJld2NameLst[iGrp], "fNameArr", fNameArr[iGrp] );
+	# end
+	# writedlm( fLstName, fNameLst );
+	# save( fLstJld2MasterName, "fLstNameLst", fLstJld2NameLst, "fNameArrGroups", fNameArr );
+	
+	# open(dirLog * fNameFileLstLst, "w") do io
+		# println(io, fLstName);
+	# end
+	# open( dirLog * fNameFileLstJld2Lst, "w" ) do io
+		# println(io, fLstJld2MasterName);
+	# end
+	
+	# return fLstName;
+# end
+
 function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3 )
-	lnGrpLst = length( paramsGrpLst );
-	cAreaLsts, cPerimLsts, cFerroLsts = getParamLstFromGroupLst( paramsGrpLst );
-	fNameLst = Vector{String}(undef,0);
-	# fNameArr = [ Array{String}(undef,size(cAreaLsts[iGrp])) for iIt = 1:length(itNumLst), iDiv = 1:length(divNumLst), iInit0 = 1 : length(isInit0Lst), iGrp = 1 : lnGrpLst ];
-	fNameArr = [ Array{String}( undef, length(itNumLst), length(divNumLst), length(isInit0Lst), size(cAreaLsts[iGrp])... ) for iGrp = 1 : lnGrpLst ];
-	for iIt = 1 : length(itNumLst), iDiv = 1 : length(divNumLst), iInit0 = 1 : length(isInit0Lst), iParamLst = 1 : length(paramsGrpLst)
-		cAreaLst = cAreaLsts[iParamLst];
-		cPerimLst = cPerimLsts[iParamLst];
-		cFerroLst = cFerroLsts[iParamLst];
-		for idParam in CartesianIndices(cAreaLst)
-			itNum = itNumLst[iIt];
-			divNum = divNumLst[iDiv];
-			isInit0 = isInit0Lst[iInit0];
-			cArea = cAreaLst[idParam];
-			cPerim = cPerimLst[idParam];
-			cFerro = cFerroLst[idParam];
-			
-			attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; cFerro = cFerro );
-			fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
-			fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModFull );
-			
-			push!( fNameLst, fName );
-			# fNameArr[iIt,iDiv,iInit0,iParamLst][idParam] = fName;
-			fNameArr[iParamLst][iIt,iDiv,iInit0,idParam] = fName;
-			GC.gc()
-		end
-	end
+	fNameLst, fGrpLstName = genFNameGrpLstArrSaved( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrpLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
 	
 	fLstMain = fMain * "_fLst";
-	fLstJld2Main = fLstMain * "Jld2";
-	fLstJld2MasterMain = fLstMain * "Jld2" * "Master";
 	attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst );
 	fModFLst = getFModLoopsMC( fMod, updaterType );
 	fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
-	fLstJld2MasterName = fNameFunc( fLstJld2MasterMain, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
-	fLstJld2NameLst = Vector{String}(undef, length(paramsGrpLst));
-	for iGrp = 1 : length(paramsGrpLst)
-		attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst[[iGrp]] );
-		fLstJld2NameLst[iGrp] = fNameFunc( fLstJld2Main, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
-		save( fLstJld2NameLst[iGrp], "fNameArr", fNameArr[iGrp] );
-	end
 	writedlm( fLstName, fNameLst );
-	save( fLstJld2MasterName, "fLstNameLst", fLstJld2NameLst, "fNameArrGroups", fNameArr );
 	
 	open(dirLog * fNameFileLstLst, "w") do io
 		println(io, fLstName);
 	end
 	open( dirLog * fNameFileLstJld2Lst, "w" ) do io
-		println(io, fLstJld2MasterName);
+		println(io, fGrpLstName);
 	end
 	
 	return fLstName;
+end
+
+# function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMain::String, fMod = "", rndDigits::Int64 = 3, isAbbrev = true )
+	# lnItNums = length(itNumLstLst);
+	# if lnItNums != length(paramsGrpLstLst)
+		# throw(ArgumentError("itNumLstLst and paramsGrpLstLst lengths different"));
+	# end	
+	
+	# fNameLst, fItGrpLstName = ;
+	
+	# # fLstJld2NameLstLst = Vector{Vector{String}}(undef,lnItNums);
+	# fLstJld2MasterNameLst = Vector{String}(undef,lnItNums);
+	# fNameLstLst = Vector{Vector{String}}(undef,lnItNums);
+	
+	# # fLstJld2NameLst, fLstJld2MasterName
+	
+	# for iIt = 1 : lnItNums
+		# fNameLstLst[iIt], fLstJld2MasterNameLst[iIt] = genFNameLstInJuliaArr( updaterType, itNumLstLst[iIt], divNumLst, isInit0Lst, paramsGrpLstLst[iIt]; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	# end
+	
+	# fNameLst = append!( fNameLstLst... );
+	
+	# fLstMain = fMain * "_fLst";
+	# fJld2MasterMain = fMain * "_Jld2Master" * "_itNumLst"
+	# attrLstFLst, valLstFLst = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
+	# fModFLst = getFModLoopsMC( fMod, updaterType );
+	# fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
+	# fLstJld2MasterName = fNameFunc( fJld2MasterMain, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+	# save( fLstJld2MasterName, "fLstJld2MasterNameLst", fLstJld2MasterNameLst );
+	
+	# open(dirLog * fNameFileLstLst, "w") do io
+		# println(io, fLstName);
+	# end
+	# open( dirLog * fNameFileLstJld2Lst, "w" ) do io
+		# println(io, fLstJld2MasterName);
+	# end
+	
+	# return fLstName;
+# end
+
+function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMain::String, fMod = "", rndDigits::Int64 = 3, isAbbrev = true )
+	lnItNums = length(itNumLstLst);
+	if lnItNums != length(paramsGrpLstLst)
+		throw(ArgumentError("itNumLstLst and paramsGrpLstLst lengths different"));
+	end	
+	
+	fNameLst, fItGrpLstName = genFNameItGrpLstArrSaved( updaterType, itNumLstLst, divNumLst, isInit0Lst, paramsGrpLstLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits, isAbbrev = isAbbrev )
+	
+	fLstMain = fMain * "_fLst";
+	attrLstFLst, valLstFLst = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
+	fModFLst = getFModLoopsMC( fMod, updaterType );
+	fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
+	
+	open(dirLog * fNameFileLstLst, "w") do io
+		println(io, fLstName);
+	end
+	open( dirLog * fNameFileLstJld2Lst, "w" ) do io
+		println(io, fItGrpLstName);
+	end
+	
+	return fLstName;
+end
+
+# function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMain::String, fMod = "", rndDigits::Int64 = 3, isAbbrev = true )
+	# lnItNums = length(itNumLstLst);
+	# if lnItNums != length(paramsGrpLstLst)
+		# throw(ArgumentError("itNumLstLst and paramsGrpLstLst lengths different"));
+	# end	
+	
+	# # fLstJld2NameLstLst = Vector{Vector{String}}(undef,lnItNums);
+	# fLstJld2MasterNameLst = Vector{String}(undef,lnItNums);
+	# fNameLstLst = Vector{Vector{String}}(undef,lnItNums);
+	
+	# # fLstJld2NameLst, fLstJld2MasterName
+	
+	# for iIt = 1 : lnItNums
+		# fNameLstLst[iIt], fLstJld2MasterNameLst[iIt] = genFNameLstInJuliaArr( updaterType, itNumLstLst[iIt], divNumLst, isInit0Lst, paramsGrpLstLst[iIt]; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	# end
+	
+	# fNameLst = append!( fNameLstLst... );
+	
+	# fLstMain = fMain * "_fLst";
+	# fJld2MasterMain = fMain * "_Jld2Master" * "_itNumLst"
+	# attrLstFLst, valLstFLst = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
+	# fModFLst = getFModLoopsMC( fMod, updaterType );
+	# fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
+	# fLstJld2MasterName = fNameFunc( fJld2MasterMain, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+	# save( fLstJld2MasterName, "fLstJld2MasterNameLst", fLstJld2MasterNameLst );
+	
+	# open(dirLog * fNameFileLstLst, "w") do io
+		# println(io, fLstName);
+	# end
+	# open( dirLog * fNameFileLstJld2Lst, "w" ) do io
+		# println(io, fLstJld2MasterName);
+	# end
+	
+	# return fLstName;
+# end
+
+# function genFNameLstInJuliaArr( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3 )
+	# lnGrpLst = length( paramsGrpLst );
+	# cAreaLsts, cPerimLsts, cFerroLsts = getParamLstFromGroupLst( paramsGrpLst );
+	# fNameLst = Vector{String}(undef,0);
+	# fNameArr = [ Array{String}( undef, length(itNumLst), length(divNumLst), length(isInit0Lst), size(cAreaLsts[iGrp])... ) for iGrp = 1 : lnGrpLst ];
+	# for iIt = 1 : length(itNumLst), iDiv = 1 : length(divNumLst), iInit0 = 1 : length(isInit0Lst), iParamLst = 1 : length(paramsGrpLst)
+		# cAreaLst = cAreaLsts[iParamLst];
+		# cPerimLst = cPerimLsts[iParamLst];
+		# cFerroLst = cFerroLsts[iParamLst];
+		# for idParam in CartesianIndices(cAreaLst)
+			# itNum = itNumLst[iIt];
+			# divNum = divNumLst[iDiv];
+			# isInit0 = isInit0Lst[iInit0];
+			# cArea = cAreaLst[idParam];
+			# cPerim = cPerimLst[idParam];
+			# cFerro = cFerroLst[idParam];
+			
+			# attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; cFerro = cFerro );
+			# fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
+			# fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModFull );
+			
+			# push!( fNameLst, fName );
+			# fNameArr[iParamLst][iIt,iDiv,iInit0,idParam] = fName;
+			# GC.gc()
+		# end
+	# end
+	
+	# fLstMain = fMain * "_fLst";
+	# fLstJld2Main = fLstMain * "Jld2";
+	# fLstJld2MasterMain = fLstMain * "Jld2" * "Master";
+	# attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst );
+	# fModFLst = getFModLoopsMC( fMod, updaterType );
+	# fLstJld2MasterName = fNameFunc( fLstJld2MasterMain, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+	# fLstJld2NameLst = Vector{String}(undef, length(paramsGrpLst));
+	# for iGrp = 1 : length(paramsGrpLst)
+		# attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst[[iGrp]] );
+		# fLstJld2NameLst[iGrp] = fNameFunc( fLstJld2Main, attrLstFLst, valLstFLst, jld2Type; fMod = fModFLst );
+		# save( fLstJld2NameLst[iGrp], "fNameArr", fNameArr[iGrp] );
+	# end
+	# save( fLstJld2MasterName, "fLstNameLst", fLstJld2NameLst, "fNameArrGroups", fNameArr );
+	
+	# return fNameLst, fLstJld2MasterName;
+# end
+
+function genFNameItGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMain::String, fMod = "", rndDigits::Int64 = 3, isAbbrev = true )
+	fNameLstLst = Vector{Vector{String}}(undef, length(itNumLstLst));
+	fNameJld2Lst = Vector{String}(undef,length(itNumLstLst));
+	for iIt = 1 : length(itNumLstLst)
+		fNameLstLst[iIt], fNameJld2Lst[iIt] = genFNameGrpLstArrSaved( updaterType, itNumLstLst[iIt], divNumLst, isInit0Lst, paramsGrpLstLst[iIt]; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	end
+	fNameLst = append!(fNameLstLst...);
+	
+	fLstMain = fMain * "_fLst";
+	fItGrpLstMain = fMain * "_fArr" * "ItLstGrp";
+	attrFLstItLstGrp, valFLstItLstGrp = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
+	fModFull = getFModLoopsMC( fMod, updaterType );
+	fItGrpLstName = fNameFunc( fItGrpLstMain, attrFLstItLstGrp, valFLstItLstGrp, jld2Type; fMod = fModFull );
+	
+	save( fItGrpLstName, "fLstJld2MasterNameLst", fNameJld2Lst );
+	
+	return fNameLst, fItGrpLstName;
+end
+
+function genFNameGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3 )
+	fNameLstLst = Vector{Vector{String}}(undef, length(paramsGrpLst));
+	fNameJld2Lst = Vector{String}(undef,length(paramsGrpLst));
+	for iGrp = 1 : length(paramsGrpLst)
+		fNameLstLst[iGrp], fNameJld2Lst[iGrp] = genFNameLstArrSaved( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrpLst[iGrp]; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	end
+	fNameLst = append!(fNameLstLst...);
+	
+	fLstMain = fMain * "_fLst";
+	fGrpLstMain = fMain * "_fArr" * "Grp";
+	attrFLstGrp, valFLstGrp = getAttrValGroupsSummarized( divNumLst, itNumLst, isInit0Lst, paramsGrpLst );
+	fModFull = getFModLoopsMC( fMod, updaterType );
+	fGrpLstName = fNameFunc( fGrpLstMain, attrFLstGrp, valFLstGrp, jld2Type; fMod = fModFull );
+	
+	save( fGrpLstName, "fLstNameLst", fNameJld2Lst );
+	
+	return fNameLst, fGrpLstName;
+end
+
+function genFNameLstArrSaved( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrp::ParamsGroup; fMain::String, fMod = "", rndDigits::Int64 = 3 )
+	fNameLst, fNameArr = genFNameLstInJuliaArr( updaterType, itNumLst, divNumLst, isInit0Lst, paramsGrp; fMain = fMain, fMod = fMod, rndDigits = rndDigits );
+	
+	fLstMain = fMain * "_fLst";
+	fLstJld2Main = fMain * "_fArr" * "Jld2";
+	attrLstFLst, valLstFLst = getAttrValGroup( divNumLst, itNumLst, isInit0Lst, paramsGrp );
+	fModFull = getFModLoopsMC( fMod, updaterType );
+	fLstJld2Name = fNameFunc( fLstJld2Main, attrLstFLst, valLstFLst, jld2Type; fMod = fModFull );
+	save(fLstJld2Name, "fNameArr", fNameArr);
+	
+	return fNameLst, fLstJld2Name;
+end
+
+function genFNameLstInJuliaArr( updaterType::Type{<:LoopsUpdater}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrp::ParamsGroup; fMain::String, fMod = "", rndDigits::Int64 = 3 )
+	cAreaLst, cPerimLst, cFerroLst = paramsGrp.paramsLst;
+	fNameLst = Vector{String}(undef,0);
+	fNameArr = Array{String}( undef, length(itNumLst), length(divNumLst), length(isInit0Lst), size(cAreaLst)... );
+	for iIt = 1 : length(itNumLst), iDiv = 1 : length(divNumLst), iInit0 = 1 : length(isInit0Lst), idParam in CartesianIndices(cAreaLst)
+		itNum = itNumLst[iIt];
+		divNum = divNumLst[iDiv];
+		isInit0 = isInit0Lst[iInit0];
+		cArea = cAreaLst[idParam];
+		cPerim = cPerimLst[idParam];
+		cFerro = cFerroLst[idParam];
+		
+		attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; cFerro = cFerro );
+		fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
+		fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModFull );
+		
+		push!( fNameLst, fName );
+		fNameArr[iIt,iDiv,iInit0,idParam] = fName;
+		GC.gc()
+	end
+	
+	return fNameLst, fNameArr;
 end
 
 function saveParamsLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMod = "", rndDigits = 3 )
@@ -349,6 +597,47 @@ function saveParamsLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNum
 	end
 	
 	return fParamName;
+end
+
+function saveParamsLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMod = "", rndDigits = 3, isAbbrev = true )
+	cParamsLstLst = getParamLstFromGroupLst.( paramsGrpLstLst );
+	cAreaLst = [ cParamsLstLst[iIt][1] for iIt = 1 : length(itNumLstLst) ];
+	cPerimLst = [ cParamsLstLst[iIt][2] for iIt = 1 : length(itNumLstLst) ];
+	cFerroLst = [ cParamsLstLst[iIt][3] for iIt = 1 : length(itNumLstLst) ];
+	toString2Depth = b -> (a->string.(a)).(b);
+	cAreaLstStr = toString2Depth.(cAreaLst);
+	cPerimLstStr = toString2Depth.(cPerimLst);
+	cFerroLstStr = toString2Depth.(cFerroLst);
+	
+	fParamMain = "loopsMC_params";
+	attrLstParamLst, valLstParamLst = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
+	fModFull = getFModLoopsMC( fMod, updaterType );
+	
+	grpNameLst = ( (a)->getGroupName.(a) ).( paramsGrpLstLst );
+	grpParamsNameLst = ( (a)->getGroupAttr.(a) ).( paramsGrpLstLst );
+	grpParamsLst = (  (a)->getGroupParamsLst.(a) ).( paramsGrpLstLst );
+	
+	fParamName = fNameFunc( fParamMain, attrLstParamLst, valLstParamLst, jld2Type; fMod = fModFull );
+	save( fParamName, "itNumLst", itNumLstLst, "divNumLst", divNumLst, "isInit0Lst", isInit0Lst, "grpNameLst", grpNameLst, "grpParamsNameLst", grpParamsNameLst, "grpParamsLst", grpParamsLst, "cAreaLst", cAreaLst, "cAreaLstStr", cAreaLstStr, "cPerimLst", cPerimLst, "cPerimLstStr", cPerimLstStr, "cFerroLst", cFerroLst, "cFerroLstStr", cFerroLstStr );
+	
+	open( dirLog * fNameSaveParamsLst, "w" ) do io
+		println( io, fParamName );
+	end
+	
+	return fParamName;
+end
+
+function getParamsLoopMCInJulia( updaterType::(Type{T} where T <: LoopsUpdater), itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; fMod = "", rndDigits = 3 )
+	cAreaLst, cPerimLst, cFerroLst = getParamLstFromGroupLst( paramsGrpLst );
+	cAreaLstStr = (a->string.(a)).(cAreaLst);
+	cPerimLstStr = (a->string.(a)).(cPerimLst);
+	cFerroLstStr = (a->string.(a)).(cFerroLst);
+	
+	grpNameLst = getGroupName.( paramsGrpLst );
+	grpParamsNameLst = getGroupAttr.( paramsGrpLst );
+	grpParamsLst = getGroupParamsLst.( paramsGrpLst );
+	
+	return cAreaLst, cPerimLst, cFerroLst, cAreaLstStr, cPerimLstStr, cFerroLstStr, grpNameLst, grpParamsNameLst, grpParamsLst;
 end
 
 function genFNameLstLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, betaLst::Vector{Float64}, cRatioLst::Vector{Float64}, cFerroRatioLst::Vector, sgnAreaLst::Vector{Int64}, sgnPerimLst::Vector{Int64}, isInit0Lst::Vector{Bool}; fMain::String, fMod = "", betaBase = 1, isFModMethod = true, rndDigits = 3 )
@@ -380,11 +669,11 @@ function genFNameLstLoopMC( updaterType::(Type{T} where T <: LoopsUpdater), itNu
 			# push!( valLst, cFerro );
 		# end
 		attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; beta = betaBase, cFerro = cFerro );
-		# fModFull = fModWithMethod;
-		# if isInit0
-			# fModFull = Utils.strAppendWith_( fModWithMethod, "isInit0" );
-		# end
-		fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
+		fModFull = fModWithMethod;
+		if isInit0
+			fModFull = Utils.strAppendWith_( fModWithMethod, "isInit0" );
+		end
+		# fModFull = getFModLoopsMC( fMod, updaterType, isInit0 );
 		fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModFull );
 		
 		push!( fNameLst, fName );
