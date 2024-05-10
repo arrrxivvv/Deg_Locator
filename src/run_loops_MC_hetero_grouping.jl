@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runFull;
+runChoice = runSaveParam;
 
 isRunSim = false;
 isRunFileLst = false;

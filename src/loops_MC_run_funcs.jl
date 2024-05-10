@@ -309,6 +309,7 @@ function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vect
 	attrLstFLst, valLstFLst = getAttrValGroupsItNumLstSummarized( divNumLst, itNumLstLst, isInit0Lst, paramsGrpLstLst; isAbbrev = isAbbrev );
 	fModFLst = getFModLoopsMC( fMod, updaterType );
 	fLstName = fNameFunc( fLstMain, attrLstFLst, valLstFLst, ".txt"; fMod = fModFLst );
+	writedlm( fLstName, fNameLst );
 	
 	open(dirLog * fNameFileLstLst, "w") do io
 		println(io, fLstName);
