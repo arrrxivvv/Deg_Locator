@@ -1005,11 +1005,25 @@ end
 
 function boolToOnePN( varBool::Bool )
 	# return -(-1).^varBool;
-	return varBool ? 1 : -1;
+	return varBool ? -1 : 1;
+end
+
+function boolToOnePN( varBoolNum::Real; cnt::Int64 = 1 )
+	# return -(-1).^varBool;
+	return cnt - 2*varBoolNum;
+end
+
+function onePNToBool( varOnePN::Real; cnt::Int64 = 1 )
+	# return -(-1).^varBool;
+	return Int64( ( cnt - varOnePN ) / 2 );
 end
 
 function boolToFlipChange( sBool::Bool )
-	return - boolToOnePN( sBool )
+	return boolToOnePN( sBool )
+end
+
+function boolToFlipOnePNChange( sBool::Bool )
+	return -2 * boolToOnePN( sBool );
 end
 
 function ratioToBinId( ratio::Number, divNum::Int64 )
