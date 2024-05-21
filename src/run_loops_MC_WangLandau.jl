@@ -9,7 +9,7 @@ fLstName = "Loops_MC_WangLandau.txt";
 
 fNameLst = Vector{String}(undef,0);
 
-@time fName = Loops_MC.loops_MC_methods_WangLandau( divNum, (divNum^3)^2 * 10000; cAreaInit = 3, dosIncrInit = 2.0, histDivNum = divNum^2 );
+@time fName = Loops_MC.loops_MC_methods_WangLandau( divNum, (divNum^3)^2 * 10; cAreaInit = 3, dosIncrInit = 2.0, histDivNum = divNum^2 );
 push!(fNameLst, fName)
 
 # @time fName = Loops_MC.loops_MC_methods_WangLandauStaggered( divNum, (divNum^3)^2 * 100; cAreaInit = 3, dosIncrInit = 2.0, histDivNum = divNum^2 );

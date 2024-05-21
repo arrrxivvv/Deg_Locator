@@ -26,17 +26,15 @@ end
 getGroupAttr( grp::ParamsGroup ) = getGroupAttr( typeof(grp) );
 
 
-function getGroupValLst( grp::ParamsGroup )
+function getGroupValLst( grp::ParamsGroup; digs = 3 )
 	error(errMsgParamsGrpUndefined);
 end
 
 function getGroupParamsLst( grp::ParamsGroup )
 	return grp.groupParamsLst;
-	# error(errMsgParamsGrpUndefined);
 end
 
 function paramsLstFromGroup( grp::ParamsGroup )
-	# error(errMsgParamsGrpUndefined);
 	cAreaLst = grp.paramsLst[1];
 	cPerimLst = grp.paramsLst[2];
 	cFerroLst = grp.paramsLst[3];
@@ -190,29 +188,29 @@ function getGroupValLst( grp::CartesianParamsGroup; digs = 3 )
 	return valLst;
 end
 
-function getAttrValGroup( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrp::ParamsGroup )
+function getAttrValGroup( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrp::ParamsGroup; digs = 3 )
 	attrLstFLst = getAttrLstLttc();
 	valLstFLst = Any[];
 	append!( valLstFLst, summarizeArrAttr.( [divNumLst, itNumLst] ), summarizeArrBoolAttr.([isInit0Lst]) );
 	append!( attrLstFLst, getGroupAttr( paramsGrp ) );
-	append!( valLstFLst, getGroupValLst( paramsGrp ) );
+	append!( valLstFLst, getGroupValLst( paramsGrp; digs = digs ) );
 	
 	return attrLstFLst, valLstFLst;
 end
 
-function getAttrValGroupsSummarized( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup} )
+function getAttrValGroupsSummarized( divNumLst::Vector{Int64}, itNumLst::Vector{Int64}, isInit0Lst::Vector{Bool}, paramsGrpLst::Vector{ParamsGroup}; digs = 3 )
 	attrLstFLst = ["div", "it", "isInit0"];
 	valLstFLst = Any[];
 	append!( valLstFLst, summarizeArrAttr.( [divNumLst, itNumLst] ), summarizeArrBoolAttr.([isInit0Lst]) );
 	for iGrp = 1 : length(paramsGrpLst)
 		append!( attrLstFLst, getGroupAttr( paramsGrpLst[iGrp] ) );
-		append!( valLstFLst, getGroupValLst( paramsGrpLst[iGrp] ) );
+		append!( valLstFLst, getGroupValLst( paramsGrpLst[iGrp]; digs = digs ) );
 	end
 	
 	return attrLstFLst, valLstFLst;
 end
 
-function getAttrValGroupsItNumLstSummarized( divNumLst::Vector{Int64}, itNumLstLst::Vector{Vector{Int64}}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; isAbbrev = false )
+function getAttrValGroupsItNumLstSummarized( divNumLst::Vector{Int64}, itNumLstLst::Vector{Vector{Int64}}, isInit0Lst::Vector{Bool}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; isAbbrev = false, digs = 3 )
 	attrLstFLst = ["div", "it", "isInit0"];
 	itNumLst = deepcopy(itNumLstLst);
 	paramsGrpLst = deepcopy(paramsGrpLstLst);
@@ -222,7 +220,7 @@ function getAttrValGroupsItNumLstSummarized( divNumLst::Vector{Int64}, itNumLstL
 	append!( valLstFLst, summarizeArrAttr.( [divNumLst, itNumLst] ), summarizeArrBoolAttr.([isInit0Lst]) );
 	for iGrp = 1 : length(paramsGrpLst)
 		attrLstTmp = getGroupAttr( paramsGrpLst[iGrp] );
-		valLstTmp = getGroupValLst( paramsGrpLst[iGrp] );
+		valLstTmp = getGroupValLst( paramsGrpLst[iGrp]; digs = digs );
 		if isAbbrev
 			attrLstTmp = attrLstTmp[1:1];
 			valLstTmp = valLstTmp[1:1];

@@ -2,18 +2,15 @@ using Loops_MC
 # using Infiltrator
 using DelimitedFiles
 
-@enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
+@enum RunWhich runFull=1 runFileLst runSaveParam
 
-runChoice = runSaveParamAndFileLst;
+runChoice = runFull;
 
 isRunSim = false;
 isRunFileLst = false;
 isRunSaveParam = false;
 if runChoice == runFull
 	isRunSim = true;
-	isRunFileLst = true;
-	isRunSaveParam = true;
-elseif runChoice == runSaveParamAndFileLst
 	isRunFileLst = true;
 	isRunSaveParam = true;
 elseif runChoice == runFileLst
@@ -39,22 +36,23 @@ fNameLst = Vector{String}(undef,0);
 isInit0Lst = [false];
 divNumLst = [64];
 # itNumLst = [10000];
-itNumLst = [2000];
+itNumLst = [10];
 # itNumLstLst = [[10000],[2000]];
-# itNumLstLst = [[50],[30]];
+# itNumLstLst = [[200],[100]];
 
 cFerroRatioLst = [0];
 sgnAreaLst = [1];
 sgnPerimLst = [1];
-cRadiusLst = [0.2:0.2:3;];
+# cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-# cAngleLst = [0.6:0.2:0.8;].*pi/2;
-cAngleLst = [0.2:0.2:0.8;].*pi/2;
+cRadiusLst = [0.6:0.2:0.8;];
+cAngleLst = [0.6:0.2:0.8;].*pi/2;
+# cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
 # cAreaLst = [-1.0];
-cAreaLst = [-7:1.0:7;];
-# cAreaLst = [-7:1.0:-7;];
+# cAreaLst = [-7:1.0:7;];
+cAreaLst = [-7:1.0:-7;];
 cPerimLst = [-1.0:-1:-3;];
 lnCPerim = length(cPerimLst);
 cAreaLstScaledLst = cAreaLst .* [1:lnCPerim;]';
@@ -103,7 +101,7 @@ if isTestingParam
 end
 
 # updaterType = Loops_MC.ABUpdater;
-updaterType = Loops_MC.StaggeredCubeUpdater;
+updaterType = Loops_MC.StaggeredCubeUpdaterBase;
 
 # paramsGroupLstFlat = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
 
@@ -113,16 +111,16 @@ paramsGroupLst = paramsGroupLstFlat;
 # itNumLstIn = itNumLstLst;
 # paramsGroupLst = paramsGroupLstLst;
 
+initType = Loops_MC.BinomialInitializer;
+
 if isRunSim
-	# for paramsGrpLst in paramsGroupLstLst
-	Loops_MC.runLoopMC_withParamsGroup( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMod = fMod );
-	# end
+	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod );
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMain = fMainCollect, fMod = fMod );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod );
 end
 
 if isRunSaveParam
-	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, itNumLstIn, divNumLst, isInit0Lst, paramsGroupLst; fMod = fMod );
+	fNameParamsSave = Loops_MC.saveParamsLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod );
 end
