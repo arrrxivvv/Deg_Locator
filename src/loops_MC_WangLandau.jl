@@ -208,7 +208,7 @@ function wangLandauHistResetCheck( flipChecker::WL2dLinkPartFlatFlipChecker )
 		if stdHistOver < meanHistOver .* flipChecker.histStdRatioThres
 			isHistReset = true;
 			flipChecker.histIsOverArrPrev .= flipChecker.histIsOverArr;
-			@infiltrate
+			# @infiltrate
 		end
 		# @infiltrate
 	end
@@ -220,13 +220,6 @@ abstract type AbstractWangLandau3dFlipChecker <: AbstractWangLandauFlipChecker e
 
 function wangLandauUpdateHistDos( flipChecker::AbstractWangLandau3dFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	dS = boolToFlipChange( BfieldLst[dim][pos] );
-	# dL = 0;
-	# for iLnkDim in 1 : params.nDimLayer
-		# dimLink = params.linkDimLst[dim][iLnkDim];
-		# dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-		# dL += boolToFlipChange( linkLst[dimLink][pos] );
-		# dL += boolToFlipChange( linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]] );
-	# end
 	dL = calcDL( params, linkLst, dim, pos );
 	
 	sTotal = sum( sum.( BfieldLst ) );
@@ -312,13 +305,13 @@ function getFlipCheckerName( flipType::Type{WangLandauFlipChecker} )
 	return "WangLandauFlip";
 end
 
-function getFlipCheckerAttrLst( flipType::WangLandauFlipChecker )
+function getFlipCheckerAttrLst( flipChecker::WangLandauFlipChecker )
 	attrLst = ["histCoverThres", "histLowRatioThres"];
 end
 
-function getFlipCheckerAttrValLst( flipChecker::WangLandauFlipChecker )
+function getFlipCheckerAttrValLst( flipChecker::WangLandauFlipChecker; rndDigs = rndDigsLpsMC )
 	attrLst = getFlipCheckerAttrLst( flipChecker );
-	valLst = Any[ flipChecker.histCoverThreshold, flipChecker.histLowRatioThreshold ];
+	valLst = roundKeepInt.( [ flipChecker.histCoverThreshold, flipChecker.histLowRatioThreshold ]; digits = rndDigs );
 	
 	return attrLst, valLst;
 end
@@ -396,7 +389,7 @@ struct WangLandauStdFlipChecker <: AbstractWangLandau3dFlipChecker
 	
 	function WangLandauStdFlipChecker( histDivNum::Int64; dosIncrVal::Float64 = 1.0, histMaxCntThres::Int64 = 20, histCntRatioCutoff::Float64 = 0.5, histStdRatioThres::Float64 = 0.1, histCoverCntThres::Int64 = 5 )
 		histArr = zeros(Int64, histDivNum, histDivNum);
-		dosArr = zeros(Int64, histDivNum, histDivNum);
+		dosArr = zeros(Float64, histDivNum, histDivNum);
 		
 		histIsOverThresArr = similar( histArr, Bool );
 		histMaskedOverArr = similar( histArr );
@@ -447,6 +440,76 @@ function wangLandauHistResetCheck( flipChecker::WangLandauStdFlipChecker )
 	
 	
 	return isReset;
+end
+
+struct WL3dPartFlatStdFlipChecker <: AbstractWangLandau3dFlipChecker
+	histDivNum::Int64
+	histArr::Array{Int64};
+	dosArr::Array{Float64};
+	dosIncrRef::Ref{Float64};
+	
+	wlCounterRef::Ref{Int64};
+	wlResetInterval::Int64;
+	
+	histStdRatioThres::Float64;
+	histCutoffThres::Float64;
+	
+	histIsOverArr::Array{Bool};
+	histIsOverArrPrev::Array{Bool};
+	histMaskedArr::Array{Int64};
+	
+	function WL3dPartFlatStdFlipChecker( histDivNum::Int64; dosIncrVal::Float64 = 1.0, wlResetInterval = 1000, histStdRatioThres = 0.15, histCutoffThres = 0.5 )
+		histArr = zeros(Int64, histDivNum, histDivNum);
+		dosArr = similar(histArr, Float64);
+		dosArr .= 0;
+		
+		wlCounterVal = 1;
+		
+		histIsOverArr = similar(histArr, Bool);
+		histIsOverArrPrev = similar(histArr, Bool);
+		histIsOverArr .= false;
+		histIsOverArrPrev .= false;
+		histMaskedArr = similar(histArr);
+		
+		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(wlCounterVal), wlResetInterval, histStdRatioThres, histCutoffThres, histIsOverArr, histIsOverArrPrev, histMaskedArr );
+	end
+end
+
+function getFlipCheckerName( flipCheckerType::Type{WL3dPartFlatStdFlipChecker} )
+	return "WL3dPartFlatStdFlip";
+end
+
+function getFlipCheckerAttrLst( flipChecker::WL3dPartFlatStdFlipChecker )
+	return ["histStdRatioThres", "histCutoff", "wlResetIntrvl"];
+end
+
+function getFlipCheckerAttrValLst( flipChecker::WL3dPartFlatStdFlipChecker; rndDigs = rndDigsLpsMC )
+	attrLst = getFlipCheckerAttrLst( flipChecker );
+	valLst = roundKeepInt.( [flipChecker.histStdRatioThres, flipChecker.histCutoffThres, flipChecker.wlResetInterval]; digits = rndDigsLpsMC );
+	
+	return attrLst, valLst;
+end
+
+function wangLandauHistResetCheck( flipChecker::WL3dPartFlatStdFlipChecker )
+	isHistReset = false;
+	flipChecker.wlCounterRef[] += 1;
+	if mod( flipChecker.wlCounterRef[], flipChecker.wlResetInterval ) == 0
+		maxCnt, idMaxCnt = findmax( flipChecker.histArr );
+		histCutoff = maxCnt * flipChecker.histCutoffThres;
+		flipChecker.histIsOverArr .= flipChecker.histArr .> histCutoff .|| flipChecker.histIsOverArrPrev;
+		flipChecker.histMaskedArr .= flipChecker.histArr .* flipChecker.histIsOverArr;
+		cntOver = sum(flipChecker.histIsOverArr);
+		
+		meanHistOver = sum( flipChecker.histMaskedArr ) / cntOver;
+		stdHistOver = sqrt( sum( ( flipChecker.histMaskedArr .- meanHistOver ).^2 .* flipChecker.histIsOverArr ) ) / (cntOver - 1);
+		
+		if stdHistOver < meanHistOver * flipChecker.histStdRatioThres
+			isHistReset = true;
+			flipChecker.histIsOverArrPrev .= flipChecker.histIsOverArr;
+		end
+	end
+	
+	return isHistReset;
 end
 
 struct StaggeredCubeUpdaterWangLandau{N,Nplus1} <: LoopsUpdater
@@ -540,17 +603,15 @@ end
 function loops_MC_methods_WangLandau( divNum = 64, itNum = 10000; histDivNum = 64, itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, nDim = 3 )
 	# flipChecker = WangLandauFlipChecker( histDivNum; dosIncrVal = dosIncrInit );
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
-	flipChecker = WangLandauStdFlipChecker( histDivNum; histMaxCntThres = 10, histStdRatioThres = 0.15 );
+	# flipChecker = WangLandauStdFlipChecker( histDivNum; histMaxCntThres = 10, histStdRatioThres = 0.15 );
+	flipChecker = WL3dPartFlatStdFlipChecker( histDivNum; wlResetInterval = 1000, histStdRatioThres = 0.15 );
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
 	
-	# numBfieldLst, numLinkLst, BfieldSampleLst, linkSampleLst, BfieldStartSampleLst, linkStartSampleLst, zakMeanLst, zakLstSampleLst = loops_MC_methods_inJulia( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, itNumSample = itNumSample, itStartSample = itStartSample, isInit0 = isInit0, cAreaInit = cAreaInit );
 	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample );
 	
 	fMain = "loops_WL_single";
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );
-	# attrLst = ["divNum", "itNum", "histDivNum", "cAreaInit", "dosIncrInit"];
-	# valLst = Any[divNum, itNum, histDivNum, cAreaInit, dosIncrInit];
 	fNameWL = fNameFunc( fMain, attrLst, valLst, jld2Type );
 	
 	println( "f = ", flipChecker.dosIncrRef[] );
@@ -567,8 +628,8 @@ end
 function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, nDim = 2 )
 	# flipChecker = WangLandauFlipChecker( histDivNum; dosIncrVal = dosIncrInit );
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
-	flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
-	# flipChecker = WL2dLinkPartFlatFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000 );
+	# flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
+	flipChecker = WL2dLinkPartFlatFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000 );
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
 	

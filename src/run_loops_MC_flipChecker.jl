@@ -2,7 +2,7 @@ using Loops_MC
 # using Infiltrator
 using DelimitedFiles
 
-@enum RunWhich runFull=1 runFileLst runSaveParam
+@enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
 runChoice = runFull;
 
@@ -11,6 +11,9 @@ isRunFileLst = false;
 isRunSaveParam = false;
 if runChoice == runFull
 	isRunSim = true;
+	isRunFileLst = true;
+	isRunSaveParam = true;
+elseif runChoice == runSaveParamAndFileLst
 	isRunFileLst = true;
 	isRunSaveParam = true;
 elseif runChoice == runFileLst
@@ -36,7 +39,8 @@ fNameLst = Vector{String}(undef,0);
 isInit0Lst = [false];
 divNumLst = [64];
 # itNumLst = [10000];
-itNumLst = [10];
+# itNumLst = [10];
+itNumLst = [1000];
 # itNumLstLst = [[10000],[2000]];
 # itNumLstLst = [[200],[100]];
 
@@ -45,15 +49,17 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [0.6:0.2:0.8;];
-cAngleLst = [0.6:0.2:0.8;].*pi/2;
+cRadiusLst = [1:0.2:3;];
+cAngleLst = [0.6:0.2:0.6;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
 # cAreaLst = [-1.0];
 # cAreaLst = [-7:1.0:7;];
-cAreaLst = [-7:1.0:-7;];
-cPerimLst = [-1.0:-1:-3;];
+# cAreaLst = [-7:1.0:-7;];
+cAreaLst = [0:0.1:0.3;];
+# cPerimLst = [-1.0:-1:-3;];
+cPerimLst = [0];
 lnCPerim = length(cPerimLst);
 cAreaLstScaledLst = cAreaLst .* [1:lnCPerim;]';
 cFerroLst = [0.0];
@@ -61,7 +67,9 @@ cartesianGrp = Loops_MC.CartesianParamsGroup( cAreaLst, cPerimLst, cFerroLst );
 cartesianGrpLstShort = Loops_MC.ParamsGroup[cartesianGrp];
 cartesianGrpLst = Loops_MC.ParamsGroup[Loops_MC.CartesianParamsGroup( cAreaLstScaledLst[:,iGrp], cPerimLst[iGrp:iGrp], copy(cFerroLst) ) for iGrp = 1 : lnCPerim];
 
-paramsGroupLstFlat = [radiusGrp,cartesianGrp];
+# paramsGroupLstFlat = [radiusGrp,cartesianGrp];
+# paramsGroupLstFlat = Loops_MC.ParamsGroup[cartesianGrp];
+paramsGroupLstFlat = Loops_MC.ParamsGroup[radiusGrp];
 
 paramsGroupLst = Loops_MC.ParamsGroup[radiusGrp,cartesianGrp];
 radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
@@ -101,7 +109,10 @@ if isTestingParam
 end
 
 # updaterType = Loops_MC.ABUpdater;
-updaterType = Loops_MC.StaggeredCubeUpdaterBase;
+# updaterType = Loops_MC.StaggeredCubeUpdaterBase;
+# updaterType = Loops_MC.CubeUpdater;
+# updaterType = Loops_MC.CubeStaggeredCubeUpdater;
+updaterType = Loops_MC.SwitchingUpdater{Tuple{Loops_MC.StaggeredCubeUpdaterBase,Loops_MC.CubeStaggeredCubeUpdater}};
 
 # paramsGroupLstFlat = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
 
@@ -112,13 +123,18 @@ paramsGroupLst = paramsGroupLstFlat;
 # paramsGroupLst = paramsGroupLstLst;
 
 initType = Loops_MC.BinomialInitializer;
+# initType = Loops_MC.ConstantInitializer;
+
+# flipCheckerType = Loops_MC.NeighborFlipChecker;
+# flipCheckerType = Loops_MC.CubeFlipChecker;
+flipCheckerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.NeighborFlipChecker,Loops_MC.CubeFlipChecker}};
 
 if isRunSim
-	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod );
+	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType );
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod, flipCheckerType = flipCheckerType );
 end
 
 if isRunSaveParam

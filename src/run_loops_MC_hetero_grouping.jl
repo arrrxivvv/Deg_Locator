@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
-runChoice = runSaveParamAndFileLst;
+runChoice = runFull;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -24,8 +24,8 @@ end
 
 fMod = "";
 
-isTestingParam = false;
-# isTestingParam = true;
+# isTestingParam = false;
+isTestingParam = true;
 
 # itNumLst = [30000];
 # # itNumLst = [10000];
@@ -74,7 +74,7 @@ fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 
 if isTestingParam
-	itNumLst = [100];
+	itNumLst = [1000];
 
 	betaLst = [3.0];
 	betaBase = 1;
@@ -94,12 +94,13 @@ if isTestingParam
 	radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 	
 	# cAreaLst = [-1.0];
-	cAreaLst = [-7:1.0:7;];
+	cAreaLst = [0:1.0:3;];
+	# cAreaLst = [-7:1.0:7;];
 	cPerimLst = [-1.0];
 	cFerroLst = [0.0];
 	cartesianGrp = Loops_MC.CartesianParamsGroup( cAreaLst, cPerimLst, cFerroLst );
 	
-	paramsGroupLst = Loops_MC.ParamsGroup[radiusGrp,cartesianGrp];
+	paramsGroupLstFlat = Loops_MC.ParamsGroup[cartesianGrp];
 end
 
 # updaterType = Loops_MC.ABUpdater;
