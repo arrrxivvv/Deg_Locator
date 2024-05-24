@@ -14,9 +14,9 @@ function calcDL( params::ParamsLoops, linkLst::Vector{Array{Bool,D}}, dim::Int64
 	return dL;
 end
 
-abstract type AbstractFlipCheckerWithProposer <: FlipChecker
+abstract type AbstractFlipCheckerWithProposer <: FlipChecker end
 
-function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+function flipCheckDoIt( flipChecker::AbstractFlipCheckerWithProposer, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	if flipCheck( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
 		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 	end
@@ -26,10 +26,10 @@ function flipCheck( flipChecker::AbstractFlipCheckerWithProposer, flipProposer::
 	error("Loops_MC: flipChecker or flipProposer not defined yet");
 end
 
-abstract type AbstractWangLandauFlipChecker <: FlipChecker end
+abstract type AbstractWangLandauFlipChecker <: AbstractFlipCheckerWithProposer end
 
-function flipCheck( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	isFlip = wangLandauUpdateHistDos( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+function flipCheck( flipChecker::AbstractWangLandauFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	isFlip = wangLandauUpdateHistDos( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 	
 	if wangLandauHistResetCheck( flipChecker )
 		wangLandauUpdateDosIncr( flipChecker );
@@ -38,14 +38,8 @@ function flipCheck( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLo
 	return isFlip;
 end
 
-
-
-function flipDoIt( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	flipDoIt( flipChecker.doItFlipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-end
-
-function wangLandauUpdateHistDos( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
-	error("WangLandau Flipper not defined")
+function wangLandauUpdateHistDos( flipChecker::AbstractWangLandauFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
+	error("WangLandau Flipper or FlipProser not defined")
 end
 
 function wangLandauHistResetCheck( flipChecker::AbstractWangLandauFlipChecker )
@@ -55,7 +49,6 @@ end
 function wangLandauUpdateDosIncr( flipChecker::AbstractWangLandauFlipChecker )
 	flipChecker.histArr .= 0
 	flipChecker.dosIncrRef[] /= 2;
-	# @infiltrate
 end
 
 abstract type AbstractWangLandau2dLinkOnlyFlipChecker <: AbstractWangLandauFlipChecker end
@@ -74,7 +67,7 @@ function getLinkHistId( flipChecker::AbstractWangLandau2dLinkOnlyFlipChecker, ln
 	return lnkId;
 end
 
-function wangLandauUpdateHistDos( flipChecker::AbstractWangLandau2dLinkOnlyFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
+function wangLandauUpdateHistDos( flipChecker::AbstractWangLandau2dLinkOnlyFlipChecker, flipProposer::OneFlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
 	dL = calcDL( params, linkLst, dim, pos );
 	
 	# lTotal = boolToOnePN( sum( sum.(linkLst) ); cnt = 2*flipChecker.grdNum );
@@ -236,7 +229,7 @@ end
 
 abstract type AbstractWangLandau3dFlipChecker <: AbstractWangLandauFlipChecker end
 
-function wangLandauUpdateHistDos( flipChecker::AbstractWangLandau3dFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+function wangLandauUpdateHistDos( flipChecker::AbstractWangLandau3dFlipChecker, flipProposer::OneFlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	dS = boolToFlipChange( BfieldLst[dim][pos] );
 	dL = calcDL( params, linkLst, dim, pos );
 	
@@ -623,10 +616,11 @@ function loops_MC_methods_WangLandau( divNum = 64, itNum = 10000; histDivNum = 6
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
 	# flipChecker = WangLandauStdFlipChecker( histDivNum; histMaxCntThres = 10, histStdRatioThres = 0.15 );
 	flipChecker = WL3dPartFlatStdFlipChecker( histDivNum; wlResetInterval = 1000, histStdRatioThres = 0.15 );
+	flipProposer = OneFlipProposer();
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
 	
-	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample );
+	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample );
 	
 	fMain = "loops_WL_single";
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );
@@ -648,10 +642,11 @@ function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, i
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
 	# flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
 	flipChecker = WL2dLinkPartFlatFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000 );
+	flipProposer = OneFlipProposer();
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
 	
-	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim );
+	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim );
 	
 	fMain = "loops_WL2d";
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );

@@ -109,10 +109,10 @@ if isTestingParam
 end
 
 # updaterType = Loops_MC.ABUpdater;
-# updaterType = Loops_MC.StaggeredCubeUpdaterBase;
+updaterType = Loops_MC.StaggeredCubeUpdaterBase;
 # updaterType = Loops_MC.CubeUpdater;
 # updaterType = Loops_MC.CubeStaggeredCubeUpdater;
-updaterType = Loops_MC.SwitchingUpdater{Tuple{Loops_MC.StaggeredCubeUpdaterBase,Loops_MC.CubeStaggeredCubeUpdater}};
+# updaterType = Loops_MC.SwitchingUpdater{Tuple{Loops_MC.StaggeredCubeUpdaterBase,Loops_MC.CubeStaggeredCubeUpdater}};
 
 # paramsGroupLstFlat = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
 
@@ -125,9 +125,9 @@ paramsGroupLst = paramsGroupLstFlat;
 initType = Loops_MC.BinomialInitializer;
 # initType = Loops_MC.ConstantInitializer;
 
-# flipCheckerType = Loops_MC.NeighborFlipChecker;
+flipCheckerType = Loops_MC.NeighborFlipChecker;
 # flipCheckerType = Loops_MC.CubeFlipChecker;
-flipCheckerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.NeighborFlipChecker,Loops_MC.CubeFlipChecker}};
+# flipCheckerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.NeighborFlipChecker,Loops_MC.CubeFlipChecker}};
 
 if isRunSim
 	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType );

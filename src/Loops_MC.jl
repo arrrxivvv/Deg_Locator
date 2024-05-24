@@ -14,7 +14,7 @@ const rndDigsLpsMC = 3
 
 const dirLog = "./log/";
  
-# using Infiltrator
+using Infiltrator
 
 const oFNameLoopsMain = "loopsSample";
 const oFNameLoopsStartMain = "loopsStartSample";
@@ -189,6 +189,7 @@ struct OneFlipProposer <: FlipProposer
 	
 end
 
+
 abstract type FlipChecker end
 
 function throwFlipCheckerUndefined()
@@ -291,6 +292,10 @@ function updateLoops( updater::LoopsUpdater, BfieldLst::Vector{Array{Bool,D}}, l
 end
 
 function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	error( "Loops_MC: updater or flipChecker not defined yet" );
+end
+
+function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
 	error( "Loops_MC: updater or flipChecker not defined yet" );
 end
 
@@ -592,7 +597,7 @@ function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:
 	return fNameOutside;
 end
 
-function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker );
 	
 	fMain = fMainLoopsMC;
@@ -643,7 +648,11 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 			end
 		end
 		
-		updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
+		if isnothing(flipProposer)
+			updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
+		else
+			updateLoops( updater, flipChecker, flipProposer, BfieldLst, linkLst, linkFerroLst, params );
+		end
 		
 		for dim = 1 : params.nDim
 			numLinkLst[it,dim] = sum( linkLst[dim] );
@@ -785,6 +794,8 @@ function ratioToBinId( ratio::Number, divNum::Int64 )
 end
 
 include("loops_MC_initializer.jl")
+
+include("loops_MC_flipProposer.jl")
 
 include("loops_MC_flipChecker.jl")
 

@@ -38,12 +38,18 @@ function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, BfieldLs
 	pos = rand(params.posLst);
 	dim = rand(1:params.nDimB);
 	
-	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
-	end
+	# if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		# flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
+	# end
+	flipCheckDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 end
 
-
+function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	pos = rand(params.posLst);
+	dim = rand(1:params.nDimB);
+	
+	flipCheckDoIt( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+end
 
 
 function getUpdaterFMod( updaterType::Type{ABUpdater} )
@@ -97,9 +103,10 @@ function updateLoops( updater::AB2dUpdater, flipChecker::FlipChecker, BfieldLst:
 	dim = 1;
 	for iAB = 1 : 2
 		for pos in updater.posABLst[iAB]
-			if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
-			end
+			# if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+				# flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
+			# end
+			flipCheckDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 		end
 	end
 end
@@ -158,9 +165,10 @@ function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecke
 			posCube = updater.posStagCubeLst[iAdv][idStag];
 			pos = updater.posShOrNotLst[updater.randIDimLst[idStag]][updater.randIShLst[idStag]][posCube];
 			
-			if flipCheck( flipChecker, params, updater.randIDimLst[idStag], pos, BfieldLst, linkLst, linkFerroLst )
-				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
-			end
+			# if flipCheck( flipChecker, params, updater.randIDimLst[idStag], pos, BfieldLst, linkLst, linkFerroLst )
+				# flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
+			# end
+			flipCheckDoIt( flipChecker, params, updater.randIDimLst[idStag], pos, BfieldLst, linkLst, linkFerroLst );
 		end
 	end
 end
