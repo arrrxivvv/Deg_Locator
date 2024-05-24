@@ -8,23 +8,23 @@ using Statistics
 using Distributions
 using Utils
 
+export loops_MC_methods, loops_MC, loops_MC_smart, loops_MC_staggeredCube
+
 const rndDigsLpsMC = 3
+
+const dirLog = "./log/";
  
 # using Infiltrator
 
-export loops_MC_methods, loops_MC, loops_MC_smart, loops_MC_staggeredCube
+const oFNameLoopsMain = "loopsSample";
+const oFNameLoopsStartMain = "loopsStartSample";
+const oFNameLoopsNumMain = "loopsNum";
 
-oFNameLoopsMain = "loopsSample";
-oFNameLoopsStartMain = "loopsStartSample";
-oFNameLoopsNumMain = "loopsNum";
-
-dirLog = "./log/";
-
-fMainLoopsMC = "loops_MC";
-oFMainLoopsSample = "loopsSample";
-oFMainLoopsStart = "loopsStartSample";
-oFMainLoopsNum = "loopsNum";
-attrLstLttcBase = ["div", "it", "nDim"];
+const fMainLoopsMC = "loops_MC";
+const oFMainLoopsSample = "loopsSample";
+const oFMainLoopsStart = "loopsStartSample";
+const oFMainLoopsNum = "loopsNum";
+const attrLstLttcBase = ["div", "it", "nDim"];
 getAttrLstLttcBase() = deepcopy(attrLstLttcBase);
 
 function genAttrValLstLttc( divNum::Int64, itNum::Int64, nDim::Int64 )
@@ -129,10 +129,15 @@ function genBfieldLinkArrSample( params::ParamsLoops, lnSample )
 	return BfieldSampleLst, linkSampleLst
 end
 
+
 abstract type BLinkInitializer end
 
-function getInitializerName( initType::Type{<:BLinkInitializer} )
+function throwInitializerUndefined()
 	error("initializer undefined");
+end
+
+function getInitializerName( initType::Type{<:BLinkInitializer} )
+	throwInitializerUndefined();
 end
 
 function getInitializerName( initializer::BLinkInitializer )
@@ -140,11 +145,11 @@ function getInitializerName( initializer::BLinkInitializer )
 end
 
 function getAttrValInitializer( initializer::BLinkInitializer; rndDigs = rndDigsLpsMC )
-	error("initializer undefined");
+	throwInitializerUndefined();
 end
 
 function initializeBL( initializer::BLinkInitializer, BfieldLst, params::ParamsLoops )
-	error("initializer undefined");
+	throwInitializerUndefined();
 end
 
 struct BinomialInitializer <: BLinkInitializer
@@ -164,54 +169,48 @@ function genProbInitializer( prob::Real )
 	return BinomialInitializer( prob, dist );
 end
 
-function getInitializerName( initType::Type{BinomialInitializer} )
-	return "BinomialInit";
-end
-
-function getAttrValInitializer( initializer::BinomialInitializer; rndDigs = rndDigsLpsMC )
-	attrLst = [getInitializerName( initializer )];
-	valLst = roundKeepInt.( [initializer.prob]; digits = rndDigs );
-	
-	return attrLst, valLst;
-end
-
-function initializeBL( initializer::BinomialInitializer, BfieldLst, params::ParamsLoops )
-	for dim = 1 : params.nDimB
-		rand!( initializer.dist, BfieldLst[dim] );
-	end
-end
-
 struct ConstantInitializer <: BLinkInitializer
 	initVal::Bool;
 end
 
 ConstantInitializer() = ConstantInitializer(false);
 
-function initializeBL( initializer::ConstantInitializer, BfieldLst, params::ParamsLoops )
-	for dim = 1 : params.nDimB
-		BfieldLst[dim] .= initializer.initVal;
-	end
+abstract type FlipProposer end
+
+function undefinedErrorFlipProposer()
+	error("Loops_MC: FlipProposer not defined")
 end
 
-function getInitializerName( initType::Type{ConstantInitializer} )
-	return "ConstInit";
+function flipDoIt( flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	undefinedErrorFlipProposer();
 end
 
-function getAttrValInitializer( initializer::ConstantInitializer; rndDigs = rndDigsLpsMC )
-	attrLst = [getInitializerName( initializer )];
-	valLst = roundKeepInt.( [initializer.initVal]; digits = rndDigs );
+struct OneFlipProposer <: FlipProposer
 	
-	return attrLst, valLst;
 end
 
 abstract type FlipChecker end
 
-function flipCheck( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+function throwFlipCheckerUndefined()
 	error( "Loops_MC: FlipChecker not defined yet" );
 end
 
+function flipCheck( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
+end
+
+function flipDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
+end
+
+function flipCheckDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+end
+
 function getFlipCheckerName( flipCheckerType::Type{<:FlipChecker} )
-	error( "Loops_MC: FlipChecker not defined yet" );
+	throwFlipCheckerUndefined();
 end
 
 function getFlipCheckerName( flipChecker::FlipChecker )
@@ -219,11 +218,11 @@ function getFlipCheckerName( flipChecker::FlipChecker )
 end
 
 function getFlipCheckerAttrLst( flipChecker::FlipChecker )
-	error( "Loops_MC: FlipChecker not defined yet" );
+	throwFlipCheckerUndefined();
 end
 
 function getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
-	error( "Loops_MC: FlipChecker not defined yet" );
+	throwFlipCheckerUndefined();
 end
 
 # function getFlipCheckerAttrLst( flipChecker::FlipChecker )
@@ -234,27 +233,6 @@ function getFlipCheckerAttrValLst( flipChecker::FlipChecker; rndDigs = rndDigsLp
 	# error( "Loops_MC: FlipChecker not defined yet" );
 	attrLst = getFlipCheckerAttrLst( flipChecker );
 	valLst = getFlipCheckerValLst( flipChecker; rndDigs = rndDigs );
-	
-	return attrLst, valLst;
-end
-
-function genAttrLstLttcFlipChecker( divNum::Int64, itNum::Int64, nDim::Int64, flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
-	attrLst, valLst = genAttrValLstLttc( divNum, itNum, nDim );
-	
-	attrLstFlip, valLstFlip = getFlipCheckerAttrValLst( flipChecker; rndDigs = rndDigs );
-	
-	append!( attrLst, attrLstFlip );
-	append!( valLst, valLstFlip );
-	
-	return attrLst, valLst;
-end
-
-function genAttrLstLttcFlipInit( divNum::Int64, itNum::Int64, nDim::Int64, flipChecker::FlipChecker, initializer::BLinkInitializer, rndDigs = rndDigsLpsMC )
-	attrLst, valLst = genAttrLstLttcFlipChecker( divNum, itNum, nDim, flipChecker; rndDigs = rndDigs );
-	
-	attrLstInit, valLstInit = getAttrValInitializer( initializer );
-	append!( attrLst, attrLstInit );
-	append!( valLst, valLstInit );
 	
 	return attrLst, valLst;
 end
@@ -271,41 +249,13 @@ end
 
 SwitchingFlipChecker( flipCheckers::FlipChecker... ) = SwitchingFlipChecker( flipCheckers );
 
-function getSwitchingFlipTypeLst( flipCheckerType::Type{<:SwitchingFlipChecker} )
-	return (flipCheckerType.parameters[1]).parameters;
-end
-
-function getFlipCheckerName( flipCheckerType::Type{<:SwitchingFlipChecker} )
-	return strLstJoinWith_( getFlipCheckerName.( getSwitchingFlipTypeLst( flipCheckerType ) ) );
-end
-
-function getFlipCheckerAttrLst( flipChecker::SwitchingFlipChecker )
-	return append!( getFlipCheckerAttrLst.( flipChecker.flipCheckerTup )... );
-end
-
-function getFlipCheckerValLst( flipChecker::SwitchingFlipChecker; rndDigs = rndDigsLpsMC )
-	return append!( getFlipCheckerValLst.( flipChecker.flipCheckerTup; rndDigs = rndDigs )... );
-end
-
 function SwitchingFlipChecker{T_tuple}( cArea, cPerim, cFerro = 0 ) where {T_tuple}
 	flipCheckerTup = ntuple( ii -> T_tuple.parameters[ii](cArea, cPerim, cFerro), length(T_tuple.parameters) );
 	
 	return SwitchingFlipChecker( flipCheckerTup );
 end
 
-function flipCheck( flipChecker::SwitchingFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	error( "SwitchingFlipChecker not to be flipped directly" );
-end
-
-function getSwitchLstLen( flipChecker::SwitchingFlipChecker )
-	return length(flipChecker.flipCheckerTup);
-end
-
 abstract type AbstractNeighborFlipChecker <: FlipChecker end
-
-function getFlipCheckerAttrLst( flipChecker::AbstractNeighborFlipChecker )
-	return ["cArea", "cPerim", "cFerro"];
-end
 
 struct NeighborFlipChecker <: AbstractNeighborFlipChecker
 	pFlipLst::Array{Float64};
@@ -317,64 +267,6 @@ struct NeighborFlipChecker <: AbstractNeighborFlipChecker
 		
 		new(pFlipLst,cParamLst);
 	end
-end
-
-function getFlipCheckerName( flipCheckerType::Type{NeighborFlipChecker} )
-	return "cAcLcFFlip";
-end
-
-# function getFlipCheckerAttrLst( flipChecker::NeighborFlipChecker )
-	# return ["cArea", "cPerim", "cFerro"];
-# end
-
-function getFlipCheckerAttrLst( flipChecker::NeighborFlipChecker )
-	attrLst = ["cArea", "cPerim", "cFerro"];
-	if flipChecker.cParamLst[3] == 0
-		attrLst = attrLst[1:2];
-	end
-	
-	return attrLst;
-end
-
-function getFlipCheckerValLst( flipChecker::AbstractNeighborFlipChecker; rndDigs = rndDigsLpsMC )
-	valLst = roundKeepInt.( deepcopy( flipChecker.cParamLst ); digits = rndDigs );
-	if flipChecker.cParamLst[3] == 0
-		valLst = valLst[1:2];
-	end
-	
-	return valLst;
-end
-
-# function getFlipCheckerAttrValLst( flipChecker::AbstractNeighborFlipChecker; rndDigs = rndDigsLpsMC )
-	# attrLst = getFlipCheckerAttrLst( flipChecker );
-	# valLst = roundKeepInt.( deepcopy( flipChecker.cParamLst ); digits = rndDigs );
-	# if flipChecker.cParamLst[3] == 0
-		# attrLst = attrLst[1:2];
-		# valLst = valLst[1:2];
-	# end
-	
-	# return attrLst, valLst;
-# end
-
-function flipCheck( flipChecker::NeighborFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	iArea = BfieldLst[dim][pos] + 1;
-	iL = 1;
-	for iLnkDim in 1 : params.nDimLayer
-		dimLink = params.linkDimLst[dim][iLnkDim];
-		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-		iL += linkLst[dimLink][pos];
-		iL += linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
-	end
-	iLFerro = 1;
-	for iLnkDim = 1 : params.nDimLayer
-		dimLink = params.linkDimLst[dim][iLnkDim];
-		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-		iLFerro += linkFerroLst[iLnkDim,dim][pos];
-		iLFerro += linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
-	end
-	
-	pSwitchRand = rand();
-	return pSwitchRand < flipChecker.pFlipLst[iLFerro, iL, iArea];
 end
 
 struct CubeFlipChecker <: FlipChecker
@@ -390,37 +282,7 @@ end
 
 CubeFlipChecker( cArea, cPerim, cFerro = 0 ) = CubeFlipChecker( cArea );
 
-function getFlipCheckerName( flipCheckerType::Type{CubeFlipChecker} )
-	return "cAcLcFCubeFlip";
-end
 
-function getFlipCheckerAttrLst( flipChecker::CubeFlipChecker )
-	return ["cArea"];
-end
-
-function getFlipCheckerValLst( flipChecker::CubeFlipChecker; rndDigs = rndDigsLpsMC )
-	valLst = roundKeepInt.( [flipChecker.cArea]; digits = rndDigs );
-	
-	return valLst;
-end
-
-# function getFlipCheckerAttrValLst( flipChecker::CubeFlipChecker; rndDigs = rndDigsLpsMC )
-	# attrLst = getFlipCheckerAttrLst( flipChecker );
-	# valLst = roundKeepInt.( [flipChecker.cArea]; digits = rndDigs );
-	
-	# return attrLst, valLst;
-# end
-
-function flipCheck( flipChecker::CubeFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	iArea = 1;
-	for dimB = 1 : params.nDimB
-		iArea += BfieldLst[dimB][pos];
-		iArea += BfieldLst[dimB][params.posLstShLst[dimB,1][pos]];
-	end
-	
-	pSwitchRand = rand();
-	return pSwitchRand < flipChecker.pFlipLst[iArea];
-end
 
 abstract type LoopsUpdater end
 
@@ -449,51 +311,11 @@ struct SwitchingUpdater{T_tuple} <: AbstractSwitchingUpdater
 	end
 end
 
-function SwitchingUpdater{T_tuple}( params ) where {T_tuple}
-	updaterLst = ntuple( ii -> T_tuple.parameters[ii](params), length(T_tuple.parameters) );
-	
-	SwitchingUpdater( updaterLst );
-end
-
-function getUpdaterFMod( updaterType::Type{<:SwitchingUpdater} )
-	return strLstJoinWith_( getUpdaterFMod.( (updaterType.parameters[1]).parameters ) );
-end
-
-function updateLoops( updater::SwitchingUpdater, flipChecker::SwitchingFlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	if getSwitchLstLen( updater ) != getSwitchLstLen( flipChecker )
-		error( "Switching updater and flipchecker list length not matched" );
-	end
-	updaterNow = updater.updaterTup[updater.counterRef[]];
-	flipCheckerNow = flipChecker.flipCheckerTup[updater.counterRef[]];
-	
-	updateLoops( updaterNow, flipCheckerNow, BfieldLst, linkLst, linkFerroLst, params );
-	
-	updater.counterRef[] = mod( updater.counterRef[], getSwitchLstLen(updater) );
-	updater.counterRef[] += 1;
-end
-
-function getSwitchLstLen( updater::SwitchingUpdater )
-	return length(updater.updaterTup);
-end
-
 struct SingleUpdater <: LoopsUpdater
 	;
 end
 
 SingleUpdater( params::ParamsLoops ) = SingleUpdater();
-
-function getUpdaterFMod( updaterType::Type{SingleUpdater} )
-	return "upSingle";
-end
-
-function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	pos = rand(params.posLst);
-	dim = rand(1:params.nDimB);
-	
-	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
-	end
-end
 
 struct ABUpdater{N,N_1} <: LoopsUpdater
 	posLstDimLst;
@@ -531,43 +353,6 @@ struct ABUpdater{N,N_1} <: LoopsUpdater
 	end
 end
 
-function updateLoops( updater::ABUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	for dim = 1 : params.nDim
-		for iAB = 1 : 2
-			Threads.@threads for pos in updater.posABLst[iAB,dim]
-				# @time begin
-				iArea = BfieldLst[dim][pos] + 1;
-				iL = 1;
-				for iLnkDim in 1 : params.nDimLayer
-					dimLink = params.linkDimLst[dim][iLnkDim];
-					dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-					iL += linkLst[dimLink][pos];
-					iL += linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
-				end
-				iLFerro = 1;
-				for iLnkDim = 1 : params.nDimLayer
-					dimLink = params.linkDimLst[dim][iLnkDim];
-					dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-					iLFerro += linkFerroLst[iLnkDim,dim][pos];
-					iLFerro += linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
-				end
-				# end
-				# @time begin
-				pSwitchRand = rand();
-				if pSwitchRand < updater.pFlipLst[iLFerro, iL, iArea];
-					flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
-				end
-				# end
-				# @infiltrate
-			end
-		end
-	end
-end
-
-function getUpdaterFMod( updaterType::Type{ABUpdater} )
-	return "upAB";
-end
-
 struct AB2dUpdater{D} <: LoopsUpdater
 	posABLst::Vector{Vector{CartesianIndex{D}}};
 	
@@ -593,25 +378,6 @@ struct AB2dUpdater{D} <: LoopsUpdater
 		end
 		
 		new{params.nDim}( posABLst );
-	end
-end
-
-function getUpdaterFMod( updaterType::Type{AB2dUpdater} )
-	return "upAB2d";
-end
-
-function updateLoops( updater::AB2dUpdater, flipChecker::FlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	if params.nDim != 2
-		error( "nDim != 2" );
-	end
-	
-	dim = 1;
-	for iAB = 1 : 2
-		for pos in updater.posABLst[iAB]
-			if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = dim );
-			end
-		end
 	end
 end
 
@@ -654,43 +420,6 @@ struct StaggeredCubeUpdater{N,Nplus1} <: LoopsUpdater
 	end
 end
 
-function updateLoops( updater::StaggeredCubeUpdater, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	for iAdv = 1 : params.nDim+1
-		rand!( updater.randIDimLst, updater.iDimLst );
-		rand!( updater.randIShLst, updater.iIsShLst );
-		Threads.@threads for idStag in updater.idStagLst
-			posCube = updater.posStagCubeLst[iAdv][idStag];
-			pos = updater.posShOrNotLst[updater.randIDimLst[idStag]][updater.randIShLst[idStag]][posCube];
-			iArea = BfieldLst[updater.randIDimLst[idStag]][pos] + 1;
-			iL = 1;
-			for iLnkDim in 1 : params.nDimLayer
-				dimLink = params.linkDimLst[updater.randIDimLst[idStag]][iLnkDim];
-				dimLinkSh = params.linkDimShLst[updater.randIDimLst[idStag]][iLnkDim];
-				iL += linkLst[dimLink][pos];
-				iL += linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
-			end
-			iLFerro = 1;
-			for iLnkDim = 1 : params.nDimLayer
-				dimLink = params.linkDimLst[updater.randIDimLst[idStag]][iLnkDim];
-				dimLinkSh = params.linkDimShLst[updater.randIDimLst[idStag]][iLnkDim];
-				iLFerro += linkFerroLst[iLnkDim,updater.randIDimLst[idStag]][pos];
-				iLFerro += linkFerroLst[iLnkDim,updater.randIDimLst[idStag]][params.posLstShLst[dimLinkSh,1][pos]];
-			end
-			pSwitch = rand();
-			pFlip = updater.pFlipLst[iLFerro, iL, iArea];
-			if pSwitch < pFlip
-				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
-			end
-			# @infiltrate
-		end
-		# @infiltrate
-	end
-end
-
-function getUpdaterFMod( updaterType::Type{StaggeredCubeUpdater} )
-	return "upStagCube";
-end
-
 struct StaggeredCubeUpdaterBase{N,Nplus1} <: LoopsUpdater
 	posLstSh0::CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}};
 	posLstAdvOrNot::Vector{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}} }};
@@ -726,25 +455,6 @@ struct StaggeredCubeUpdaterBase{N,Nplus1} <: LoopsUpdater
 	end
 end
 
-function getUpdaterFMod( updaterType::Type{StaggeredCubeUpdaterBase} )
-	return "upStagCube";
-end
-
-function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	for iAdv = 1 : params.nDim+1
-		rand!( updater.randIDimLst, updater.iDimLst );
-		rand!( updater.randIShLst, updater.iIsShLst );
-		Threads.@threads for idStag in updater.idStagLst
-			posCube = updater.posStagCubeLst[iAdv][idStag];
-			pos = updater.posShOrNotLst[updater.randIDimLst[idStag]][updater.randIShLst[idStag]][posCube];
-			
-			if flipCheck( flipChecker, params, updater.randIDimLst[idStag], pos, BfieldLst, linkLst, linkFerroLst )
-				flipBLinkAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos, dim = updater.randIDimLst[idStag] );
-			end
-		end
-	end
-end
-
 abstract type AbstractCubeUpdater <:LoopsUpdater end
 
 struct CubeUpdater <: AbstractCubeUpdater
@@ -752,19 +462,6 @@ struct CubeUpdater <: AbstractCubeUpdater
 end
 
 CubeUpdater( params::ParamsLoops ) = CubeUpdater();
-
-function getUpdaterFMod( updaterType::Type{CubeUpdater} )
-	return "cubeOnly";
-end
-
-function updateLoops( updater::CubeUpdater, flipChecker::CubeFlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	pos = rand( params.posLst );
-	dim = 1;
-	
-	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipBfieldCubeAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = pos );
-	end
-end
 
 struct CubeStaggeredCubeUpdater{N,Nplus1} <: AbstractCubeUpdater
 	posLstSh0::CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}};
@@ -801,22 +498,9 @@ struct CubeStaggeredCubeUpdater{N,Nplus1} <: AbstractCubeUpdater
 	end
 end
 
-function getUpdaterFMod( updaterType::Type{CubeStaggeredCubeUpdater} )
-	return "cubeOnlyStaggeredCube";
-end
 
-function updateLoops( updater::CubeStaggeredCubeUpdater, flipChecker::CubeFlipChecker, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	dimDummy = 1;
-	for iAdv = 1 : params.nDim+1
-		Threads.@threads for idStag in updater.idStagLst
-			posCube = updater.posStagCubeLst[iAdv][idStag];
-			
-			if flipCheck( flipChecker, params, dimDummy, posCube, BfieldLst, linkLst, linkFerroLst )
-				flipBfieldCubeAtPos( params, BfieldLst, linkLst, linkFerroLst; pos = posCube );
-			end
-		end
-	end
-end
+
+
 
 function getFModLoopsMC( fMod::String, updaterType::Type{<:LoopsUpdater}, isInit0::Bool=false; isFModMethod = true, flipChecker::Union{FlipChecker,Nothing} = nothing )
 	fModOut = fMod;
@@ -848,6 +532,26 @@ function getFModLoopsMC( fMod::String, updaterType::Union{Type{<:LoopsUpdater},L
 	return fModOut;
 end
 
+function genAttrLstLttcFlipChecker( divNum::Int64, itNum::Int64, nDim::Int64, flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
+	attrLst, valLst = genAttrValLstLttc( divNum, itNum, nDim );
+	
+	attrLstFlip, valLstFlip = getFlipCheckerAttrValLst( flipChecker; rndDigs = rndDigs );
+	
+	append!( attrLst, attrLstFlip );
+	append!( valLst, valLstFlip );
+	
+	return attrLst, valLst;
+end
+
+function genAttrLstLttcFlipInit( divNum::Int64, itNum::Int64, nDim::Int64, flipChecker::FlipChecker, initializer::BLinkInitializer, rndDigs = rndDigsLpsMC )
+	attrLst, valLst = genAttrLstLttcFlipChecker( divNum, itNum, nDim, flipChecker; rndDigs = rndDigs );
+	
+	attrLstInit, valLstInit = getAttrValInitializer( initializer );
+	append!( attrLst, attrLstInit );
+	append!( valLst, valLstInit );
+	
+	return attrLst, valLst;
+end
 
 function loops_MC_methods_cALFCube( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, fMod = "", cArea = 1, cPerim = 1, cFerro = 0, itNumSample = 100, itStartSample = 50, nDim = 3, probInit = nothing, isFileNameOnly::Bool = false, fMainOutside::String = "" )
 	flipChecker = CubeFlipChecker( cArea );
@@ -967,114 +671,6 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 	return fName;
 end
 
-function loops_MC_methods( divNum = 64, itNum = 10000; updaterType::(Type{T} where T <: LoopsUpdater), fMod = "", cArea = 1, cPerim = 1, cFerro = 0, isBeta = false, beta = nothing, itNumSample = 100, itStartSample = 50, isInit0 = false )
-	cFerroSigned = cFerro;
-	nDim = 3;
-	params = ParamsLoops( divNum, nDim );
-	nDimLayer = nDim-1;
-	divLst = params.divLst;
-	divTup = Tuple(divLst);
-	posLst = params.posLst;
-	posLstShLst = params.posLstShLst;
-	linkDimLst = params.linkDimLst;
-	linkDimShLst = params.linkDimShLst;
-	
-	itStep = max( Int64( floor(itNum / itNumSample) ), 1 );
-	lnSample = Int64( floor( itNum / itStep ) );
-	itStartSample = min( itStartSample, itNum );
-	
-	zakLstLst = zeros( Bool, divNum, divNum, nDim, itNum );
-
-	BfieldLst = [ zeros( Bool, divTup ) for dim = 1 : nDim ];
-	linkLst = [ zeros( Bool, divTup ) for dim = 1 : nDim ];
-	linkFerroLst = [ zeros( Bool, divTup ) for lnkDim = 1 : nDim-1, BDim = 1 : nDim ];
-	
-	numBfieldLst = zeros(Int64, itNum, nDim);
-	numLinkLst = zeros(Int64, itNum, nDim);
-	
-	probInit = exp( -cArea ) / ( 1 + exp( -cArea ) );
-	distInit = Binomial( 1, probInit );
-	if !isInit0
-		for dim = 1 : nDim
-			rand!( distInit, BfieldLst[dim] );
-		end
-	end
-	updateLinkFrom0ByB( BfieldLst, linkLst, linkFerroLst, params );
-	
-	BfieldSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
-	linkSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : nDim ] for itSample = 1 : lnSample ];
-	BfieldStartSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : nDim ] for itSample = 1 : itStartSample ];
-	linkStartSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : nDim ] for itSample = 1 : itStartSample ];
-	
-	pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-
-	updater = updaterType( params; cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-	
-	itSample = 1;
-	for it = 1 : itNum
-		print( "it = ", it, "         \r" )
-		for dim = 1 : nDim
-			@view(zakLstLst[:,:,dim,it]) .= dropdims( reduce( xor, BfieldLst[dim]; dims = dim, init = false ); dims = dim );
-		end
-		
-		if mod( it, itStep ) == 0
-			Threads.@threads for dim = 1 : nDim
-				linkSampleLst[itSample][dim] .= linkLst[dim];
-				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
-			end
-			itSample += 1;
-		end
-		
-		if it <= itStartSample
-			Threads.@threads for dim = 1 : nDim
-				linkStartSampleLst[it][dim] .= linkLst[dim];
-				BfieldStartSampleLst[it][dim] .= BfieldLst[dim];
-			end
-		end
-		
-		updateLoops( updater, BfieldLst, linkLst, linkFerroLst, params );
-		
-		for dim = 1 : nDim
-			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
-			numLinkLst[it,dim] = sum( linkLst[dim] );
-		end
-	end
-	
-	xyDims = (1,2);
-	zakMeanLst = dropdims( mean( zakLstLst; dims = xyDims ); dims = xyDims );
-	
-	zakLstSampleLst = zakLstLst[:,:,:,[itStep:itStep:itNum;]];
-	
-	fModOut = getFModLoopsMC( fMod, updaterType, isInit0 );
-	
-	fMain = fMainLoopsMC;
-	valLst = Any[divNum, itNum, cArea, cPerim];
-	attrLst, valLst = getAttrValLstLoopsMC( divNum, itNum, cArea, cPerim; beta = beta, cFerro = cFerro );
-	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
-	
-	save( fName, "divNum", divNum, "itNum", itNum, "cArea", cArea, "cPerim", cPerim, "beta", beta );
-	
-	fMainZakLst = fMainLoopsMC * "_" * "zakLstAllMean";
-	fMainZakSample = fMainLoopsMC * "_" * "zakLstSampleMean";
-	
-	fNameZakLst = fNameFunc( fMainZakLst, attrLst, valLst, jld2Type; fMod = fModOut );
-	fNameZakSample = fNameFunc( fMainZakSample, attrLst, valLst, jld2Type; fMod = fModOut );
-	
-	save( fNameZakLst, "zakLstLst", zakLstLst, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
-	save( fNameZakSample, "zakMeanLst", zakMeanLst, "zakLstSampleLst", zakLstSampleLst );
-	
-	oFNameLoops = fNameFunc( oFNameLoopsMain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
-	
-	oFNameLoopsNum = fNameFunc( oFNameLoopsNumMain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoopsNum, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
-	
-	oFNameLoopsStart = fNameFunc( oFNameLoopsStartMain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
-	
-	return fName;
-end
-
 function updateLinkFrom0ByB( BfieldLst, linkLst, linkFerroLst, params::ParamsLoops )
 	for dim = 1 : params.nDim, pos in params.posLst
 		if BfieldLst[dim][pos]
@@ -1161,29 +757,6 @@ function genPFlipLstCube( ; cArea )
 	return pFlipLst;
 end
 
-function flipBLinkAtPos( params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}; pos::CartesianIndex{D}, dim::Int64 ) where {D}
-	BfieldLst[dim][pos] = !BfieldLst[dim][pos];
-	for iLnkDim in 1 : params.nDimLayer
-		dimLink = params.linkDimLst[dim][iLnkDim];
-		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-		linkLst[dimLink][pos] = !linkLst[dimLink][pos];
-		linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]] = !linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
-	end
-	for iLnkDim = 1 : params.nDimLayer
-		linkFerroLst[iLnkDim,dim][pos] = !linkFerroLst[iLnkDim,dim][pos];
-		dimLink = params.linkDimLst[dim][iLnkDim];
-		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
-		linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]] = !linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
-	end
-end
-
-function flipBfieldCubeAtPos( params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}; pos::CartesianIndex{D} ) where {D}
-	for dimB = 1 : params.nDimB
-		BfieldLst[dimB][pos] = !BfieldLst[dimB][pos];
-		BfieldLst[dimB][params.posLstShLst[dimB,1][pos]] = !BfieldLst[dimB][params.posLstShLst[dimB,1][pos]];
-	end
-end
-
 function boolToOnePN( varBool::Bool )
 	# return -(-1).^varBool;
 	return varBool ? -1 : 1;
@@ -1210,6 +783,14 @@ end
 function ratioToBinId( ratio::Number, divNum::Int64 )
 	return Int64( min( floor( ratio * divNum ) + 1, divNum  ) );
 end
+
+include("loops_MC_initializer.jl")
+
+include("loops_MC_flipChecker.jl")
+
+include("loops_MC_updater.jl")
+
+include("loops_MC_legacy.jl")
 
 include("loops_MC_WangLandau.jl")
 

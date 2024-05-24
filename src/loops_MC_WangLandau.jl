@@ -1,5 +1,7 @@
 # Loops_MC module
 
+fNameFileLstWL = "fNameFileLstWL.txt";
+
 function calcDL( params::ParamsLoops, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
 	dL = 0;
 	for iLnkDim in 1 : params.nDimLayer
@@ -12,9 +14,19 @@ function calcDL( params::ParamsLoops, linkLst::Vector{Array{Bool,D}}, dim::Int64
 	return dL;
 end
 
-abstract type AbstractWangLandauFlipChecker <: FlipChecker end
+abstract type AbstractFlipCheckerWithProposer <: FlipChecker
 
-fNameFileLstWL = "fNameFileLstWL.txt";
+function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+end
+
+function flipCheck( flipChecker::AbstractFlipCheckerWithProposer, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	error("Loops_MC: flipChecker or flipProposer not defined yet");
+end
+
+abstract type AbstractWangLandauFlipChecker <: FlipChecker end
 
 function flipCheck( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	isFlip = wangLandauUpdateHistDos( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
@@ -24,6 +36,12 @@ function flipCheck( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLo
 	end
 	
 	return isFlip;
+end
+
+
+
+function flipDoIt( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	flipDoIt( flipChecker.doItFlipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 end
 
 function wangLandauUpdateHistDos( flipChecker::AbstractWangLandauFlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
