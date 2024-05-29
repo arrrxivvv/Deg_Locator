@@ -66,6 +66,7 @@ struct ParamsLoops{N}
 	grdNum::Int64;
 	divLst::Vector{Int64};
 	posLst::CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}};
+	posSlcLst::Vector{Vector{SubArray{CartesianIndex{N}}}};
 	posLstShLst:: Matrix{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}}}; 
 	linkDimLst::Vector{Vector{Int64}};
 	linkDimShLst::Vector{Vector{Int64}};
@@ -78,6 +79,9 @@ struct ParamsLoops{N}
 		grdNum = divNum^nDim;
 		posLst = CartesianIndices(ntuple(x->divNum,nDim));
 		posLstShLst = Utils.arrShAdvRetLstFunc( posLst, nDim );
+		
+		posSlcLst = [ [ selectdim( posLst, dim, iD ) for iD = 1 : divLst[dim] ] for dim = 1 : nDim ];
+		
 		nDimLink = 2;
 		linkDimLst = [ zeros(Int64, nDimLink) for dim = 1 : nDimB ];
 		if nDim == 2
@@ -87,6 +91,7 @@ struct ParamsLoops{N}
 		else
 			dimBLst = zeros(Int64,0);
 		end
+		
 		for dim = 1:nDimB
 			dimB = dimBLst[dim];
 			iDLink = 1;
@@ -99,7 +104,7 @@ struct ParamsLoops{N}
 		end
 		linkDimShLst = [ circshift( linkDimLst[dim], 1 ) for dim = 1 : nDimB ];
 		
-		new{nDim}( nDim, nDimLayer, nDimB, divNum, grdNum, divLst, posLst, posLstShLst, linkDimLst, linkDimShLst );
+		new{nDim}( nDim, nDimLayer, nDimB, divNum, grdNum, divLst, posLst, posSlcLst, posLstShLst, linkDimLst, linkDimShLst );
 	end
 end
 
@@ -175,25 +180,200 @@ end
 
 ConstantInitializer() = ConstantInitializer(false);
 
+
+
+
+abstract type AuxData end
+
+function throwAuxDataUndefined()
+	error( "Loops_MC: AuxData not defined" );
+end
+
+getAuxDataSummaryName( auxDataType::Type{<:AuxData} ) = throwAuxDataUndefined();
+getAuxDataSummaryName( auxData::AuxData ) = getAuxDataSummaryName( typeof(auxData) );
+
+function getAuxDataSummarySampleName( auxDataType::Type{<:AuxData} )
+	return getAuxDataSummaryName( auxDataType ) * "Sample";
+end
+getAuxDataSummarySampleName( auxData::AuxData ) = getAuxDataSummarySampleName( typeof(auxData) );
+
+function getAuxDataSummaryStartSampleName( auxDataType::Type{<:AuxData} )
+	return getAuxDataSummaryName( auxDataType ) * "StartSample";
+end
+getAuxDataSummaryStartSampleName( auxData::AuxData ) = getAuxDataSummaryStartSampleName( typeof(auxData) );
+
+function getAuxDataSummaryNumName( auxDataType::Type{<:AuxData} )
+	return getAuxDataSummaryName( auxDataType ) * "Num";
+end
+getAuxDataSummaryNumName( auxData::AuxData ) = getAuxDataSummaryNumName( typeof(auxData) );
+
+getAuxDataNameLst( auxDataType::Type{<:AuxData} ) = throwAuxDataUndefined();
+getAuxDataNameLst( auxData::AuxData ) = getAuxDataNameLst( typeof(auxData) );
+
+function getAuxDataSampleNameLst( auxDataType::Type{<:AuxData} )
+	return getAuxDataNameLst(auxDataType) .*= "Sample";
+end
+getAuxDataSampleNameLst( auxData::AuxData ) = getAuxDataSampleNameLst( typeof(auxData) );
+
+function getAuxDataStartSampleNameLst( auxDataType::Type{<:AuxData} )
+	return getAuxDataNameLst(auxData) .*= "StartSample";
+end
+getAuxDataStartSamplenameLst( auxData::AuxData ) = getAuxDataStartSamplenameLst( typeof(auxData) );
+
+function getAuxDataNumNameLst( auxDataType::Type{<:AuxData} )
+	return getAuxDataNameLst(auxDataType) .*= "Num";
+end
+getAuxDataNumNameLst( auxData::AuxData ) = getAuxDataNumNameLst( typeof(auxData) );
+
+function renewAuxJldVarLst!( auxData::AuxData )
+	lstSplicing!( auxData.jldVarSampleLst, getAuxDataSampleNameLst( auxData ), auxData.dataSampleLst );
+	lstSplicing!( auxData.jldVarStartSampleLst, getAuxDataStartSampleNameLst( auxData ), auxData.dataStartSampleLst );
+	lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumLst );
+end
+
+function calcAuxData!( auxData::AuxData, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwAuxDataUndefined();
+end
+
+storeAuxDataSample( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
+
+storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 ) = throwAuxDataUndefined();
+
+storeAuxDataNum( uxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
+
+function getJldVarSampleLst( auxData::AuxData )
+	return auxData.jldVarSampleLst;
+end
+
+function getJldVarStartSampleLst( auxData::AuxData )
+	return auxData.jldVarStartSampleLst;
+end
+
+function getJldVarNumLst( auxData::AuxData )
+	return auxData.jldVarNumLst;
+end
+
+function saveAuxDataAll( auxData::AuxData, attrLst::Vector{String}, valLst::Vector; fMod::String = "" )
+	funFNameAux = ( f -> fNameFunc( f( auxData ), attrLst, valLst, jld2Type; fMod = fMod ) );
+	fNameLst = funFNameAux.( [getAuxDataSummarySampleName, getAuxDataSummaryStartSampleName, getAuxDataSummaryNumName] );
+	
+	funSaveAux = (fName, varFunc) -> save( fName, varFunc( auxData )... );
+	funSaveAux.( fNameLst, [getJldVarSampleLst, getJldVarStartSampleLst, getJldVarNumLst] );
+end
+
+struct NoAuxData <: AuxData
+
+end
+
+NoAuxData( arg... ) = NoAuxData();
+
+struct ZakArrAuxData <: AuxData
+	zakArr::Array{Bool,3};
+	zakArrSampleLst::Array{Bool,4};
+	zakArrStartSampleLst::Array{Bool,4};
+	zakMeanLst::Array{Float64,2};
+	
+	dataLst::Vector{Array{Bool,3}};
+	dataSampleLst::Vector{Array{Bool,4}};
+	dataStartSampleLst::Vector{Array{Bool,4}};
+	dataNumLst::Vector{Matrix{Float64}};
+	
+	jldVarSampleLst::Vector{Any};
+	jldVarStartSampleLst::Vector{Any};
+	jldVarNumLst::Vector{Any};
+	
+	# xyDims::Tuple(Vararg{Int64});
+	nDim::Int64;
+	# zakArrSlcLst::Vector{AbstractArray{Bool,2}};
+	
+	function ZakArrAuxData( params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
+		zakArr = zeros( Bool, ntuple( i -> params.divNum, 2 )..., params.nDim );
+		zakArrSampleLst = zeros( Bool, size(zakArr)..., itNumSample );
+		zakArrStartSampleLst = zeros( Bool, size(zakArr)..., itNumStartSample );;
+		zakMeanLst = zeros(Float64, params.nDim, itNum);
+		
+		# zakArrSlcLst = [ @view( zakArr[:,:,dim] ) for dim = 1 : params.nDim ];
+		dataLst = [zakArr];
+		dataSampleLst = [zakArrSampleLst];
+		dataStartSampleLst = [zakArrStartSampleLst];
+		dataNumLst = [zakMeanLst];
+		
+		jldVarSampleLst = Vector{Any}(undef,0);
+		jldVarStartSampleLst = similar(jldVarSampleLst);
+		jldVarNumLst = similar(jldVarSampleLst);
+		
+		# xyDims = (1,2);
+		nDim = params.nDim;
+		
+		auxData = new( zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, nDim );
+		
+		renewAuxJldVarLst!( auxData );
+		
+		return auxData;
+	end
+end
+
+ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
+
+
+
+
 abstract type FlipProposer end
 
-function undefinedErrorFlipProposer()
+function throwFlipProposerUndefined()
 	error("Loops_MC: FlipProposer not defined")
 end
 
 function flipDoIt( flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	undefinedErrorFlipProposer();
+	throwFlipProposerUndefined();
+end
+
+function flipAuxData!( auxData::AuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwAuxDataUndefined();
+end
+
+struct SwitchingFlipProposer{T_tuple} <: FlipProposer
+	flipProposerTup::Tuple{Vararg{FlipProposer}};
+	counterRef::Ref{Int64};
+	
+	function SwitchingFlipProposer( flipProposerTup::Tuple{Vararg{FlipProposer}} )
+		counterVal = 1;
+		
+		new{typeof(T_tuple)}( flipProposerTup, Ref(counterVal) );
+	end
+end
+
+SwitchingFlipProposer( flipProposers::FlipProposer... ) = SwitchingFlipProposer( flipProposers );
+
+function SwitchingFlipProposer{T_tuple}() where {T_tuple}
+	flipProposerTup = ntuple( ii -> T_tuple.parameters[i], length(T_tuple.parameters) );
+	
+	return SwitchingFlipProposer( flipProposerTup );
+end
+
+function getSwitchLstLen( flipProposer::SwitchingFlipProposer )
+	return length( flipProposer.flipProposerTup );
 end
 
 struct OneFlipProposer <: FlipProposer
 	
 end
 
+struct CubeFlipProposer <: FlipProposer
+
+end
+
+
+
 
 abstract type FlipChecker end
 
 function throwFlipCheckerUndefined()
 	error( "Loops_MC: FlipChecker not defined yet" );
+end
+
+function flipCheck( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
 end
 
 function flipCheck( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
@@ -204,34 +384,41 @@ function flipDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, po
 	throwFlipCheckerUndefined();
 end
 
+function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+end
+
+function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, auxData::AuxData, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+		flipAuxData!( auxData, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+	# calcAuxData( auxData, params, BfieldLst, linkLst, linkFerroLst );
+end
+
 function flipCheckDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
 		flipDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 	end
 end
 
-function getFlipCheckerName( flipCheckerType::Type{<:FlipChecker} )
-	throwFlipCheckerUndefined();
-end
+getFlipCheckerName( flipCheckerType::Type{<:FlipChecker} ) = throwFlipCheckerUndefined();
 
 function getFlipCheckerName( flipChecker::FlipChecker )
 	return getFlipCheckerName( typeof(flipChecker) );
 end
 
-function getFlipCheckerAttrLst( flipChecker::FlipChecker )
-	throwFlipCheckerUndefined();
-end
+getFlipCheckerAttrLst( flipChecker::FlipChecker ) = throwFlipCheckerUndefined();
 
-function getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
-	throwFlipCheckerUndefined();
-end
+getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC ) = throwFlipCheckerUndefined();
 
 # function getFlipCheckerAttrLst( flipChecker::FlipChecker )
 	# return getFlipCheckerAttrLst( typeof(flipChecker) );
 # end
 
 function getFlipCheckerAttrValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
-	# error( "Loops_MC: FlipChecker not defined yet" );
 	attrLst = getFlipCheckerAttrLst( flipChecker );
 	valLst = getFlipCheckerValLst( flipChecker; rndDigs = rndDigs );
 	
@@ -283,6 +470,22 @@ end
 
 CubeFlipChecker( cArea, cPerim, cFerro = 0 ) = CubeFlipChecker( cArea );
 
+struct IsingFlipChecker <: FlipChecker
+	pFlipLst::Array{Float64};
+	pCubeFlipLst::Vector{Float64};
+	cParamLst::Vector{Real};
+	
+	function IsingFlipChecker( cArea, cPerim, cFerroSigned = 0 )
+		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
+		cParamLst = Real[cArea, cPerim, cFerroSigned];
+		pCubeFlipLst = genPFlipLstCube( cArea = cArea );
+		
+		new(pFlipLst,pCubeFlipLst,cParamLst);
+	end
+end
+
+
+
 
 
 abstract type LoopsUpdater end
@@ -295,8 +498,9 @@ function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, BfieldLst
 	error( "Loops_MC: updater or flipChecker not defined yet" );
 end
 
-function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
-	error( "Loops_MC: updater or flipChecker not defined yet" );
+function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer, auxData::AuxData, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	updateLoops( updater, flipChecker, flipProposer, BfieldLst, linkLst, linkFerroLst, params );
+	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 end
 
 function getUpdaterFMod( updaterType::(Type{T} where T <: LoopsUpdater) )
@@ -312,7 +516,7 @@ struct SwitchingUpdater{T_tuple} <: AbstractSwitchingUpdater
 	function SwitchingUpdater( updaterTup::Tuple{Vararg{LoopsUpdater}} )
 		counterVal = 1;
 		
-		new{typeof(updaterTup)}( updaterTup, counterVal );
+		new{typeof(updaterTup)}( updaterTup, Ref(counterVal) );
 	end
 end
 
@@ -575,7 +779,7 @@ function loops_MC_methods_cALFCube( divNum = 64, itNum = 10000; updaterType::Typ
 	return fNameOutside;
 end
 
-function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, fMod = "", cArea = 1, cPerim = 1, cFerro = 0, itNumSample = 100, itStartSample = 50, nDim = 3, probInit = nothing, isFileNameOnly::Bool = false, fMainOutside::String = "", flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, fMod = "", cArea = 1, cPerim = 1, cFerro = 0, itNumSample = 100, itStartSample = 50, nDim = 3, probInit = nothing, isFileNameOnly::Bool = false, fMainOutside::String = "", flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Nothing,Type{<:FlipProposer}} = nothing )
 	# if flipCheckerType == NeighborFlipChecker
 		# flipChecker = NeighborFlipChecker( cArea, cPerim, cFerro );
 	# elseif flipCheckerType == CubeFlipChecker
@@ -592,12 +796,20 @@ function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:
 		initializer = ConstantInitializer();
 	end
 	
-	fNameOutside = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, fMod = fMod, itNumSample = itNumSample, itStartSample = itStartSample, isFileNameOnly, fMainOutside = fMainOutside, nDim = nDim );
+	auxDataType = ZakArrAuxData;
+	
+	if isnothing(flipProposerType)
+		flipProposer = nothing;
+	else
+		flipProposer = flipProposerType();
+	end
+	
+	fNameOutside = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, flipProposer = flipProposer, auxDataType = auxDataType, fMod = fMod, itNumSample = itNumSample, itStartSample = itStartSample, isFileNameOnly, fMainOutside = fMainOutside, nDim = nDim );
 	
 	return fNameOutside;
 end
 
-function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker );
 	
 	fMain = fMainLoopsMC;
@@ -611,11 +823,11 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 	
 	params = ParamsLoops( divNum, nDim );
 	
-	BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
-	
 	itStep = max( Int64( floor(itNum / itNumSample) ), 1 );
 	lnSample = Int64( floor( itNum / itStep ) );
 	itStartSample = min( itStartSample, itNum );
+	
+	BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
 	
 	numBfieldLst, numLinkLst = genBfieldLinkNumLst( params, itNum );
 	BfieldSampleLst, linkSampleLst = genBfieldLinkArrSample( params, lnSample );
@@ -624,6 +836,9 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 	initializeBL( initializer, BfieldLst, params );
 	updateLinkFrom0ByBAllDims( BfieldLst, linkLst, linkFerroLst, params );
 	updater = updaterType( params );
+	
+	auxData = auxDataType( params, itNum, lnSample, itStartSample );
+	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	
 	itSample = 1;
 	for it = 1 : itNum
@@ -636,6 +851,7 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 			Threads.@threads for dim = 1 : params.nDimB
 				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
 			end
+			storeAuxDataSample( auxData, itSample );
 			itSample += 1;
 		end
 		
@@ -646,12 +862,13 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 			Threads.@threads for dim = 1 : params.nDimB
 				BfieldStartSampleLst[it][dim] .= BfieldLst[dim];
 			end
+			storeAuxDataStartSample( auxData, it );
 		end
 		
 		if isnothing(flipProposer)
 			updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
 		else
-			updateLoops( updater, flipChecker, flipProposer, BfieldLst, linkLst, linkFerroLst, params );
+			updateLoops( updater, flipChecker, flipProposer, auxData, BfieldLst, linkLst, linkFerroLst, params );
 		end
 		
 		for dim = 1 : params.nDim
@@ -672,6 +889,8 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 	
 	oFNameLoopsStart = fNameFunc( oFMainLoopsStart, attrLst, valLst, jld2Type; fMod = fModOut );
 	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
+	
+	saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
 	
 	if isFileNameOnly
 		return fNameOutside;
@@ -798,6 +1017,8 @@ include("loops_MC_initializer.jl")
 include("loops_MC_flipProposer.jl")
 
 include("loops_MC_flipChecker.jl")
+
+include("loops_MC_auxArr.jl")
 
 include("loops_MC_updater.jl")
 

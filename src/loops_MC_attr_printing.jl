@@ -38,3 +38,18 @@ function summarizeArrBoolAttr( arr::Array{<:Union{Bool,Int}} )
 		return "both";
 	end
 end
+
+function lstSplicing!( lstDest::AbstractVector, lst1::AbstractVector, lst2::AbstractVector )
+	if ( ln = length(lst1) ) != length(lst2)
+		error( "list length mismatch" );
+	end
+	
+	resize!(lstDest, 2*ln);
+	
+	for id = 1 : ln
+		lstDest[2*id-1] = lst1[id];
+		lstDest[2*id] = lst2[id];
+	end
+	
+	return lstDest;
+end

@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
-runChoice = runFull;
+runChoice = runFileLst;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -49,8 +49,8 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [2:0.2:3;];
-cAngleLst = [0.6:0.2:0.6;].*pi/2;
+cRadiusLst = [0.2:0.2:1.2;];
+cAngleLst = [0.6:0.2:0.8;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
@@ -76,8 +76,10 @@ radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
-fMainCollect = Loops_MC.oFNameLoopsNumMain;
+# fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
+# fMainCollect = Loops_MC.oFMainLoopsSample;
+fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam
 	itNumLst = [100];
@@ -112,7 +114,7 @@ end
 updaterType = Loops_MC.StaggeredCubeUpdaterBase;
 # updaterType = Loops_MC.CubeUpdater;
 # updaterType = Loops_MC.CubeStaggeredCubeUpdater;
-# updaterType = Loops_MC.SwitchingUpdater{Tuple{Loops_MC.StaggeredCubeUpdaterBase,Loops_MC.CubeStaggeredCubeUpdater}};
+# updaterType = Loops_MC.SwitchingUpdater{Tuple{Loops_MC.StaggeredCubeUpdaterBase,Loops_MC.StaggeredCubeUpdaterBase}};
 
 # paramsGroupLstFlat = Loops_MC.ParamsGroup[Loops_MC.BetaParamsGroup(betaLst, cRatioLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst)];
 
@@ -125,12 +127,18 @@ paramsGroupLst = paramsGroupLstFlat;
 initType = Loops_MC.BinomialInitializer;
 # initType = Loops_MC.ConstantInitializer;
 
-flipCheckerType = Loops_MC.NeighborFlipChecker;
+# flipProposerType = Loops_MC.OneFlipProposer;
+flipProposerType = Loops_MC.CubeFlipProposer;
+# flipProposerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.OneFlipProposer,Loops_MC.CubeFlipProposer}};
+# flipProposerType = nothing;
+
+# flipCheckerType = Loops_MC.NeighborFlipChecker;
 # flipCheckerType = Loops_MC.CubeFlipChecker;
 # flipCheckerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.NeighborFlipChecker,Loops_MC.CubeFlipChecker}};
+flipCheckerType = Loops_MC.IsingFlipChecker;
 
 if isRunSim
-	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType );
+	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 end
 
 if isRunFileLst

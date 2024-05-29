@@ -27,6 +27,16 @@ function getSwitchLstLen( updater::SwitchingUpdater )
 	return length(updater.updaterTup);
 end
 
+function updateLoops( updater::LoopsUpdater, flipChecker::FlipChecker, flipProposer::SwitchingFlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	flipProposerNow = flipProposer.flipProposerTup[flipProposer.counterRef[]];
+	
+	updateLoops( updater, flipChecker, flipProposerNow, BfieldLst, linkLst, linkFerroLst, params );
+	
+	flipProposer.counterRef[] = mod( flipProposer.counterRef[], getSwitchLstLen(flipProposer) );
+	flipProposer.counterRef[] += 1;
+end
+
+
 
 
 
@@ -173,6 +183,18 @@ function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecke
 	end
 end
 
+function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+	for iAdv = 1 : params.nDim+1
+		rand!( updater.randIDimLst, updater.iDimLst );
+		rand!( updater.randIShLst, updater.iIsShLst );
+		Threads.@threads for idStag in updater.idStagLst
+			posCube = updater.posStagCubeLst[iAdv][idStag];
+			pos = updater.posShOrNotLst[updater.randIDimLst[idStag]][updater.randIShLst[idStag]][posCube];
+			
+			flipCheckDoIt( flipChecker, flipProposer, params, updater.randIDimLst[idStag], pos, BfieldLst, linkLst, linkFerroLst );
+		end
+	end
+end
 
 
 

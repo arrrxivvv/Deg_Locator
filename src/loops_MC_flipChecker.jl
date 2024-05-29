@@ -134,6 +134,62 @@ function flipCheck( flipChecker::CubeFlipChecker, params::ParamsLoops, dim::Int6
 end
 
 
+function getFlipCheckerName( flipCheckerType::Type{IsingFlipChecker} )
+	return "cAcLcFFlip";
+end
+
+function getFlipCheckerAttrLst( flipChecker::IsingFlipChecker )
+	attrLst = ["cArea", "cPerim", "cFerro"];
+	if flipChecker.cParamLst[3] == 0
+		attrLst = attrLst[1:2];
+	end
+	
+	return attrLst;
+end
+
+function getFlipCheckerValLst( flipChecker::IsingFlipChecker; rndDigs = rndDigsLpsMC )
+	valLst = roundKeepInt.( deepcopy( flipChecker.cParamLst ); digits = rndDigs );
+	if flipChecker.cParamLst[3] == 0
+		valLst = valLst[1:2];
+	end
+	
+	return valLst;
+end
+
+function flipCheck( flipChecker::IsingFlipChecker, flipProposer::OneFlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	iArea = BfieldLst[dim][pos] + 1;
+	iL = 1;
+	for iLnkDim in 1 : params.nDimLayer
+		dimLink = params.linkDimLst[dim][iLnkDim];
+		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
+		iL += linkLst[dimLink][pos];
+		iL += linkLst[dimLink][params.posLstShLst[dimLinkSh,1][pos]];
+	end
+	iLFerro = 1;
+	for iLnkDim = 1 : params.nDimLayer
+		dimLink = params.linkDimLst[dim][iLnkDim];
+		dimLinkSh = params.linkDimShLst[dim][iLnkDim];
+		iLFerro += linkFerroLst[iLnkDim,dim][pos];
+		iLFerro += linkFerroLst[iLnkDim,dim][params.posLstShLst[dimLinkSh,1][pos]];
+	end
+	
+	pSwitchRand = rand();
+	
+	return pSwitchRand < flipChecker.pFlipLst[iLFerro, iL, iArea];
+end
+
+function flipCheck( flipChecker::IsingFlipChecker, flipProposer::CubeFlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	iArea = 1;
+	for dimB = 1 : params.nDimB
+		iArea += BfieldLst[dimB][pos];
+		iArea += BfieldLst[dimB][params.posLstShLst[dimB,1][pos]];
+	end
+	
+	pSwitchRand = rand();
+	return pSwitchRand < flipChecker.pCubeFlipLst[iArea];
+end
+
+
 
 
 function flipBfieldCubeAtPos( params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}; pos::CartesianIndex{D} ) where {D}

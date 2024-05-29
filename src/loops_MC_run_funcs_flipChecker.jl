@@ -46,31 +46,31 @@ function getAttrValGroupsItNumLstSummarized( divNumLst::Vector{Int64}, itNumLstL
 	return attrLstFLst, valLstFLst;
 end
 
-function runLoopMC_withParamsGroup( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function runLoopMC_withParamsGroup( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLstLst::Vector{Vector{Int64}}, divNumLst::Vector{Int64}, paramsGrpLstLst::Vector{Vector{ParamsGroup}}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	if length(itNumLstLst) != length(paramsGrpLstLst)
 		throw(ArgumentError("itNumLstLst and paramsGrpLstLst lengths different"));
 	end
 	
 	for iItLst = 1 : length(itNumLstLst)
-		runLoopMC_withParamsGroup( updaterType, initializerType, itNumLstLst[iItLst], divNumLst,  paramsGrpLstLst[iItLst]; fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType );
+		runLoopMC_withParamsGroup( updaterType, initializerType, itNumLstLst[iItLst], divNumLst,  paramsGrpLstLst[iItLst]; fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 	end
 end
 
-function runLoopMC_withParamsGroup( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function runLoopMC_withParamsGroup( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	for iGrp = 1 : length(paramsGrpLst)
 		cAreaLst, cPerimLst, cFerroLst = paramsLstFromGroup( paramsGrpLst[iGrp] );
-		runLoopMC_withParamsBase( updaterType, initializerType, itNumLst, divNumLst, cAreaLst, cPerimLst, cFerroLst; fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType );
+		runLoopMC_withParamsBase( updaterType, initializerType, itNumLst, divNumLst, cAreaLst, cPerimLst, cFerroLst; fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 	end
 end
 
-function runLoopMC_withParamsBase( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, cAreaLst::Array{Float64}, cPerimLst::Array{Float64}, cFerroLst::Array{Float64}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function runLoopMC_withParamsBase( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, cAreaLst::Array{Float64}, cPerimLst::Array{Float64}, cFerroLst::Array{Float64}; fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	@time for itNum in itNumLst, divNum in divNumLst
 		for idParam in CartesianIndices(cAreaLst)
 			cArea = cAreaLst[idParam];
 			cPerim = cPerimLst[idParam];
 			cFerro = cFerroLst[idParam];
 			
-			@time fNameSmart = loops_MC_methods_cALF( divNum, itNum; nDim = nDim, cPerim = cPerim, cArea = cArea, cFerro = cFerro, fMod = fMod, updaterType = updaterType, initializerType = initializerType, flipCheckerType = flipCheckerType );
+			@time fNameSmart = loops_MC_methods_cALF( divNum, itNum; nDim = nDim, cPerim = cPerim, cArea = cArea, cFerro = cFerro, fMod = fMod, updaterType = updaterType, initializerType = initializerType, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 			GC.gc()
 		end
 	end
