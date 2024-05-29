@@ -216,9 +216,9 @@ end
 getAuxDataSampleNameLst( auxData::AuxData ) = getAuxDataSampleNameLst( typeof(auxData) );
 
 function getAuxDataStartSampleNameLst( auxDataType::Type{<:AuxData} )
-	return getAuxDataNameLst(auxData) .*= "StartSample";
+	return getAuxDataNameLst(auxDataType) .*= "StartSample";
 end
-getAuxDataStartSamplenameLst( auxData::AuxData ) = getAuxDataStartSamplenameLst( typeof(auxData) );
+getAuxDataStartSampleNameLst( auxData::AuxData ) = getAuxDataStartSampleNameLst( typeof(auxData) );
 
 function getAuxDataNumNameLst( auxDataType::Type{<:AuxData} )
 	return getAuxDataNameLst(auxDataType) .*= "Num";
@@ -328,6 +328,9 @@ function flipDoIt( flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, 
 	throwFlipProposerUndefined();
 end
 
+getFlipProposerName( flipProposerType::Type{<:FlipProposer} ) = throwFlipProposerUndefined();
+getFlipProposerName( flipProposer::FlipProposer ) = getFlipProposerName( typeof(flipProposer) );
+
 function flipAuxData!( auxData::AuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	throwAuxDataUndefined();
 end
@@ -339,14 +342,14 @@ struct SwitchingFlipProposer{T_tuple} <: FlipProposer
 	function SwitchingFlipProposer( flipProposerTup::Tuple{Vararg{FlipProposer}} )
 		counterVal = 1;
 		
-		new{typeof(T_tuple)}( flipProposerTup, Ref(counterVal) );
+		new{typeof(flipProposerTup)}( flipProposerTup, Ref(counterVal) );
 	end
 end
 
 SwitchingFlipProposer( flipProposers::FlipProposer... ) = SwitchingFlipProposer( flipProposers );
 
 function SwitchingFlipProposer{T_tuple}() where {T_tuple}
-	flipProposerTup = ntuple( ii -> T_tuple.parameters[i], length(T_tuple.parameters) );
+	flipProposerTup = ntuple( ii -> T_tuple.parameters[ii](), length(T_tuple.parameters) );
 	
 	return SwitchingFlipProposer( flipProposerTup );
 end
@@ -355,11 +358,13 @@ function getSwitchLstLen( flipProposer::SwitchingFlipProposer )
 	return length( flipProposer.flipProposerTup );
 end
 
-struct OneFlipProposer <: FlipProposer
+abstract type AbstractConcreteFlipProposer <: FlipProposer end
+
+struct OneFlipProposer <: AbstractConcreteFlipProposer
 	
 end
 
-struct CubeFlipProposer <: FlipProposer
+struct CubeFlipProposer <: AbstractConcreteFlipProposer
 
 end
 
@@ -711,13 +716,16 @@ end
 
 
 
-function getFModLoopsMC( fMod::String, updaterType::Type{<:LoopsUpdater}, isInit0::Bool=false; isFModMethod = true, flipChecker::Union{FlipChecker,Nothing} = nothing )
+function getFModLoopsMC( fMod::String, updaterType::Type{<:LoopsUpdater}, isInit0::Bool=false; isFModMethod = true, flipChecker::Union{FlipChecker,Nothing} = nothing, flipProposer::Union{FlipProposer,Nothing} = nothing )
 	fModOut = fMod;
 	if isFModMethod
 		fModOut = Utils.strAppendWith_( fModOut, getUpdaterFMod(updaterType) );
 	end
 	if !isnothing( flipChecker )
 		fModOut = Utils.strAppendWith_( fModOut, getFlipCheckerName(flipChecker) );
+	end
+	if !isnothing( flipProposer )
+		fModOut = Utils.strAppendWith_( fModOut, getFlipProposerName(flipProposer) );
 	end
 	if isInit0
 		fModOut = Utils.strAppendWith_( fModOut, "isInit0" );
@@ -810,7 +818,7 @@ function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:
 end
 
 function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
-	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker );
+	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker, flipProposer = flipProposer );
 	
 	fMain = fMainLoopsMC;
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );

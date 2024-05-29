@@ -49,8 +49,8 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [0.2:0.2:1.2;];
-cAngleLst = [0.6:0.2:0.8;].*pi/2;
+cRadiusLst = [1:0.2:2.0;];
+cAngleLst = [0.8:0.2:0.8;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
 
@@ -76,10 +76,10 @@ radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
-# fMainCollect = Loops_MC.oFNameLoopsNumMain;
+fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 # fMainCollect = Loops_MC.oFMainLoopsSample;
-fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
+# fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam
 	itNumLst = [100];
@@ -128,7 +128,8 @@ initType = Loops_MC.BinomialInitializer;
 # initType = Loops_MC.ConstantInitializer;
 
 # flipProposerType = Loops_MC.OneFlipProposer;
-flipProposerType = Loops_MC.CubeFlipProposer;
+# flipProposerType = Loops_MC.CubeFlipProposer;
+flipProposerType = Loops_MC.SwitchingFlipProposer{Tuple{Loops_MC.OneFlipProposer,Loops_MC.CubeFlipProposer}};
 # flipProposerType = Loops_MC.SwitchingFlipChecker{Tuple{Loops_MC.OneFlipProposer,Loops_MC.CubeFlipProposer}};
 # flipProposerType = nothing;
 
@@ -142,7 +143,7 @@ if isRunSim
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod, flipCheckerType = flipCheckerType );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 end
 
 if isRunSaveParam

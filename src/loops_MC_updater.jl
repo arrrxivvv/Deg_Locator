@@ -54,7 +54,7 @@ function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, BfieldLs
 	flipCheckDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 end
 
-function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+function updateLoops( updater::SingleUpdater, flipChecker::FlipChecker, flipProposer::AbstractConcreteFlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
 	pos = rand(params.posLst);
 	dim = rand(1:params.nDimB);
 	
@@ -183,7 +183,7 @@ function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecke
 	end
 end
 
-function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecker, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
+function updateLoops( updater::StaggeredCubeUpdaterBase, flipChecker::FlipChecker, flipProposer::AbstractConcreteFlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}}, params::ParamsLoops ) where {D}
 	for iAdv = 1 : params.nDim+1
 		rand!( updater.randIDimLst, updater.iDimLst );
 		rand!( updater.randIShLst, updater.iIsShLst );

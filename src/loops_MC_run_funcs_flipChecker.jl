@@ -104,8 +104,8 @@ function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, itNumLstLst::Vect
 	return fLstName;
 end
 
-function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
-	fNameLst, fGrpLstName = genFNameGrpLstArrSaved( updaterType, initializerType, itNumLst, divNumLst, paramsGrpLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits, nDim = nDim, flipCheckerType = flipCheckerType );
+function genFNameLstLoopMC( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
+	fNameLst, fGrpLstName = genFNameGrpLstArrSaved( updaterType, initializerType, itNumLst, divNumLst, paramsGrpLst; fMain = fMain, fMod = fMod, rndDigits = rndDigits, nDim = nDim, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 	
 	fLstMain = fMain * "_fLst";
 	attrLstFLst, valLstFLst = getAttrValGroupsSummarized( divNumLst, itNumLst, nDim, paramsGrpLst; rndDigits = rndDigits );
@@ -135,11 +135,11 @@ function genFNameItGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, initialize
 	return fNameLst, fItGrpLstName;
 end
 
-function genFNameGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function genFNameGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrpLst::Vector{ParamsGroup}; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	fNameLstLst = Vector{Vector{String}}(undef, length(paramsGrpLst));
 	fNameJld2Lst = Vector{String}(undef,length(paramsGrpLst));
 	for iGrp = 1 : length(paramsGrpLst)
-		fNameLstLst[iGrp], fNameJld2Lst[iGrp] = genFNameLstArrSaved( updaterType, initializerType, itNumLst, divNumLst, paramsGrpLst[iGrp]; fMain = fMain, fMod = fMod, rndDigits = rndDigits, nDim = nDim, flipCheckerType = flipCheckerType );
+		fNameLstLst[iGrp], fNameJld2Lst[iGrp] = genFNameLstArrSaved( updaterType, initializerType, itNumLst, divNumLst, paramsGrpLst[iGrp]; fMain = fMain, fMod = fMod, rndDigits = rndDigits, nDim = nDim, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 	end
 	fNameLst = append!(fNameLstLst...);
 	
@@ -154,9 +154,9 @@ function genFNameGrpLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerT
 	return fNameLst, fGrpLstName;
 end
 
-function genFNameLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrp::ParamsGroup; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function genFNameLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, paramsGrp::ParamsGroup; fMain::String, fMod = "", rndDigits::Int64 = 3, nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	cAreaLst, cPerimLst, cFerroLst = paramsGrp.paramsLst;
-	fNameLst, fNameArr = genFNameLstInJulia( updaterType, initializerType, itNumLst, divNumLst, cAreaLst, cPerimLst, cFerroLst; fMain = fMain, fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType );
+	fNameLst, fNameArr = genFNameLstInJulia( updaterType, initializerType, itNumLst, divNumLst, cAreaLst, cPerimLst, cFerroLst; fMain = fMain, fMod = fMod, nDim = nDim, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
 	
 	fLstMain = fMain * "_fLst";
 	fLstJld2Main = fMain * "_fArr" * "Jld2";
@@ -168,7 +168,7 @@ function genFNameLstArrSaved( updaterType::Type{<:LoopsUpdater}, initializerType
 	return fNameLst, fLstJld2Name;
 end
 
-function genFNameLstInJulia( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, cAreaLst::Array{Float64}, cPerimLst::Array{Float64}, cFerroLst::Array{Float64}; fMain::String, fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker )
+function genFNameLstInJulia( updaterType::Type{<:LoopsUpdater}, initializerType::Type{<:BLinkInitializer}, itNumLst::Vector{Int64}, divNumLst::Vector{Int64}, cAreaLst::Array{Float64}, cPerimLst::Array{Float64}, cFerroLst::Array{Float64}; fMain::String, fMod = "", nDim::Int64 = 3, flipCheckerType::Type{<:FlipChecker} = NeighborFlipChecker, flipProposerType::Union{Type{<:FlipProposer},Nothing} = nothing )
 	isFileNameOnly = true;
 	fNameLst = Vector{String}(undef,0);
 	fNameArr = Array{String}(undef, length(itNumLst), length(divNumLst), size(cAreaLst)...);
@@ -179,7 +179,7 @@ function genFNameLstInJulia( updaterType::Type{<:LoopsUpdater}, initializerType:
 		divNum = divNumLst[iDiv];
 		itNum = itNumLst[iIt];
 		
-		fName = loops_MC_methods_cALF( divNum, itNum; nDim = nDim, cPerim = cPerim, cArea = cArea, cFerro = cFerro, fMod = fMod, updaterType = updaterType, initializerType = initializerType, flipCheckerType = flipCheckerType, isFileNameOnly = isFileNameOnly, fMainOutside = fMain );
+		fName = loops_MC_methods_cALF( divNum, itNum; nDim = nDim, cPerim = cPerim, cArea = cArea, cFerro = cFerro, fMod = fMod, updaterType = updaterType, initializerType = initializerType, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType, isFileNameOnly = isFileNameOnly, fMainOutside = fMain );
 		GC.gc()
 		push!(fNameLst,fName);
 		fNameArr[iIt, iDiv, idParam] = fName;
