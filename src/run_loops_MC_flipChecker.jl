@@ -76,10 +76,10 @@ radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
-fMainCollect = Loops_MC.oFNameLoopsNumMain;
+# fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 # fMainCollect = Loops_MC.oFMainLoopsSample;
-# fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
+fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam
 	itNumLst = [100];

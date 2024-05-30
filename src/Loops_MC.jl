@@ -225,10 +225,13 @@ function getAuxDataNumNameLst( auxDataType::Type{<:AuxData} )
 end
 getAuxDataNumNameLst( auxData::AuxData ) = getAuxDataNumNameLst( typeof(auxData) );
 
+renewAuxDataOutLst!( auxData::AuxData ) = throwAuxDataUndefined();
+
 function renewAuxJldVarLst!( auxData::AuxData )
-	lstSplicing!( auxData.jldVarSampleLst, getAuxDataSampleNameLst( auxData ), auxData.dataSampleLst );
-	lstSplicing!( auxData.jldVarStartSampleLst, getAuxDataStartSampleNameLst( auxData ), auxData.dataStartSampleLst );
-	lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumLst );
+	renewAuxDataOutLst!(auxData);
+	lstSplicing!( auxData.jldVarSampleLst, getAuxDataSampleNameLst( auxData ), auxData.dataSampleOutLst );
+	lstSplicing!( auxData.jldVarStartSampleLst, getAuxDataStartSampleNameLst( auxData ), auxData.dataStartSampleOutLst );
+	lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumOutLst );
 end
 
 function calcAuxData!( auxData::AuxData, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
@@ -254,6 +257,7 @@ function getJldVarNumLst( auxData::AuxData )
 end
 
 function saveAuxDataAll( auxData::AuxData, attrLst::Vector{String}, valLst::Vector; fMod::String = "" )
+	renewAuxJldVarLst!( auxData );
 	funFNameAux = ( f -> fNameFunc( f( auxData ), attrLst, valLst, jld2Type; fMod = fMod ) );
 	fNameLst = funFNameAux.( [getAuxDataSummarySampleName, getAuxDataSummaryStartSampleName, getAuxDataSummaryNumName] );
 	
@@ -269,14 +273,19 @@ NoAuxData( arg... ) = NoAuxData();
 
 struct ZakArrAuxData <: AuxData
 	zakArr::Array{Bool,3};
-	zakArrSampleLst::Array{Bool,4};
-	zakArrStartSampleLst::Array{Bool,4};
-	zakMeanLst::Array{Float64,2};
+	zakArrSampleLst::Vector{Array{Bool,3}};
+	zakArrStartSampleLst::Vector{Array{Bool,3}};
+	zakMeanLst::Vector{Vector{Float64}};
 	
 	dataLst::Vector{Array{Bool,3}};
-	dataSampleLst::Vector{Array{Bool,4}};
-	dataStartSampleLst::Vector{Array{Bool,4}};
-	dataNumLst::Vector{Matrix{Float64}};
+	dataSampleLst::Vector{Vector{Array{Bool,3}}};
+	dataStartSampleLst::Vector{Vector{Array{Bool,3}}};
+	dataNumLst::Vector{Vector{Vector{Float64}}};
+	
+	# dataOutLst::Vector{Array{Bool,3}};
+	dataSampleOutLst::Vector{Array{Bool,4}};
+	dataStartSampleOutLst::Vector{Array{Bool,4}};
+	dataNumOutLst::Vector{Array{Float64,2}};
 	
 	jldVarSampleLst::Vector{Any};
 	jldVarStartSampleLst::Vector{Any};
@@ -288,15 +297,22 @@ struct ZakArrAuxData <: AuxData
 	
 	function ZakArrAuxData( params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
 		zakArr = zeros( Bool, ntuple( i -> params.divNum, 2 )..., params.nDim );
-		zakArrSampleLst = zeros( Bool, size(zakArr)..., itNumSample );
-		zakArrStartSampleLst = zeros( Bool, size(zakArr)..., itNumStartSample );;
-		zakMeanLst = zeros(Float64, params.nDim, itNum);
+		# zakArrSampleLst = zeros( Bool, size(zakArr)..., itNumSample );
+		# zakArrStartSampleLst = zeros( Bool, size(zakArr)..., itNumStartSample );;
+		# zakMeanLst = zeros(Float64, params.nDim, itNum);
+		zakArrSampleLst = [ similar(zakArr) for it = 1 : itNumSample ];
+		zakArrStartSampleLst = [ similar(zakArr) for it = 1 : itNumSample ];
+		zakMeanLst = [ zeros(params.nDim) for it = 1 : itNum ];
 		
 		# zakArrSlcLst = [ @view( zakArr[:,:,dim] ) for dim = 1 : params.nDim ];
 		dataLst = [zakArr];
 		dataSampleLst = [zakArrSampleLst];
 		dataStartSampleLst = [zakArrStartSampleLst];
 		dataNumLst = [zakMeanLst];
+		
+		dataSampleOutLst = Vector{Array{Bool,4}}(undef,length(dataSampleLst));
+		dataStartSampleOutLst = Vector{Array{Bool,4}}(undef,length(dataStartSampleLst));
+		dataNumOutLst = Vector{Array{Float64,2}}(undef,length(dataNumLst));
 		
 		jldVarSampleLst = Vector{Any}(undef,0);
 		jldVarStartSampleLst = similar(jldVarSampleLst);
@@ -305,9 +321,9 @@ struct ZakArrAuxData <: AuxData
 		# xyDims = (1,2);
 		nDim = params.nDim;
 		
-		auxData = new( zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, nDim );
+		auxData = new( zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, nDim );
 		
-		renewAuxJldVarLst!( auxData );
+		# renewAuxJldVarLst!( auxData );
 		
 		return auxData;
 	end
