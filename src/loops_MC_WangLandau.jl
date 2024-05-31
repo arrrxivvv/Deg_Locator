@@ -523,6 +523,120 @@ function wangLandauHistResetCheck( flipChecker::WL3dPartFlatStdFlipChecker )
 	return isHistReset;
 end
 
+
+
+
+
+struct WangLandauAuxData <: AuxData
+	itSampleLst::Vector{Int64};
+	
+	histArr::Array{Int64};
+	dosArr::Array{Float64};
+	
+	histArrSampleLst::Vector{Array{Int64}};
+	histArrStartSampleLst::Vector{Array{Int64}};
+	
+	dosArrSampleLst::Vector{Array{Float64}};
+	dosArrStartSampleLst::Vector{Array{Float64}};
+	
+	dataLst::Vector{Array};
+	dataSampleLst::Vector{<:Vector{<:Array}};
+	dataStartSampleLst::Vector{<:Vector{<:Array}};
+	dataNumLst::Vector{Vector};
+	
+	dataSampleOutLst::Vector{Array};
+	dataStartSampleOutLst::Vector{Array};
+	dataNumOutLst::Vector{Array};
+	
+	jldVarSampleLst::Vector{Any};
+	jldVarStartSampleLst::Vector{Any};
+	jldVarNumLst::Vector{Any};
+	jldVarItSampleLst::Vector{Any};
+	
+	function WangLandauAuxData( flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
+		itSampleLst = zeros(Int64, itNumSample);
+		
+		histArr = flipChecker.histArr;
+		dosArr = flipChecker.dosArr;
+		
+		histArrSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumSample ];
+		histArrStartSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumStartSample ];
+		dosArrSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumSample ];
+		dosArrStartSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumStartSample ];
+		
+		dataLst = Array[histArr, dosArr];
+		dataSampleLst = Vector{Array}[histArrSampleLst, dosArrSampleLst];
+		dataStartSampleLst = Vector{Array}[histArrStartSampleLst, dosArrStartSampleLst];
+		dataNumLst = Vector{Vector}[];
+		
+		dataSampleOutLst = Vector{Array}(undef, length(dataSampleLst));
+		dataStartSampleOutLst = Vector{Array}(undef, length(dataStartSampleLst));
+		dataNumOutLst = copy(dataNumLst);
+		
+		jldVarSampleLst = Vector{Any}(undef,0);
+		jldVarStartSampleLst = similar(jldVarSampleLst);
+		jldVarNumLst = similar(jldVarSampleLst);
+		jldVarItSampleLst = similar(jldVarSampleLst);
+		
+		new( itSampleLst, flipChecker.histArr, flipChecker.dosArr, histArrSampleLst, histArrStartSampleLst, dosArrSampleLst, dosArrStartSampleLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst );
+	end
+end
+
+WangLandauAuxData( flipChecker::AbstractWangLandauFlipChecker ) = WangLandauAuxData( flipChecker, 0, 0, 0 );
+WangLandauAuxData( params::ParamsLoops, flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = WangLandauAuxData( flipChecker, itNum, itNumSample, itNumStartSample );
+WangLandauAuxData( params::ParamsLoops, flipChecker::AbstractWangLandauFlipChecker ) = WangLandauAuxData( flipChecker );
+
+function getAuxDataSummaryName( wlAuxDataType::Type{WangLandauAuxData} )
+	return "WLHistDos";
+end
+
+function getAuxDataNameLst( wlAuxDataType::Type{WangLandauAuxData} )
+	return ["histArr", "dosArr"];
+end
+
+getAuxDataNumNameLst( wlAuxDataType::Type{WangLandauAuxData} ) = String[];
+
+function storeAuxDataSampleDataOnly( wlAuxData::WangLandauAuxData, itSample::Int64 )
+	# @infiltrate
+	for ii = 1 : length(wlAuxData.dataLst)
+		if itSample > length(wlAuxData.dataSampleLst[ii])
+			push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
+		end
+		wlAuxData.dataSampleLst[ii][itSample] .= wlAuxData.dataLst[ii];
+	end
+end
+
+function storeAuxDataStartSample( wlAuxData::WangLandauAuxData, itStartSample::Int64 )
+	for ii = 1 : length(wlAuxData.dataLst)
+		if itStartSample > length(wlAuxData.dataStartSampleLst[ii])
+			push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
+		end
+		wlAuxData.dataSampleLst[ii][itStartSample] .= wlAuxData.dataLst[ii];
+	end
+end
+
+storeAuxDataNum( wlAuxData::WangLandauAuxData, it::Int64 ) = nothing;
+
+function flipAuxData!( wlAuxData::WangLandauAuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	nothing;
+end
+
+function calcAuxData!( wlAuxData::WangLandauAuxData, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	nothing;
+end
+
+function renewAuxDataOutLst!( wlAuxData::WangLandauAuxData )
+	funStackArrs = ( arr -> cat( arr...; dims = ndims(wlAuxData.dataLst[1])+1 ) );
+	wlAuxData.dataSampleOutLst .= funStackArrs.(wlAuxData.dataSampleLst);
+	wlAuxData.dataStartSampleOutLst .= funStackArrs.(wlAuxData.dataStartSampleLst);
+	
+	GC.gc();
+end
+
+
+
+
+
 struct StaggeredCubeUpdaterWangLandau{N,Nplus1} <: LoopsUpdater
 	posLstSh0::CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}};
 	posLstAdvOrNot::Vector{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}} }};
@@ -637,7 +751,7 @@ function loops_MC_methods_WangLandau( divNum = 64, itNum = 10000; histDivNum = 6
 	return fNameWL;
 end
 
-function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, nDim = 2 )
+function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, nDim = 2, isFileNameOnly = false, fMainOutside = "" )
 	# flipChecker = WangLandauFlipChecker( histDivNum; dosIncrVal = dosIncrInit );
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
 	# flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
@@ -645,8 +759,9 @@ function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, i
 	flipProposer = OneFlipProposer();
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
+	auxDataType = WangLandauAuxData;
 	
-	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim );
+	fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxDataType = auxDataType, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
 	
 	fMain = "loops_WL2d";
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );
@@ -662,5 +777,5 @@ function loops_MC_methods_WL2d( divNum = 64, itNum = 10000; itNumSample = 100, i
 	
 	# @infiltrate
 	
-	return fNameWL;
+	return fName;
 end

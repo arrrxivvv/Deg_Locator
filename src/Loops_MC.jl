@@ -192,6 +192,11 @@ end
 getAuxDataSummaryName( auxDataType::Type{<:AuxData} ) = throwAuxDataUndefined();
 getAuxDataSummaryName( auxData::AuxData ) = getAuxDataSummaryName( typeof(auxData) );
 
+function getAuxDataSummaryItSampleLstName( auxDataType::Type{<:AuxData} )
+	return "itSampleLst";
+end
+getAuxDataSummaryItSampleLstName( auxData::AuxData ) = getAuxDataSummaryItSampleLstName( typeof(auxData) );
+
 function getAuxDataSummarySampleName( auxDataType::Type{<:AuxData} )
 	return getAuxDataSummaryName( auxDataType ) * "Sample";
 end
@@ -232,13 +237,22 @@ function renewAuxJldVarLst!( auxData::AuxData )
 	lstSplicing!( auxData.jldVarSampleLst, getAuxDataSampleNameLst( auxData ), auxData.dataSampleOutLst );
 	lstSplicing!( auxData.jldVarStartSampleLst, getAuxDataStartSampleNameLst( auxData ), auxData.dataStartSampleOutLst );
 	lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumOutLst );
+	lstSplicing!( auxData.jldVarItSampleLst, ["itSampleLst"], [auxData.itSampleLst] )
 end
 
 function calcAuxData!( auxData::AuxData, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	throwAuxDataUndefined();
 end
 
-storeAuxDataSample( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
+function storeAuxDataSample( auxData::AuxData, itSample::Int64, it::Int64 )
+	if itSample > length(auxData.itSampleLst)
+		resize!( auxData.itSampleLst, itSample );
+	end
+	auxData.itSampleLst[itSample] = it;
+	
+	storeAuxDataSampleDataOnly( auxData, itSample );
+end
+storeAuxDataSampleDataOnly( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
 storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 ) = throwAuxDataUndefined();
 
@@ -256,13 +270,17 @@ function getJldVarNumLst( auxData::AuxData )
 	return auxData.jldVarNumLst;
 end
 
+function getJldVarItSampleLst( auxData::AuxData )
+	return auxData.jldVarItSampleLst;
+end
+
 function saveAuxDataAll( auxData::AuxData, attrLst::Vector{String}, valLst::Vector; fMod::String = "" )
 	renewAuxJldVarLst!( auxData );
 	funFNameAux = ( f -> fNameFunc( f( auxData ), attrLst, valLst, jld2Type; fMod = fMod ) );
-	fNameLst = funFNameAux.( [getAuxDataSummarySampleName, getAuxDataSummaryStartSampleName, getAuxDataSummaryNumName] );
+	fNameLst = funFNameAux.( [getAuxDataSummarySampleName, getAuxDataSummaryStartSampleName, getAuxDataSummaryNumName, getAuxDataSummaryItSampleLstName] );
 	
 	funSaveAux = (fName, varFunc) -> save( fName, varFunc( auxData )... );
-	funSaveAux.( fNameLst, [getJldVarSampleLst, getJldVarStartSampleLst, getJldVarNumLst] );
+	funSaveAux.( fNameLst, [getJldVarSampleLst, getJldVarStartSampleLst, getJldVarNumLst, getJldVarItSampleLst] );
 end
 
 struct NoAuxData <: AuxData
@@ -272,6 +290,8 @@ end
 NoAuxData( arg... ) = NoAuxData();
 
 struct ZakArrAuxData <: AuxData
+	itSampleLst::Vector{Int64};
+
 	zakArr::Array{Bool,3};
 	zakArrSampleLst::Vector{Array{Bool,3}};
 	zakArrStartSampleLst::Vector{Array{Bool,3}};
@@ -290,21 +310,21 @@ struct ZakArrAuxData <: AuxData
 	jldVarSampleLst::Vector{Any};
 	jldVarStartSampleLst::Vector{Any};
 	jldVarNumLst::Vector{Any};
+	jldVarItSampleLst::Vector{Any};
 	
-	# xyDims::Tuple(Vararg{Int64});
 	nDim::Int64;
-	# zakArrSlcLst::Vector{AbstractArray{Bool,2}};
 	
 	function ZakArrAuxData( params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
 		zakArr = zeros( Bool, ntuple( i -> params.divNum, 2 )..., params.nDim );
 		# zakArrSampleLst = zeros( Bool, size(zakArr)..., itNumSample );
 		# zakArrStartSampleLst = zeros( Bool, size(zakArr)..., itNumStartSample );;
 		# zakMeanLst = zeros(Float64, params.nDim, itNum);
+		itSampleLst = zeros(Int64, itNumSample);
+		
 		zakArrSampleLst = [ similar(zakArr) for it = 1 : itNumSample ];
-		zakArrStartSampleLst = [ similar(zakArr) for it = 1 : itNumSample ];
+		zakArrStartSampleLst = [ similar(zakArr) for it = 1 : itNumStartSample ];
 		zakMeanLst = [ zeros(params.nDim) for it = 1 : itNum ];
 		
-		# zakArrSlcLst = [ @view( zakArr[:,:,dim] ) for dim = 1 : params.nDim ];
 		dataLst = [zakArr];
 		dataSampleLst = [zakArrSampleLst];
 		dataStartSampleLst = [zakArrStartSampleLst];
@@ -317,11 +337,11 @@ struct ZakArrAuxData <: AuxData
 		jldVarSampleLst = Vector{Any}(undef,0);
 		jldVarStartSampleLst = similar(jldVarSampleLst);
 		jldVarNumLst = similar(jldVarSampleLst);
+		jldVarItSampleLst = similar(jldVarSampleLst);
 		
-		# xyDims = (1,2);
 		nDim = params.nDim;
 		
-		auxData = new( zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, nDim );
+		auxData = new( itSampleLst, zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, nDim );
 		
 		# renewAuxJldVarLst!( auxData );
 		
@@ -330,7 +350,6 @@ struct ZakArrAuxData <: AuxData
 end
 
 ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
-
 
 
 
@@ -828,7 +847,7 @@ function loops_MC_methods_cALF( divNum = 64, itNum = 10000; updaterType::Type{<:
 		flipProposer = flipProposerType();
 	end
 	
-	fNameOutside = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, flipProposer = flipProposer, auxDataType = auxDataType, fMod = fMod, itNumSample = itNumSample, itStartSample = itStartSample, isFileNameOnly, fMainOutside = fMainOutside, nDim = nDim );
+	fNameOutside = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, initializer = initializer, flipProposer = flipProposer, auxDataType = auxDataType, fMod = fMod, itNumSample = itNumSample, itStartSample = itStartSample, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside, nDim = nDim );
 	
 	return fNameOutside;
 end
@@ -861,7 +880,7 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 	updateLinkFrom0ByBAllDims( BfieldLst, linkLst, linkFerroLst, params );
 	updater = updaterType( params );
 	
-	auxData = auxDataType( params, itNum, lnSample, itStartSample );
+	auxData = auxDataType( params, flipChecker, itNum, lnSample, itStartSample );
 	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	
 	itSample = 1;
@@ -875,7 +894,7 @@ function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:
 			Threads.@threads for dim = 1 : params.nDimB
 				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
 			end
-			storeAuxDataSample( auxData, itSample );
+			storeAuxDataSample( auxData, itSample, it );
 			itSample += 1;
 		end
 		

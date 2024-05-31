@@ -18,7 +18,8 @@ function calcAuxData!( noAuxData::NoAuxData, flipProposer::FlipProposer, params:
 	nothing;
 end
 
-storeAuxDataSample( noAuxData::NoAuxData, itSample::Int64 ) = nothing;
+storeAuxDataSample( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
+storeAuxDataSampleDataOnly( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
 
 storeAuxDataStartSample( noAuxData::NoAuxData, itStartSample::Int64 ) = nothing;
 
@@ -34,6 +35,8 @@ saveAuxDataAll( auxData::AuxData, attrLst::Vector{String}, valLst::Vector, fMod:
 
 
 
+
+ZakArrAuxData( params::ParamsLoops, flipChecker::FlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = ZakArrAuxData( params, itNum, itNumSample, itNumStartSample );
 
 function getAuxDataSummaryName( zakAuxDataType::Type{ZakArrAuxData} )
 	return "zakAux";
@@ -67,15 +70,24 @@ function calcAuxData!( zakAuxData::ZakArrAuxData, params::ParamsLoops, BfieldLst
 	end
 end
 
-function storeAuxDataSample( zakAuxData::ZakArrAuxData, itSample::Int64 )
+function storeAuxDataSampleDataOnly( zakAuxData::ZakArrAuxData, itSample::Int64 )
+	if itSample > length( zakAuxData.zakArrSampleLst )
+		push!( zakAuxData.zakArrSampleLst, similar(zakAuxData.zakArr) );
+	end
 	zakAuxData.zakArrSampleLst[itSample] .= zakAuxData.zakArr;
 end
 
 function storeAuxDataStartSample( zakAuxData::ZakArrAuxData, itStartSample::Int64 )
+	if itStartSample > length( zakAuxData.zakArrSampleLst )
+		push!( zakAuxData.zakArrStartSampleLst, similar(zakAuxData.zakArr) );
+	end
 	zakAuxData.zakArrStartSampleLst[itStartSample] .= zakAuxData.zakArr;
 end
 
 function storeAuxDataNum( zakAuxData::ZakArrAuxData, it::Int64 )
+	if it > length(zakAuxData.zakMeanLst)
+		push!( zakAuxData.zakMeanLst, zeros(zakAuxData.nDim) );
+	end
 	@views for dim = 1 : zakAuxData.nDim
 		zakMeanLst[it][dim] = mean( zakAuxData.zakArr[:,:,dim] );
 	end

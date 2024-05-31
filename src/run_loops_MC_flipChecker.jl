@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
-runChoice = runFileLst;
+runChoice = runFull;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -49,7 +49,7 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [1:0.2:2.0;];
+cRadiusLst = [1:0.2:1;];
 cAngleLst = [0.8:0.2:0.8;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
@@ -79,7 +79,8 @@ paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 # fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 # fMainCollect = Loops_MC.oFMainLoopsSample;
-fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
+# fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
+fMainCollect = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam
 	itNumLst = [100];
