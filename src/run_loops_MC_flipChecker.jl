@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
-runChoice = runFull;
+runChoice = runFileLst;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -49,7 +49,7 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [1:0.2:1;];
+cRadiusLst = [1:0.2:2;];
 cAngleLst = [0.8:0.2:0.8;].*pi/2;
 # cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
@@ -76,11 +76,11 @@ radiusGrpLst = Loops_MC.ParamsGroup[radiusGrp];
 paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 
 # fMainCollect = Loops_MC.oFNameLoopsMain;
-# fMainCollect = Loops_MC.oFNameLoopsNumMain;
+fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 # fMainCollect = Loops_MC.oFMainLoopsSample;
 # fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
-fMainCollect = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.ZakArrAuxData );
+# fMainCollect = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam
 	itNumLst = [100];
@@ -128,6 +128,9 @@ paramsGroupLst = paramsGroupLstFlat;
 initType = Loops_MC.BinomialInitializer;
 # initType = Loops_MC.ConstantInitializer;
 
+itControllerType = Loops_MC.ItNumItController;
+# itControllerType = nothing;
+
 # flipProposerType = Loops_MC.OneFlipProposer;
 # flipProposerType = Loops_MC.CubeFlipProposer;
 flipProposerType = Loops_MC.SwitchingFlipProposer{Tuple{Loops_MC.OneFlipProposer,Loops_MC.CubeFlipProposer}};
@@ -140,11 +143,11 @@ flipProposerType = Loops_MC.SwitchingFlipProposer{Tuple{Loops_MC.OneFlipProposer
 flipCheckerType = Loops_MC.IsingFlipChecker;
 
 if isRunSim
-	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
+	Loops_MC.runLoopMC_withParamsGroup( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType, itControllerType = itControllerType );
 end
 
 if isRunFileLst
-	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType );
+	fNameNumLst = Loops_MC.genFNameLstLoopMC( updaterType, initType, itNumLstIn, divNumLst, paramsGroupLst; fMain = fMainCollect, fMod = fMod, flipCheckerType = flipCheckerType, flipProposerType = flipProposerType, itControllerType = itControllerType );
 end
 
 if isRunSaveParam

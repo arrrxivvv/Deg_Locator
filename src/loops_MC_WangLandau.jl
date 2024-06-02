@@ -14,6 +14,36 @@ function calcDL( params::ParamsLoops, linkLst::Vector{Array{Bool,D}}, dim::Int64
 	return dL;
 end
 
+
+
+
+struct WangLandauItController <: ItController
+	dosIncrMin::Float64;
+	flipChecker::AbstractWangLandauFlipChecker;
+	
+	itRef::Ref{Int64};
+	
+	function WangLandauItController( dosIncrMin::Float64, filpChecker::AbstractWangLandauFlipChecker )
+		itVal = 1;
+		
+		new( dosIncrMin, flipChecker, Ref{itVal} );
+	end
+end
+
+function testItNotDone( wlItController::WangLandauItController )
+	return getDosIncr( wlItController.flipChecker ) > wlItController.dosIncrMin;
+end
+
+function testItDoSample( wlItController::WangLandauItController )
+	return getIsHistFlat( wlItController.flipChecker );
+end
+
+testItDoStartSample( wlItController::WangLandauItController ) = false;
+
+
+
+
+
 abstract type AbstractFlipCheckerWithProposer <: FlipChecker end
 
 function flipCheckDoIt( flipChecker::AbstractFlipCheckerWithProposer, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
@@ -33,9 +63,45 @@ function flipCheck( flipChecker::AbstractWangLandauFlipChecker, flipProposer::Fl
 	
 	if wangLandauHistResetCheck( flipChecker )
 		wangLandauUpdateDosIncr( flipChecker );
+		setIsHistFlat!( flipChecker );
+	else
+		unsetIsHistFlat!(flipChecker));
 	end
 	
 	return isFlip;
+end
+
+function getDosIncr( flipChecker::AbstractWangLandauFlipChecker )
+	return flipChecker.dosIncrRef[];
+end
+
+function getIsHistFlat( flipChecker::AbstractWangLandauFlipChecker )
+	return flipChecker.isHistFlatRef[];
+end
+
+function setIsHistFlat!( flipChecker::AbstractWangLandauFlipChecker )
+	flipChecker.isHistFlatRef[] = true;
+	flipChecker.histArrFlatBackup .= flipChecker.histArr;
+end
+
+function unsetIsHistFlat!( flipChecker::AbstractWangLandauFlipChecker )
+	flipChecker.isHIstFlatRef[] = false;
+end
+
+function getHistArr( flipChecker::AbstractWangLandauFlipChecker )
+	if getIsHistFlat( flipChecker )
+		return flipChecker.histArrFlatBackup;
+	else
+		return flipChecker.histArr;
+	end
+end
+
+function getDosArr( flipChecker::AbstractWangLandauFlipChecker )
+	return flipChecker.dosArr;
+end
+
+function getHistDosArr( flipChecker::AbstractWangLandauFlipChecker )
+	return [getHistArr( flipChecker ), getDosArr( flipChecker )];
 end
 
 function wangLandauUpdateHistDos( flipChecker::AbstractWangLandauFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
@@ -101,6 +167,7 @@ struct WL2dLinkFlatFlipChecker <: AbstractWangLandau2dLinkOnlyFlipChecker
 	histArr::Vector{Int64};
 	dosArr::Array{Float64};
 	dosIncrRef::Ref{Float64};
+	isHistFlatRef::Ref{Bool};
 	
 	histMinRatioThres::Float64;
 	
@@ -113,8 +180,9 @@ struct WL2dLinkFlatFlipChecker <: AbstractWangLandau2dLinkOnlyFlipChecker
 		dosArr = similar(histArr);
 		dosArr .= 0;
 		wlCounterVal = 1;
+		isHistFlatVal = false;
 		
-		new( divNum, grdNum, histArr, dosArr, Ref(dosIncrVal), histMinRatioThres, Ref(wlCounterVal), wlResetInterval );
+		new( divNum, grdNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatVal), histMinRatioThres, Ref(wlCounterVal), wlResetInterval );
 	end
 end
 
@@ -158,6 +226,7 @@ struct WL2dLinkPartFlatFlipChecker <: AbstractWangLandau2dLinkOnlyFlipChecker
 	histArr::Vector{Int64};
 	dosArr::Array{Float64};
 	dosIncrRef::Ref{Float64};
+	isHistFlatRef::Ref{Bool};
 	
 	histCutoffThres::Float64;
 	histStdRatioThres::Float64;	
@@ -180,8 +249,9 @@ struct WL2dLinkPartFlatFlipChecker <: AbstractWangLandau2dLinkOnlyFlipChecker
 		histIsOverArrPrev .= false;
 		histMaskedArr = similar( histArr );
 		wlCounterVal = 1;
+		isHistFlatVal = false;
 		
-		new( divNum, grdNum, histArr, dosArr, Ref(dosIncrVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, Ref(wlCounterVal), wlResetInterval );
+		new( divNum, grdNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, Ref(wlCounterVal), wlResetInterval );
 	end
 end
 
@@ -268,12 +338,14 @@ struct WangLandauNoResetFlipChecker <: AbstractWangLandau3dFlipChecker
 	histArr::Array{Int64};
 	dosArr::Array{Float64};
 	dosIncrRef::Ref{Float64};
+	isHistFlatRef::Ref{Bool};
 	
 	function WangLandauNoResetFlipChecker( histDivNum::Int64; dosIncrVal::Float64 = 1.0 )
 		histArr = zeros(Int64, histDivNum, histDivNum);
 		dosArr = zeros(Int64, histDivNum, histDivNum);
+		isHistFlatVal = false;
 		
-		new( histDivNum, histArr, dosArr, Ref(dosIncrVal) );
+		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatVal) );
 	end
 end
 
@@ -303,12 +375,15 @@ struct WangLandauFlipChecker <: AbstractWangLandau3dFlipChecker
 	dosIncrRef::Ref{Float64};
 	histCoverThreshold::Float64;
 	histLowRatioThreshold::Float64;
+	isHistFlatRef::Ref{Bool};
 	
 	function WangLandauFlipChecker( histDivNum::Int64; histLowRatioThreshold::Float64 = 0.8, histCoverThreshold::Float64 = 0.8, dosIncrVal::Float64 = 1.0 )
 		histArr = zeros(Int64, histDivNum, histDivNum);
 		dosArr = zeros(Int64, histDivNum, histDivNum);
 		
-		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), histCoverThreshold, histLowRatioThreshold );
+		isHistFlatVal = false;
+		
+		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatRef), histCoverThreshold, histLowRatioThreshold );
 	end
 end
 
@@ -389,6 +464,7 @@ struct WangLandauStdFlipChecker <: AbstractWangLandau3dFlipChecker
 	histArr::Array{Int64};
 	dosArr::Array{Float64};
 	dosIncrRef::Ref{Float64};
+	isHistFlatRef::Ref{Bool};
 	
 	histMaxCntThres::Int64;
 	histCntRatioCutoff::Float64;
@@ -405,7 +481,9 @@ struct WangLandauStdFlipChecker <: AbstractWangLandau3dFlipChecker
 		histIsOverThresArr = similar( histArr, Bool );
 		histMaskedOverArr = similar( histArr );
 		
-		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), histMaxCntThres, histCntRatioCutoff, histStdRatioThres, histCoverCntThres, histIsOverThresArr, histMaskedOverArr );
+		isHistFlatVal = false;
+		
+		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatVal), histMaxCntThres, histCntRatioCutoff, histStdRatioThres, histCoverCntThres, histIsOverThresArr, histMaskedOverArr );
 	end
 end
 
@@ -458,6 +536,7 @@ struct WL3dPartFlatStdFlipChecker <: AbstractWangLandau3dFlipChecker
 	histArr::Array{Int64};
 	dosArr::Array{Float64};
 	dosIncrRef::Ref{Float64};
+	isHistFlatRef::Ref{Bool};
 	
 	wlCounterRef::Ref{Int64};
 	wlResetInterval::Int64;
@@ -482,7 +561,7 @@ struct WL3dPartFlatStdFlipChecker <: AbstractWangLandau3dFlipChecker
 		histIsOverArrPrev .= false;
 		histMaskedArr = similar(histArr);
 		
-		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(wlCounterVal), wlResetInterval, histStdRatioThres, histCutoffThres, histIsOverArr, histIsOverArrPrev, histMaskedArr );
+		new( histDivNum, histArr, dosArr, Ref(dosIncrVal), Ref(isHistFlatVal), Ref(wlCounterVal), wlResetInterval, histStdRatioThres, histCutoffThres, histIsOverArr, histIsOverArrPrev, histMaskedArr );
 	end
 end
 
@@ -530,14 +609,16 @@ end
 struct WangLandauAuxData <: AuxData
 	itSampleLst::Vector{Int64};
 	
-	histArr::Array{Int64};
-	dosArr::Array{Float64};
+	flipChecker::FlipChecker;
 	
-	histArrSampleLst::Vector{Array{Int64}};
-	histArrStartSampleLst::Vector{Array{Int64}};
+	# histArr::Array{Int64};
+	# dosArr::Array{Float64};
 	
-	dosArrSampleLst::Vector{Array{Float64}};
-	dosArrStartSampleLst::Vector{Array{Float64}};
+	# histArrSampleLst::Vector{Array{Int64}};
+	# histArrStartSampleLst::Vector{Array{Int64}};
+	
+	# dosArrSampleLst::Vector{Array{Float64}};
+	# dosArrStartSampleLst::Vector{Array{Float64}};
 	
 	dataLst::Vector{Array};
 	dataSampleLst::Vector{<:Vector{<:Array}};
@@ -556,17 +637,20 @@ struct WangLandauAuxData <: AuxData
 	function WangLandauAuxData( flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
 		itSampleLst = zeros(Int64, itNumSample);
 		
-		histArr = flipChecker.histArr;
-		dosArr = flipChecker.dosArr;
+		# histArr = flipChecker.histArr;
+		# dosArr = flipChecker.dosArr;
 		
-		histArrSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumSample ];
-		histArrStartSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumStartSample ];
-		dosArrSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumSample ];
-		dosArrStartSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumStartSample ];
+		# histArrSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumSample ];
+		# histArrStartSampleLst = [ similar( flipChecker.histArr ) for itSample = 1 : itNumStartSample ];
+		# dosArrSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumSample ];
+		# dosArrStartSampleLst = [ similar( flipChecker.dosArr ) for itSample = 1 : itNumStartSample ];
 		
-		dataLst = Array[histArr, dosArr];
-		dataSampleLst = Vector{Array}[histArrSampleLst, dosArrSampleLst];
-		dataStartSampleLst = Vector{Array}[histArrStartSampleLst, dosArrStartSampleLst];
+		# dataLst = Array[histArr, dosArr];
+		dataLst = Array[getHistArr(flipChecker), getDosArr(flipChecker)];
+		dataSampleLst = [ [ similar( dataLst[ii] ) for itSample = 1 : itNumSample ] for ii = 1 : length(dataLst) ];
+		# dataSampleLst = Vector{Array}[histArrSampleLst, dosArrSampleLst];
+		# dataStartSampleLst = Vector{Array}[histArrStartSampleLst, dosArrStartSampleLst];
+		dataStartSampleLst = [ [ similar( dataLst[ii] ) for itSample = 1 : itNumStartSample ] for ii = 1 : length(dataLst) ];
 		dataNumLst = Vector{Vector}[];
 		
 		dataSampleOutLst = Vector{Array}(undef, length(dataSampleLst));
@@ -578,13 +662,15 @@ struct WangLandauAuxData <: AuxData
 		jldVarNumLst = similar(jldVarSampleLst);
 		jldVarItSampleLst = similar(jldVarSampleLst);
 		
-		new( itSampleLst, flipChecker.histArr, flipChecker.dosArr, histArrSampleLst, histArrStartSampleLst, dosArrSampleLst, dosArrStartSampleLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst );
+		new( itSampleLst, flipChecker, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst );
+		# , flipChecker.histArr, flipChecker.dosArr, histArrSampleLst, histArrStartSampleLst, dosArrSampleLst, dosArrStartSampleLst
 	end
 end
 
 WangLandauAuxData( flipChecker::AbstractWangLandauFlipChecker ) = WangLandauAuxData( flipChecker, 0, 0, 0 );
 WangLandauAuxData( params::ParamsLoops, flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = WangLandauAuxData( flipChecker, itNum, itNumSample, itNumStartSample );
 WangLandauAuxData( params::ParamsLoops, flipChecker::AbstractWangLandauFlipChecker ) = WangLandauAuxData( flipChecker );
+genAuxData( auxDataType::WangLandauAuxData, params::ParamsLoops, flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = auxDataType( params, flipChecker, itNum, itNumSample, itNumStartSample );
 
 function getAuxDataSummaryName( wlAuxDataType::Type{WangLandauAuxData} )
 	return "WLHistDos";
@@ -595,6 +681,8 @@ function getAuxDataNameLst( wlAuxDataType::Type{WangLandauAuxData} )
 end
 
 getAuxDataNumNameLst( wlAuxDataType::Type{WangLandauAuxData} ) = String[];
+
+# getItNumLst( itController::WangLandauItController ) = ntuple(ii->0, 3);
 
 function storeAuxDataSampleDataOnly( wlAuxData::WangLandauAuxData, itSample::Int64 )
 	# @infiltrate
@@ -622,7 +710,9 @@ function flipAuxData!( wlAuxData::WangLandauAuxData, flipProposer::FlipProposer,
 end
 
 function calcAuxData!( wlAuxData::WangLandauAuxData, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	nothing;
+	# nothing;
+	wlAuxData.dataLst[1] = getHistArr( wlAuxData.flipChecker );
+	wlAuxData.dataLst[2] = getDosArr( wlAuxData.flipChecker );
 end
 
 function renewAuxDataOutLst!( wlAuxData::WangLandauAuxData )

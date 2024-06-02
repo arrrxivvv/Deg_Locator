@@ -38,6 +38,9 @@ saveAuxDataAll( auxData::AuxData, attrLst::Vector{String}, valLst::Vector, fMod:
 
 ZakArrAuxData( params::ParamsLoops, flipChecker::FlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = ZakArrAuxData( params, itNum, itNumSample, itNumStartSample );
 
+genAuxData( zakAuxDataType::Type{ZakArrAuxData}, params::ParamsLoops, flipChecker::FlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = genAuxData( zakAuxDataType, params, itNum, itNumSample, itNumStartSample );
+genAuxData( zakAuxDataType::Type{ZakArrAuxData}, params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = zakAuxDataType( params, itNum, itNumSample, itNumStartSample );
+
 function getAuxDataSummaryName( zakAuxDataType::Type{ZakArrAuxData} )
 	return "zakAux";
 end
