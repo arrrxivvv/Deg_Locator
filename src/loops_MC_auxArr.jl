@@ -18,12 +18,16 @@ function calcAuxData!( noAuxData::NoAuxData, flipProposer::FlipProposer, params:
 	nothing;
 end
 
-storeAuxDataSample( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
-storeAuxDataSampleDataOnly( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
+# storeAuxDataSample( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
+# storeAuxDataSampleDataOnly( noAuxData::NoAuxData, itSample::Int64, it::Int64 ) = nothing;
+storeAuxDataSampleNoBndCheck( noAuxData::NoAuxData, itSample::Int64 ) = nothing;
+checkDataSampleExtend!( noAuxData::NoAuxData, itSample::Int64 ) = nothing;
 
-storeAuxDataStartSample( noAuxData::NoAuxData, itStartSample::Int64 ) = nothing;
+storeAuxDataStartSampleNoBndCheck( noAuxData::NoAuxData, itStartSample::Int64 ) = nothing;
+checkDataStartSampleExtend!( noAuxData::NoAuxData, itStartSample::Int64 ) = nothing;
 
-storeAuxDataNum( noAuxData::NoAuxData, it::Int64 ) = nothing;
+storeAuxDataNumNoBndCheck( noAuxData::NoAuxData, it::Int64 ) = nothing;
+checkDataNumExtend!( noAuxData::NoAuxData, itStartSample::Int64 ) = nothing;
 
 getJldVarSampleLst( noAuxData::NoAuxData ) = nothing;
 
@@ -93,5 +97,27 @@ function storeAuxDataNum( zakAuxData::ZakArrAuxData, it::Int64 )
 	end
 	@views for dim = 1 : zakAuxData.nDim
 		zakMeanLst[it][dim] = mean( zakAuxData.zakArr[:,:,dim] );
+	end
+end
+
+
+
+
+
+function getAuxDataSummaryName( auxDataType::Type{BLinkAuxData} )
+	return "BLink";
+end
+
+function getAuxDataNameLst( auxDataType::Type{BLinkAuxData} )
+	return ["Bfield","link","linkFerro"]
+end
+
+function calcAuxData!( auxData::BLinkAuxData )
+	nothing;
+end
+
+function storeAuxDataSampleDataOnly( auxData::BLinkAuxData )
+	for iD = 1 : length(auxData.dataLst)
+		auxData.;
 	end
 end

@@ -134,6 +134,21 @@ function genBfieldLinkNumLst( params::ParamsLoops, itNum::Int64 )
 	return numBfieldLst, numLinkLst
 end
 
+function genBfieldLinkFerroNumLst( params::ParamsLoops, itNum::Int64 )
+	numBfieldLst = zeros(Int64, itNum, params.nDimB);
+	numLinkLst = zeros(Int64, itNum, params.nDim);
+	numLinkFerroLst = zeros(Int64, itNum, params.nDimB, params.nDim);
+	
+	return numBfieldLst, numLinkLst, numLinkFerroLst;
+end
+
+function genBfieldLinkNumLst( params::ParamsLoops, itNum::Int64 )
+	numBfieldLst = zeros(Int64, itNum, params.nDimB);
+	numLinkLst = zeros(Int64, itNum, params.nDim);
+	
+	return numBfieldLst, numLinkLst
+end
+
 function genBfieldLinkArrSample( params::ParamsLoops, lnSample )
 	divTup = Tuple(params.divLst);
 	
@@ -141,6 +156,16 @@ function genBfieldLinkArrSample( params::ParamsLoops, lnSample )
 	linkSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDim ] for itSample = 1 : lnSample ];
 	
 	return BfieldSampleLst, linkSampleLst
+end
+
+function genBfieldLinkFerroArrSample( params::ParamsLoops, lnSample )
+	divTup = Tuple(params.divLst);
+	
+	BfieldSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDimB ] for itSample = 1 : lnSample ];
+	linkSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDim ] for itSample = 1 : lnSample ];
+	linkFerroSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDim, BDim = 1 : params.nDimB ] for itSample = 1 : lnSample ];
+	
+	return BfieldSampleLst, linkSampleLst, linkFerroSampleLst;
 end
 
 
@@ -251,7 +276,181 @@ ConstantInitializer() = ConstantInitializer(false);
 
 
 
+
+abstract type FlipProposer end
+
+function throwFlipProposerUndefined()
+	error("Loops_MC: FlipProposer not defined")
+end
+
+function flipDoIt( flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipProposerUndefined();
+end
+
+getFlipProposerName( flipProposerType::Type{<:FlipProposer} ) = throwFlipProposerUndefined();
+getFlipProposerName( flipProposer::FlipProposer ) = getFlipProposerName( typeof(flipProposer) );
+
+struct SwitchingFlipProposer{T_tuple} <: FlipProposer
+	flipProposerTup::Tuple{Vararg{FlipProposer}};
+	counterRef::Ref{Int64};
+	
+	function SwitchingFlipProposer( flipProposerTup::Tuple{Vararg{FlipProposer}} )
+		counterVal = 1;
+		
+		new{typeof(flipProposerTup)}( flipProposerTup, Ref(counterVal) );
+	end
+end
+
+SwitchingFlipProposer( flipProposers::FlipProposer... ) = SwitchingFlipProposer( flipProposers );
+
+function SwitchingFlipProposer{T_tuple}() where {T_tuple}
+	flipProposerTup = ntuple( ii -> T_tuple.parameters[ii](), length(T_tuple.parameters) );
+	
+	return SwitchingFlipProposer( flipProposerTup );
+end
+
+function getSwitchLstLen( flipProposer::SwitchingFlipProposer )
+	return length( flipProposer.flipProposerTup );
+end
+
+abstract type AbstractConcreteFlipProposer <: FlipProposer end
+
+struct OneFlipProposer <: AbstractConcreteFlipProposer
+	
+end
+
+struct CubeFlipProposer <: AbstractConcreteFlipProposer
+
+end
+
+
+
+
+abstract type FlipChecker end
+
 abstract type AuxData end
+
+function throwFlipCheckerUndefined()
+	error( "Loops_MC: FlipChecker not defined yet" );
+end
+
+function flipCheck( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
+end
+
+function flipCheck( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
+end
+
+function flipDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwFlipCheckerUndefined();
+end
+
+function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+end
+
+function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, auxData::AuxData, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+		flipAuxData!( auxData, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+	# calcAuxData( auxData, params, BfieldLst, linkLst, linkFerroLst );
+end
+
+function flipCheckDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
+		flipDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	end
+end
+
+getFlipCheckerName( flipCheckerType::Type{<:FlipChecker} ) = throwFlipCheckerUndefined();
+
+function getFlipCheckerName( flipChecker::FlipChecker )
+	return getFlipCheckerName( typeof(flipChecker) );
+end
+
+getFlipCheckerAttrLst( flipChecker::FlipChecker ) = throwFlipCheckerUndefined();
+
+getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC ) = throwFlipCheckerUndefined();
+
+# function getFlipCheckerAttrLst( flipChecker::FlipChecker )
+	# return getFlipCheckerAttrLst( typeof(flipChecker) );
+# end
+
+function getFlipCheckerAttrValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
+	attrLst = getFlipCheckerAttrLst( flipChecker );
+	valLst = getFlipCheckerValLst( flipChecker; rndDigs = rndDigs );
+	
+	return attrLst, valLst;
+end
+
+
+
+abstract type AbstractSwitchingFlipChecker <: FlipChecker end
+
+struct SwitchingFlipChecker{T_tuple} <: AbstractSwitchingFlipChecker
+	flipCheckerTup::Tuple{Vararg{FlipChecker}};
+	
+	function SwitchingFlipChecker( flipCheckerTup::Tuple{Vararg{FlipChecker}} )
+		new{typeof(flipCheckerTup)}(flipCheckerTup);
+	end
+end
+
+SwitchingFlipChecker( flipCheckers::FlipChecker... ) = SwitchingFlipChecker( flipCheckers );
+
+function SwitchingFlipChecker{T_tuple}( cArea, cPerim, cFerro = 0 ) where {T_tuple}
+	flipCheckerTup = ntuple( ii -> T_tuple.parameters[ii](cArea, cPerim, cFerro), length(T_tuple.parameters) );
+	
+	return SwitchingFlipChecker( flipCheckerTup );
+end
+
+abstract type AbstractNeighborFlipChecker <: FlipChecker end
+
+struct NeighborFlipChecker <: AbstractNeighborFlipChecker
+	pFlipLst::Array{Float64};
+	cParamLst::Array{Real};
+	
+	function NeighborFlipChecker( cArea, cPerim, cFerroSigned = 0 )
+		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
+		cParamLst = Real[cArea, cPerim, cFerroSigned];
+		
+		new(pFlipLst,cParamLst);
+	end
+end
+
+struct CubeFlipChecker <: FlipChecker
+	pFlipLst::Vector{Float64};
+	cArea::Real;
+	
+	function CubeFlipChecker( cArea )
+		pFlipLst = genPFlipLstCube( cArea = cArea );
+		
+		new(pFlipLst,cArea);
+	end
+end
+
+CubeFlipChecker( cArea, cPerim, cFerro = 0 ) = CubeFlipChecker( cArea );
+
+struct IsingFlipChecker <: FlipChecker
+	pFlipLst::Array{Float64};
+	pCubeFlipLst::Vector{Float64};
+	cParamLst::Vector{Real};
+	
+	function IsingFlipChecker( cArea, cPerim, cFerroSigned = 0 )
+		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
+		cParamLst = Real[cArea, cPerim, cFerroSigned];
+		pCubeFlipLst = genPFlipLstCube( cArea = cArea );
+		
+		new(pFlipLst,pCubeFlipLst,cParamLst);
+	end
+end
+
+
+
+
 
 throwAuxDataUndefined() = error( "Loops_MC: AuxData not defined" );
 
@@ -261,7 +460,7 @@ genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itController::ItC
 
 genAuxData( auxDataType::Type{<:AuxData}, flipChecker::FlipChecker, itController::ItController ) = genAuxData( auxDataType, flipChecker, getItNumLst( itController )... );
 
-genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itController::ItController ) = genAuxData( auxDataType, params, getItNumLst( itController )... );
+# genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itController::ItController ) = genAuxData( auxDataType, params, getItNumLst( itController )... );
 
 getAuxDataSummaryName( auxDataType::Type{<:AuxData} ) = throwAuxDataUndefined();
 getAuxDataSummaryName( auxData::AuxData ) = getAuxDataSummaryName( typeof(auxData) );
@@ -318,19 +517,43 @@ function calcAuxData!( auxData::AuxData, params::ParamsLoops, BfieldLst::Vector{
 	throwAuxDataUndefined();
 end
 
+function flipAuxData!( auxData::AuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	throwAuxDataUndefined();
+end
+
 function storeAuxDataSample( auxData::AuxData, itSample::Int64, it::Int64 )
+	checkDataSampleAndItLstExtend!( auxData, itSample, it );
+	
+	storeAuxDataSampleDataNoBndCheck( auxData, itSample );
+end
+
+function checkDataSampleAndItLstExtend!( auxData::AuxData, itSample::Int64, it::Int64 )
 	if itSample > length(auxData.itSampleLst)
 		resize!( auxData.itSampleLst, itSample );
 	end
 	auxData.itSampleLst[itSample] = it;
 	
-	storeAuxDataSampleDataOnly( auxData, itSample );
+	checkDataSampleExtend!( auxData::AuxData, itSample::Int64 );
 end
-storeAuxDataSampleDataOnly( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
+checkDataSampleExtend!( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
-storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 ) = throwAuxDataUndefined();
+storeAuxDataSampleDataNoBndCheck( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
-storeAuxDataNum( uxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
+function storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 )
+	checkDataNumExtend( auxData, itStartSample );
+	storeAuxDataStartSampleNoBndCheck( auxData, itStartSample );
+end
+storeAuxDataStartSampleNoBndCheck( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
+
+checkDataStartSampleExtend!( auxData, it ) = throwAuxDataUndefined();
+
+function storeAuxDataNum( auxData::AuxData, it::Int64 )
+	checkDataNumExtend( auxData, it );
+	storeAuxDataNumNoBndCheck( auxData, it );
+end
+storeAuxDataNumNoBndCheck( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
+
+checkDataNumExtend!( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
 
 function getJldVarSampleLst( auxData::AuxData )
 	return auxData.jldVarSampleLst;
@@ -427,177 +650,47 @@ ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
 
 
 
-abstract type FlipProposer end
-
-function throwFlipProposerUndefined()
-	error("Loops_MC: FlipProposer not defined")
-end
-
-function flipDoIt( flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	throwFlipProposerUndefined();
-end
-
-getFlipProposerName( flipProposerType::Type{<:FlipProposer} ) = throwFlipProposerUndefined();
-getFlipProposerName( flipProposer::FlipProposer ) = getFlipProposerName( typeof(flipProposer) );
-
-function flipAuxData!( auxData::AuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	throwAuxDataUndefined();
-end
-
-struct SwitchingFlipProposer{T_tuple} <: FlipProposer
-	flipProposerTup::Tuple{Vararg{FlipProposer}};
-	counterRef::Ref{Int64};
+struct BLinkAuxData <: AuxData
+	itSampleLst::Vector{Int64};
 	
-	function SwitchingFlipProposer( flipProposerTup::Tuple{Vararg{FlipProposer}} )
-		counterVal = 1;
+	dataLst::Vector{Array{Array{Bool}}};
+	dataSampleLst::Vector{Vector{Array{Array{Bool}}}};
+	dataStartSampleLst::Vector{Vector{Vector{Array{Bool}}}};
+	dataNumLst::Vector{Vector{Float64}};
+	
+	dataSampleOutLst::Vector{Array{Bool}};
+	dataStartSampleOutLst::Vector{Array{Bool}};
+	dataNumOutLst::Vector{Array{Float64}};
+	
+	jldVarSampleLst::Vector{Any};
+	jldVarStartSampleLst::Vector{Any};
+	jldVarNumLst::Vector{Any};
+	jldVarItSampleLst::Vector{Any};
+	
+	nDim::Int64;
+	function BLinkAuxData( params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
+		divTup = Tuple( params.divLst );
+		BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
+		dataLst = Array{Array{Bool}[BfieldLst, linkLst, linkFerroLst];
+		BfieldSampleLst, linkSampleLst, linkFerroSampleLst = genBfieldLinkFerroArrSample( params, itNumSample );
+		dataSampleLst = Vector{Array{Array{Bool}}}[BfieldSampleLst, linkSampleLst, linkFerroSampleLst];
+		BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst = genBfieldLinkFerroArrSample( params, itNumStartSample );
+		dataStartSampleLst = Vector{Array{Array{Bool}}}[ BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst ];
 		
-		new{typeof(flipProposerTup)}( flipProposerTup, Ref(counterVal) );
-	end
-end
-
-SwitchingFlipProposer( flipProposers::FlipProposer... ) = SwitchingFlipProposer( flipProposers );
-
-function SwitchingFlipProposer{T_tuple}() where {T_tuple}
-	flipProposerTup = ntuple( ii -> T_tuple.parameters[ii](), length(T_tuple.parameters) );
-	
-	return SwitchingFlipProposer( flipProposerTup );
-end
-
-function getSwitchLstLen( flipProposer::SwitchingFlipProposer )
-	return length( flipProposer.flipProposerTup );
-end
-
-abstract type AbstractConcreteFlipProposer <: FlipProposer end
-
-struct OneFlipProposer <: AbstractConcreteFlipProposer
-	
-end
-
-struct CubeFlipProposer <: AbstractConcreteFlipProposer
-
-end
-
-
-
-
-abstract type FlipChecker end
-
-function throwFlipCheckerUndefined()
-	error( "Loops_MC: FlipChecker not defined yet" );
-end
-
-function flipCheck( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	throwFlipCheckerUndefined();
-end
-
-function flipCheck( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	throwFlipCheckerUndefined();
-end
-
-function flipDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	throwFlipCheckerUndefined();
-end
-
-function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-	end
-end
-
-function flipCheckDoIt( flipChecker::FlipChecker, flipProposer::FlipProposer, auxData::AuxData, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	if flipCheck( flipChecker, flipProposer::FlipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipDoIt( flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-		flipAuxData!( auxData, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-	end
-	# calcAuxData( auxData, params, BfieldLst, linkLst, linkFerroLst );
-end
-
-function flipCheckDoIt( flipChecker::FlipChecker, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	if flipCheck( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst )
-		flipDoIt( flipChecker, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-	end
-end
-
-getFlipCheckerName( flipCheckerType::Type{<:FlipChecker} ) = throwFlipCheckerUndefined();
-
-function getFlipCheckerName( flipChecker::FlipChecker )
-	return getFlipCheckerName( typeof(flipChecker) );
-end
-
-getFlipCheckerAttrLst( flipChecker::FlipChecker ) = throwFlipCheckerUndefined();
-
-getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC ) = throwFlipCheckerUndefined();
-
-# function getFlipCheckerAttrLst( flipChecker::FlipChecker )
-	# return getFlipCheckerAttrLst( typeof(flipChecker) );
-# end
-
-function getFlipCheckerAttrValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC )
-	attrLst = getFlipCheckerAttrLst( flipChecker );
-	valLst = getFlipCheckerValLst( flipChecker; rndDigs = rndDigs );
-	
-	return attrLst, valLst;
-end
-
-abstract type AbstractSwitchingFlipChecker <: FlipChecker end
-
-struct SwitchingFlipChecker{T_tuple} <: AbstractSwitchingFlipChecker
-	flipCheckerTup::Tuple{Vararg{FlipChecker}};
-	
-	function SwitchingFlipChecker( flipCheckerTup::Tuple{Vararg{FlipChecker}} )
-		new{typeof(flipCheckerTup)}(flipCheckerTup);
-	end
-end
-
-SwitchingFlipChecker( flipCheckers::FlipChecker... ) = SwitchingFlipChecker( flipCheckers );
-
-function SwitchingFlipChecker{T_tuple}( cArea, cPerim, cFerro = 0 ) where {T_tuple}
-	flipCheckerTup = ntuple( ii -> T_tuple.parameters[ii](cArea, cPerim, cFerro), length(T_tuple.parameters) );
-	
-	return SwitchingFlipChecker( flipCheckerTup );
-end
-
-abstract type AbstractNeighborFlipChecker <: FlipChecker end
-
-struct NeighborFlipChecker <: AbstractNeighborFlipChecker
-	pFlipLst::Array{Float64};
-	cParamLst::Array{Real};
-	
-	function NeighborFlipChecker( cArea, cPerim, cFerroSigned = 0 )
-		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-		cParamLst = Real[cArea, cPerim, cFerroSigned];
+		numBfieldLst = [zeros(params.nDimB) for it = 1 : itNum];
+		numLinkLst = [zeros(params.nDimB) for it = 1 : itNum];
+		numLinkFerroLst = [zeros(params.nDimB, params.nDimLayer) for it = 1 : itNum];
+		dataNumLst = Vector{Array{Float64}}[numBfieldLst, numLinkLst, numLinkFerroLst];
 		
-		new(pFlipLst,cParamLst);
-	end
-end
-
-struct CubeFlipChecker <: FlipChecker
-	pFlipLst::Vector{Float64};
-	cArea::Real;
-	
-	function CubeFlipChecker( cArea )
-		pFlipLst = genPFlipLstCube( cArea = cArea );
+		numBfieldOutLst = zeros(itNum, params.nDimB);
+		numLinkOutLst = zeros( itNum, params.nDim );
+		numLinkFerroOutLst = zeros( itNum, params.nDimB, params.nDimlayer );
+		dataNumOutLst = Array{Float64}[numBfieldOutLst, numLinkOutLst, numLinkFerroOutLst];
 		
-		new(pFlipLst,cArea);
+		dataSampleOutLst = Vector{Array{Bool,5}}(undef,length(dataLst));
+		dataStartSampleOutLst = Vector{Array{Bool,5}}(undef,length(dataLst));
 	end
 end
-
-CubeFlipChecker( cArea, cPerim, cFerro = 0 ) = CubeFlipChecker( cArea );
-
-struct IsingFlipChecker <: FlipChecker
-	pFlipLst::Array{Float64};
-	pCubeFlipLst::Vector{Float64};
-	cParamLst::Vector{Real};
-	
-	function IsingFlipChecker( cArea, cPerim, cFerroSigned = 0 )
-		pFlipLst = genPFlipLst( cArea = cArea, cPerim = cPerim, cFerroSigned = cFerroSigned );
-		cParamLst = Real[cArea, cPerim, cFerroSigned];
-		pCubeFlipLst = genPFlipLstCube( cArea = cArea );
-		
-		new(pFlipLst,pCubeFlipLst,cParamLst);
-	end
-end
-
 
 
 
@@ -1011,7 +1104,6 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	resetItControl( itController );
 	
-	
 	itSample = 1;
 	while( testItNotDone( itController ) )
 		it = itController.itRef[];
@@ -1074,7 +1166,7 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	return fName;
 end
 
-function loops_MC_methods_Base( divNum = 64, itNum = 10000; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_methods_Base( divNum, itNum; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker, flipProposer = flipProposer );
 	
 	fMain = fMainLoopsMC;

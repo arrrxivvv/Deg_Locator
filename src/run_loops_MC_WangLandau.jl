@@ -10,6 +10,8 @@ isFileNameOnly = false;
 divNum = 8;
 itNum = 640000;
 
+dosIncrMin = 0.001;
+
 fLstName = "Loops_MC_WangLandau.txt";
 fLstName2d = "Loops_MC_WL2d.txt";
 # fNameFileLstLstWL = "fNameFileLstLstWL.txt";
@@ -21,7 +23,10 @@ fNameLst = Vector{String}(undef,0);
 # @time fName = Loops_MC.loops_MC_methods_WangLandau( divNum, (divNum^3)^2 * 100; cAreaInit = 3, dosIncrInit = 1.0, histDivNum = divNum^2 );
 # push!(fNameLst, fName)
 
-@time fName = Loops_MC.loops_MC_methods_WL2d( divNum, itNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
+# @time fName = Loops_MC.loops_MC_methods_WL2d( divNum, itNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
+# push!(fNameLst, fName)
+
+@time fName = Loops_MC.loops_MC_methods_WL2d( divNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
 push!(fNameLst, fName)
 
 # @time fName = Loops_MC.loops_MC_methods_WangLandauStaggered( divNum, (divNum^3)^2 * 100; cAreaInit = 3, dosIncrInit = 2.0, histDivNum = divNum^2 );
