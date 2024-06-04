@@ -18,8 +18,8 @@ fLstName2d = "Loops_MC_WL2d.txt";
 # fNameFileLstLstWL = "fNameFileLstLstWL.txt";
 
 # fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
-# fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
-fMainToLoad = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.WangLandauAuxData );
+fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
+# fMainToLoad = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.WangLandauAuxData );
 
 fNameLst = Vector{String}(undef,0);
 

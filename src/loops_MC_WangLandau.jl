@@ -134,6 +134,9 @@ function wangLandauUpdateDosIncr( flipChecker::AbstractWangLandauFlipChecker )
 	flipChecker.dosIncrRef[] /= 2;
 end
 
+
+
+
 abstract type AbstractWangLandau2dLinkOnlyFlipChecker <: AbstractWangLandauFlipChecker end
 
 function getLinkHistId( flipChecker::AbstractWangLandau2dLinkOnlyFlipChecker, lnkVal::Int64 )

@@ -1126,7 +1126,6 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker, flipProposer = flipProposer );
 	
 	fMain = fMainLoopsMC;
-	# genAttrLstLttcFullUpdater( divNum::Int64, nDim::Int64, flipChecker::FlipChecker, initializer::BLinkInitializer; itController::Union{ItController,Nothing} = nothing, rndDigs = rndDigsLpsMC )
 	attrLst, valLst = genAttrLstLttcFullUpdater( divNum, nDim, flipChecker, initializer; itController = itController );
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	
@@ -1137,27 +1136,16 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	
 	params = ParamsLoops( divNum, nDim );
 	
-	# BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
-	
 	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
 	
-	# numBfieldLst, numLinkLst = genBfieldLinkNumLst( params, itNum );
-	# BfieldSampleLst, linkSampleLst = genBfieldLinkArrSample( params, itNumSample );
-	# BfieldStartSampleLst, linkStartSampleLst = genBfieldLinkArrSample( params, itNumStartSample );
-
-	# auxData = auxDataType( params, flipChecker, itController );
 	bLinkData = genAuxData( BLinkAuxData, params, itController );
 	BfieldLst, linkLst, linkFerroLst = bLinkData.dataLst;
-	# BfieldLst = bLinkData.dataLst[1];
-	# linkLst = bLinkData.dataLst[2];
-	# linkFerroLst = bLinkData.dataLst[3];
 	
 	initializeBL( initializer, BfieldLst, params );
 	updateLinkFrom0ByBAllDims( BfieldLst, linkLst, linkFerroLst, params );
 	updater = updaterType( params );
 	
 	auxData = genAuxData( auxDataType, params, flipChecker, itController );
-	# @infiltrate
 	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	resetItControl( itController );
 	
@@ -1167,24 +1155,12 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 		print( "it = ", it, "         \r" )
 		
 		if testItDoSample( itController )
-			# Threads.@threads for dim = 1 : params.nDim
-				# linkSampleLst[itSample][dim] .= linkLst[dim];
-			# end
-			# Threads.@threads for dim = 1 : params.nDimB
-				# BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
-			# end
 			storeAuxDataSample( bLinkData, itSample, it );
 			storeAuxDataSample( auxData, itSample, it );
 			itSample += 1;
 		end
 		
 		if testItDoStartSample( itController )
-			# Threads.@threads for dim = 1 : params.nDim
-				# linkStartSampleLst[it][dim] .= linkLst[dim];
-			# end
-			# Threads.@threads for dim = 1 : params.nDimB
-				# BfieldStartSampleLst[it][dim] .= BfieldLst[dim];
-			# end
 			storeAuxDataStartSample( bLinkData, it );
 			storeAuxDataStartSample( auxData, it );
 		end
@@ -1198,26 +1174,17 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 			updateLoops( updater, flipChecker, flipProposer, auxData, BfieldLst, linkLst, linkFerroLst, params );
 		end
 		
-		# for dim = 1 : params.nDim
-			# numLinkLst[it,dim] = sum( linkLst[dim] );
-		# end
-		# for dim = 1 : params.nDimB
-			# numBfieldLst[it,dim] = sum(BfieldLst[dim]);
-		# end
-		
 		advanceItControl( itController );
 	end
 	
+	if testItDoSample( itController )
+		it = itController.itRef[];
+		storeAuxDataSample( bLinkData, itSample, it );
+		storeAuxDataSample( auxData, itSample, it );
+		itSample += 1;
+	end
+	
 	save( fName, "divNum", divNum, "itNum", itNum );
-	
-	# oFNameLoops = fNameFunc( oFMainLoopsSample, attrLst, valLst, jld2Type; fMod = fModOut );
-	# save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
-	
-	# oFNameLoopsNum = fNameFunc( oFMainLoopsNum, attrLst, valLst, jld2Type; fMod = fModOut );
-	# save( oFNameLoopsNum, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
-	
-	# oFNameLoopsStart = fNameFunc( oFMainLoopsStart, attrLst, valLst, jld2Type; fMod = fModOut );
-	# save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
 	
 	saveAuxDataAll( bLinkData, attrLst, valLst; fMod = fModOut );
 	saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
