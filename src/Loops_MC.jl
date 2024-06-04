@@ -74,6 +74,7 @@ struct ParamsLoops{N}
 	divNum::Int64;
 	grdNum::Int64;
 	divLst::Vector{Int64};
+	divTup::Tuple{Vararg{Int64,N}};
 	posLst::CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}};
 	posSlcLst::Vector{Vector{SubArray{CartesianIndex{N}}}};
 	posLstShLst:: Matrix{CircShiftedArray{CartesianIndex{N}, N, CartesianIndices{N,Tuple{Vararg{Base.OneTo{Int64},N}}}}}; 
@@ -85,6 +86,7 @@ struct ParamsLoops{N}
 		nDimLayer = 2;
 		nDimB = Int64( nDim * (nDim - 1) / 2 );
 		divLst = fill(divNum, nDim);
+		divTup = Tuple(divLst);
 		grdNum = divNum^nDim;
 		posLst = CartesianIndices(ntuple(x->divNum,nDim));
 		posLstShLst = Utils.arrShAdvRetLstFunc( posLst, nDim );
@@ -113,7 +115,7 @@ struct ParamsLoops{N}
 		end
 		linkDimShLst = [ circshift( linkDimLst[dim], 1 ) for dim = 1 : nDimB ];
 		
-		new{nDim}( nDim, nDimLayer, nDimB, divNum, grdNum, divLst, posLst, posSlcLst, posLstShLst, linkDimLst, linkDimShLst );
+		new{nDim}( nDim, nDimLayer, nDimB, divNum, grdNum, divLst, divTup, posLst, posSlcLst, posLstShLst, linkDimLst, linkDimShLst );
 	end
 end
 
@@ -137,17 +139,17 @@ end
 function genBfieldLinkFerroNumLst( params::ParamsLoops, itNum::Int64 )
 	numBfieldLst = zeros(Int64, itNum, params.nDimB);
 	numLinkLst = zeros(Int64, itNum, params.nDim);
-	numLinkFerroLst = zeros(Int64, itNum, params.nDimB, params.nDim);
+	numLinkFerroLst = zeros(Int64, itNum, params.nDimLayer, params.nDimB);
 	
 	return numBfieldLst, numLinkLst, numLinkFerroLst;
 end
 
-function genBfieldLinkNumLst( params::ParamsLoops, itNum::Int64 )
-	numBfieldLst = zeros(Int64, itNum, params.nDimB);
-	numLinkLst = zeros(Int64, itNum, params.nDim);
+# function genBfieldLinkNumLst( params::ParamsLoops, itNum::Int64 )
+	# numBfieldLst = zeros(Int64, itNum, params.nDimB);
+	# numLinkLst = zeros(Int64, itNum, params.nDim);
 	
-	return numBfieldLst, numLinkLst
-end
+	# return numBfieldLst, numLinkLst
+# end
 
 function genBfieldLinkArrSample( params::ParamsLoops, lnSample )
 	divTup = Tuple(params.divLst);
@@ -163,7 +165,7 @@ function genBfieldLinkFerroArrSample( params::ParamsLoops, lnSample )
 	
 	BfieldSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDimB ] for itSample = 1 : lnSample ];
 	linkSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDim ] for itSample = 1 : lnSample ];
-	linkFerroSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDim, BDim = 1 : params.nDimB ] for itSample = 1 : lnSample ];
+	linkFerroSampleLst = [[ zeros( Bool, divTup ) for dim = 1 : params.nDimLayer, BDim = 1 : params.nDimB ] for itSample = 1 : lnSample ];
 	
 	return BfieldSampleLst, linkSampleLst, linkFerroSampleLst;
 end
@@ -460,6 +462,10 @@ genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itController::ItC
 
 genAuxData( auxDataType::Type{<:AuxData}, flipChecker::FlipChecker, itController::ItController ) = genAuxData( auxDataType, flipChecker, getItNumLst( itController )... );
 
+genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = auxDataType( params, itNum, itNumSample, itNumStartSample );
+genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, flipChecker::FlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = auxDataType( params, flipChecker, itNum, itNumSample, itNumStartSample );
+genAuxData( auxDataType::Type{<:AuxData}, flipChecker::FlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) = auxDataType( flipChecker, itNum, itNumSample, itNumStartSample );
+
 # genAuxData( auxDataType::Type{<:AuxData}, params::ParamsLoops, itController::ItController ) = genAuxData( auxDataType, params, getItNumLst( itController )... );
 
 getAuxDataSummaryName( auxDataType::Type{<:AuxData} ) = throwAuxDataUndefined();
@@ -524,7 +530,7 @@ end
 function storeAuxDataSample( auxData::AuxData, itSample::Int64, it::Int64 )
 	checkDataSampleAndItLstExtend!( auxData, itSample, it );
 	
-	storeAuxDataSampleDataNoBndCheck( auxData, itSample );
+	storeAuxDataSampleNoBndCheck( auxData, itSample );
 end
 
 function checkDataSampleAndItLstExtend!( auxData::AuxData, itSample::Int64, it::Int64 )
@@ -535,25 +541,44 @@ function checkDataSampleAndItLstExtend!( auxData::AuxData, itSample::Int64, it::
 	
 	checkDataSampleExtend!( auxData::AuxData, itSample::Int64 );
 end
-checkDataSampleExtend!( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
-storeAuxDataSampleDataNoBndCheck( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
+function checkDataExtendHelper!( dataSampleLst::Vector, dataLst::Vector, itSample::Int64 )
+	if isempty(dataSampleLst)
+		return;
+	elseif itSample > length( dataSampleLst[1] )
+		for iD = 1 : length(dataSampleLst)
+			push!(dataSampleLst[iD], deepcopy(dataLst[iD]));
+		end
+	end
+end
+
+function checkDataSampleExtend!( auxData::AuxData, itSample::Int64 )
+	checkDataExtendHelper!( auxData.dataSampleLst, auxData.dataLst, itSample )
+end
+
+storeAuxDataSampleNoBndCheck( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
 function storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 )
-	checkDataNumExtend( auxData, itStartSample );
+	checkDataStartsampleExtend!( auxData, itStartSample );
 	storeAuxDataStartSampleNoBndCheck( auxData, itStartSample );
 end
 storeAuxDataStartSampleNoBndCheck( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
 
-checkDataStartSampleExtend!( auxData, it ) = throwAuxDataUndefined();
+function checkDataStartSampleExtend!( auxData, itStartSample )
+	checkDataExtendHelper!( auxData.dataStartSampleLst, auxData.dataLst, itStartSample );
+end
 
 function storeAuxDataNum( auxData::AuxData, it::Int64 )
-	checkDataNumExtend( auxData, it );
-	storeAuxDataNumNoBndCheck( auxData, it );
+	if ~isempty(auxData.dataNumLst)
+		checkDataNumExtend!( auxData, it );
+		storeAuxDataNumNoBndCheck( auxData, it );
+	end
 end
 storeAuxDataNumNoBndCheck( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
 
-checkDataNumExtend!( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
+function checkDataNumExtend!( auxData::AuxData, it::Int64 )
+	checkDataExtendHelper!( auxData.dataNumLst, auxData.dataNumSnapLst, it );
+end
 
 function getJldVarSampleLst( auxData::AuxData )
 	return auxData.jldVarSampleLst;
@@ -595,6 +620,7 @@ struct ZakArrAuxData <: AuxData
 	zakMeanLst::Vector{Vector{Float64}};
 	
 	dataLst::Vector{Array{Bool,3}};
+	dataNumSnapLst::Vector{Vector{Float64}}
 	dataSampleLst::Vector{Vector{Array{Bool,3}}};
 	dataStartSampleLst::Vector{Vector{Array{Bool,3}}};
 	dataNumLst::Vector{Vector{Vector{Float64}}};
@@ -623,6 +649,7 @@ struct ZakArrAuxData <: AuxData
 		zakMeanLst = [ zeros(params.nDim) for it = 1 : itNum ];
 		
 		dataLst = [zakArr];
+		dataNumSnapLst = [zeros(params.nDim)];
 		dataSampleLst = [zakArrSampleLst];
 		dataStartSampleLst = [zakArrStartSampleLst];
 		dataNumLst = [zakMeanLst];
@@ -638,7 +665,7 @@ struct ZakArrAuxData <: AuxData
 		
 		nDim = params.nDim;
 		
-		auxData = new( itSampleLst, zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, nDim );
+		auxData = new( itSampleLst, zakArr, zakArrSampleLst, zakArrStartSampleLst, zakMeanLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, nDim );
 		
 		# renewAuxJldVarLst!( auxData );
 		
@@ -650,17 +677,18 @@ ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
 
 
 
-struct BLinkAuxData <: AuxData
+struct BLinkAuxData{D} <: AuxData
 	itSampleLst::Vector{Int64};
 	
-	dataLst::Vector{Array{Array{Bool}}};
-	dataSampleLst::Vector{Vector{Array{Array{Bool}}}};
-	dataStartSampleLst::Vector{Vector{Vector{Array{Bool}}}};
-	dataNumLst::Vector{Vector{Float64}};
+	dataLst::Vector{Array{Array{Bool,D}}};
+	dataNumSnapLst::Vector{Array{Int64}};
+	dataSampleLst::Vector{Vector{Array{Array{Bool,D}}}};
+	dataStartSampleLst::Vector{Vector{Array{Array{Bool,D}}}};
+	dataNumLst::Vector{Vector{Array{Int64}}};
 	
 	dataSampleOutLst::Vector{Array{Bool}};
 	dataStartSampleOutLst::Vector{Array{Bool}};
-	dataNumOutLst::Vector{Array{Float64}};
+	dataNumOutLst::Vector{Array{Int64}};
 	
 	jldVarSampleLst::Vector{Any};
 	jldVarStartSampleLst::Vector{Any};
@@ -668,27 +696,49 @@ struct BLinkAuxData <: AuxData
 	jldVarItSampleLst::Vector{Any};
 	
 	nDim::Int64;
+	nDimB::Int64;
+	nDimLayer::Int64;
+	
+	params::ParamsLoops{D};
+	
 	function BLinkAuxData( params::ParamsLoops, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 )
+		itSampleLst = zeros(Int64, itNumSample);
+		
 		divTup = Tuple( params.divLst );
 		BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
-		dataLst = Array{Array{Bool}[BfieldLst, linkLst, linkFerroLst];
-		BfieldSampleLst, linkSampleLst, linkFerroSampleLst = genBfieldLinkFerroArrSample( params, itNumSample );
-		dataSampleLst = Vector{Array{Array{Bool}}}[BfieldSampleLst, linkSampleLst, linkFerroSampleLst];
-		BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst = genBfieldLinkFerroArrSample( params, itNumStartSample );
-		dataStartSampleLst = Vector{Array{Array{Bool}}}[ BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst ];
+		dataLst = Array{Array{Bool,params.nDim}}[BfieldLst, linkLst, linkFerroLst];
+		dataSampleLst = [ [ deepcopy( dataLst[iD] ) for it = 1 : itNumSample ] for iD = 1 : length(dataLst) ];
+		dataStartSampleLst = [ Array{Bool}[ deepcopy( dataLst[iD] ) for it = 1 : itNumStartSample ] for iD = 1 : length(dataLst) ];
+		# BfieldSampleLst, linkSampleLst, linkFerroSampleLst = genBfieldLinkFerroArrSample( params, itNumSample );
+		# dataSampleLst = Vector{Array{Array{Bool,params.nDim}}}[BfieldSampleLst, linkSampleLst, linkFerroSampleLst];
+		# BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst = genBfieldLinkFerroArrSample( params, itNumStartSample );
+		# dataStartSampleLst = Vector{Array{Array{Bool,params.nDim}}}[ BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst ];
 		
-		numBfieldLst = [zeros(params.nDimB) for it = 1 : itNum];
-		numLinkLst = [zeros(params.nDimB) for it = 1 : itNum];
-		numLinkFerroLst = [zeros(params.nDimB, params.nDimLayer) for it = 1 : itNum];
-		dataNumLst = Vector{Array{Float64}}[numBfieldLst, numLinkLst, numLinkFerroLst];
+		# numBfieldLst = [zeros(Int64, params.nDimB) for it = 1 : itNum];
+		# numLinkLst = [zeros(Int64, params.nDim) for it = 1 : itNum];
+		# numLinkFerroLst = [zeros(Int64, params.nDimLayer, params.nDimB) for it = 1 : itNum];
+		numBfieldSnap = zeros(Int64, params.nDimB);
+		numLinkSnap = zeros(Int64, params.nDim);
+		numLinkFerroSnap = zeros(Int64, params.nDimLayer, params.nDimB);
+		dataNumSnapLst = Array{Int64}[numBfieldSnap, numLinkSnap, numLinkFerroSnap];
+		dataNumLst = [ Array{Int64}[ deepcopy( dataNumSnapLst[iD] ) for it = 1 : itNum ] for iD = 1 : length( dataNumSnapLst ) ];
+		# dataNumLst = Vector{Array{Int64}}[numBfieldLst, numLinkLst, numLinkFerroLst];
 		
-		numBfieldOutLst = zeros(itNum, params.nDimB);
-		numLinkOutLst = zeros( itNum, params.nDim );
-		numLinkFerroOutLst = zeros( itNum, params.nDimB, params.nDimlayer );
-		dataNumOutLst = Array{Float64}[numBfieldOutLst, numLinkOutLst, numLinkFerroOutLst];
+		# numBfieldOutLst = zeros(itNum, params.nDimB);
+		# numLinkOutLst = zeros( itNum, params.nDim );
+		# numLinkFerroOutLst = zeros( itNum, params.nDimB, params.nDimLayer );
+		# dataNumOutLst = Array{Float64}[numBfieldOutLst, numLinkOutLst, numLinkFerroOutLst];
 		
-		dataSampleOutLst = Vector{Array{Bool,5}}(undef,length(dataLst));
-		dataStartSampleOutLst = Vector{Array{Bool,5}}(undef,length(dataLst));
+		dataSampleOutLst = Vector{Array}(undef,length(dataLst));
+		dataStartSampleOutLst = Vector{Array}(undef,length(dataLst));
+		dataNumOutLst = Vector{Array}(undef,length(dataLst));
+		
+		jldVarSampleLst = Vector{Any}(undef,0);
+		jldVarStartSampleLst = similar(jldVarSampleLst);
+		jldVarNumLst = similar(jldVarSampleLst);
+		jldVarItSampleLst = similar(jldVarSampleLst);
+		
+		new{params.nDim}( itSampleLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
 	end
 end
 
@@ -1087,20 +1137,27 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	
 	params = ParamsLoops( divNum, nDim );
 	
-	BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
+	# BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
 	
 	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
 	
-	numBfieldLst, numLinkLst = genBfieldLinkNumLst( params, itNum );
-	BfieldSampleLst, linkSampleLst = genBfieldLinkArrSample( params, itNumSample );
-	BfieldStartSampleLst, linkStartSampleLst = genBfieldLinkArrSample( params, itNumStartSample );
+	# numBfieldLst, numLinkLst = genBfieldLinkNumLst( params, itNum );
+	# BfieldSampleLst, linkSampleLst = genBfieldLinkArrSample( params, itNumSample );
+	# BfieldStartSampleLst, linkStartSampleLst = genBfieldLinkArrSample( params, itNumStartSample );
 
+	# auxData = auxDataType( params, flipChecker, itController );
+	bLinkData = genAuxData( BLinkAuxData, params, itController );
+	BfieldLst, linkLst, linkFerroLst = bLinkData.dataLst;
+	# BfieldLst = bLinkData.dataLst[1];
+	# linkLst = bLinkData.dataLst[2];
+	# linkFerroLst = bLinkData.dataLst[3];
+	
 	initializeBL( initializer, BfieldLst, params );
 	updateLinkFrom0ByBAllDims( BfieldLst, linkLst, linkFerroLst, params );
 	updater = updaterType( params );
 	
-	# auxData = auxDataType( params, flipChecker, itController );
 	auxData = genAuxData( auxDataType, params, flipChecker, itController );
+	# @infiltrate
 	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	resetItControl( itController );
 	
@@ -1110,25 +1167,30 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 		print( "it = ", it, "         \r" )
 		
 		if testItDoSample( itController )
-			Threads.@threads for dim = 1 : params.nDim
-				linkSampleLst[itSample][dim] .= linkLst[dim];
-			end
-			Threads.@threads for dim = 1 : params.nDimB
-				BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
-			end
+			# Threads.@threads for dim = 1 : params.nDim
+				# linkSampleLst[itSample][dim] .= linkLst[dim];
+			# end
+			# Threads.@threads for dim = 1 : params.nDimB
+				# BfieldSampleLst[itSample][dim] .= BfieldLst[dim];
+			# end
+			storeAuxDataSample( bLinkData, itSample, it );
 			storeAuxDataSample( auxData, itSample, it );
 			itSample += 1;
 		end
 		
 		if testItDoStartSample( itController )
-			Threads.@threads for dim = 1 : params.nDim
-				linkStartSampleLst[it][dim] .= linkLst[dim];
-			end
-			Threads.@threads for dim = 1 : params.nDimB
-				BfieldStartSampleLst[it][dim] .= BfieldLst[dim];
-			end
+			# Threads.@threads for dim = 1 : params.nDim
+				# linkStartSampleLst[it][dim] .= linkLst[dim];
+			# end
+			# Threads.@threads for dim = 1 : params.nDimB
+				# BfieldStartSampleLst[it][dim] .= BfieldLst[dim];
+			# end
+			storeAuxDataStartSample( bLinkData, it );
 			storeAuxDataStartSample( auxData, it );
 		end
+		
+		storeAuxDataNum( bLinkData, it );
+		storeAuxDataNum( auxData, it );
 		
 		if isnothing(flipProposer)
 			updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
@@ -1136,27 +1198,28 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 			updateLoops( updater, flipChecker, flipProposer, auxData, BfieldLst, linkLst, linkFerroLst, params );
 		end
 		
-		for dim = 1 : params.nDim
-			numLinkLst[it,dim] = sum( linkLst[dim] );
-		end
-		for dim = 1 : params.nDimB
-			numBfieldLst[it,dim] = sum(BfieldLst[dim]);
-		end
+		# for dim = 1 : params.nDim
+			# numLinkLst[it,dim] = sum( linkLst[dim] );
+		# end
+		# for dim = 1 : params.nDimB
+			# numBfieldLst[it,dim] = sum(BfieldLst[dim]);
+		# end
 		
 		advanceItControl( itController );
 	end
 	
 	save( fName, "divNum", divNum, "itNum", itNum );
 	
-	oFNameLoops = fNameFunc( oFMainLoopsSample, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
+	# oFNameLoops = fNameFunc( oFMainLoopsSample, attrLst, valLst, jld2Type; fMod = fModOut );
+	# save( oFNameLoops, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst, "linkSampleLst", linkSampleLst, "BfieldSampleLst", BfieldSampleLst );
 	
-	oFNameLoopsNum = fNameFunc( oFMainLoopsNum, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoopsNum, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
+	# oFNameLoopsNum = fNameFunc( oFMainLoopsNum, attrLst, valLst, jld2Type; fMod = fModOut );
+	# save( oFNameLoopsNum, "numBfieldLst", numBfieldLst, "numLinkLst", numLinkLst );
 	
-	oFNameLoopsStart = fNameFunc( oFMainLoopsStart, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
+	# oFNameLoopsStart = fNameFunc( oFMainLoopsStart, attrLst, valLst, jld2Type; fMod = fModOut );
+	# save( oFNameLoopsStart, "linkStartSampleLst", linkStartSampleLst, "BfieldStartSampleLst", BfieldStartSampleLst );
 	
+	saveAuxDataAll( bLinkData, attrLst, valLst; fMod = fModOut );
 	saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
 	
 	if isFileNameOnly

@@ -4,19 +4,22 @@ using Utils
 using DelimitedFiles
 
 
-isFileNameOnly = false;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
 
 divNum = 8;
 itNum = 640000;
 
-dosIncrMin = 0.001;
+dosIncrMin = 0.01;
 
 fLstName = "Loops_MC_WangLandau.txt";
 fLstName2d = "Loops_MC_WL2d.txt";
 # fNameFileLstLstWL = "fNameFileLstLstWL.txt";
 
-fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
+# fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
+# fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
+fMainToLoad = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.WangLandauAuxData );
 
 fNameLst = Vector{String}(undef,0);
 
@@ -26,7 +29,7 @@ fNameLst = Vector{String}(undef,0);
 # @time fName = Loops_MC.loops_MC_methods_WL2d( divNum, itNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
 # push!(fNameLst, fName)
 
-@time fName = Loops_MC.loops_MC_methods_WL2d( divNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
+@time fName = Loops_MC.loops_MC_methods_WL2d( divNum; cAreaInit = 3, dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
 push!(fNameLst, fName)
 
 # @time fName = Loops_MC.loops_MC_methods_WangLandauStaggered( divNum, (divNum^3)^2 * 100; cAreaInit = 3, dosIncrInit = 2.0, histDivNum = divNum^2 );

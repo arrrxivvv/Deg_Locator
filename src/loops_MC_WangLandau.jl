@@ -79,8 +79,8 @@ function flipCheck( flipChecker::AbstractWangLandauFlipChecker, flipProposer::Fl
 	isFlip = wangLandauUpdateHistDos( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
 	
 	if wangLandauHistResetCheck( flipChecker )
-		wangLandauUpdateDosIncr( flipChecker );
 		setIsHistFlat!( flipChecker );
+		wangLandauUpdateDosIncr( flipChecker );
 	else
 		unsetIsHistFlat!(flipChecker);
 	end
@@ -713,26 +713,41 @@ getAuxDataNumNameLst( wlAuxDataType::Type{WangLandauAuxData} ) = String[];
 
 # getItNumLst( itController::WangLandauItController ) = ntuple(ii->0, 3);
 
-function storeAuxDataSampleDataOnly( wlAuxData::WangLandauAuxData, itSample::Int64 )
+function storeAuxDataSampleNoBndCheck( wlAuxData::WangLandauAuxData, itSample::Int64 )
 	# @infiltrate
 	for ii = 1 : length(wlAuxData.dataLst)
-		if itSample > length(wlAuxData.dataSampleLst[ii])
-			push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
-		end
 		wlAuxData.dataSampleLst[ii][itSample] .= wlAuxData.dataLst[ii];
 	end
 end
 
-function storeAuxDataStartSample( wlAuxData::WangLandauAuxData, itStartSample::Int64 )
+function storeAuxDataStartSampleNoBndCheck( wlAuxData::WangLandauAuxData, itStartSample::Int64 )
 	for ii = 1 : length(wlAuxData.dataLst)
-		if itStartSample > length(wlAuxData.dataStartSampleLst[ii])
-			push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
-		end
 		wlAuxData.dataSampleLst[ii][itStartSample] .= wlAuxData.dataLst[ii];
 	end
 end
 
-storeAuxDataNum( wlAuxData::WangLandauAuxData, it::Int64 ) = nothing;
+storeAuxDataNumNoBndCheck( wlAuxData::WangLandauAuxData, it::Int64 ) = nothing;
+
+# function storeAuxDataSampleDataOnly( wlAuxData::WangLandauAuxData, itSample::Int64 )
+	# # @infiltrate
+	# for ii = 1 : length(wlAuxData.dataLst)
+		# if itSample > length(wlAuxData.dataSampleLst[ii])
+			# push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
+		# end
+		# wlAuxData.dataSampleLst[ii][itSample] .= wlAuxData.dataLst[ii];
+	# end
+# end
+
+# function storeAuxDataStartSample( wlAuxData::WangLandauAuxData, itStartSample::Int64 )
+	# for ii = 1 : length(wlAuxData.dataLst)
+		# if itStartSample > length(wlAuxData.dataStartSampleLst[ii])
+			# push!( wlAuxData.dataSampleLst[ii], similar(wlAuxData.dataLst[ii]) );
+		# end
+		# wlAuxData.dataSampleLst[ii][itStartSample] .= wlAuxData.dataLst[ii];
+	# end
+# end
+
+# storeAuxDataNum( wlAuxData::WangLandauAuxData, it::Int64 ) = nothing;
 
 function flipAuxData!( wlAuxData::WangLandauAuxData, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	nothing;
@@ -918,6 +933,8 @@ function loops_MC_methods_WL2d( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001
 	# fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxDataType = auxDataType, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
 	
 	fName = loops_MC_methods_Base( divNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxDataType = auxDataType, itController = itController, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	
+	itNum = itController.itRef[];
 	
 	fMain = "loops_WL2d";
 	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );

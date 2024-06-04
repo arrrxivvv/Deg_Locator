@@ -77,38 +77,46 @@ function calcAuxData!( zakAuxData::ZakArrAuxData, params::ParamsLoops, BfieldLst
 	end
 end
 
-function storeAuxDataSampleDataOnly( zakAuxData::ZakArrAuxData, itSample::Int64 )
-	if itSample > length( zakAuxData.zakArrSampleLst )
-		push!( zakAuxData.zakArrSampleLst, similar(zakAuxData.zakArr) );
-	end
+function storeAuxDataSampleNoBndCheck( zakAuxData::ZakArrAuxData, itSample::Int64 )
 	zakAuxData.zakArrSampleLst[itSample] .= zakAuxData.zakArr;
 end
 
-function storeAuxDataStartSample( zakAuxData::ZakArrAuxData, itStartSample::Int64 )
-	if itStartSample > length( zakAuxData.zakArrSampleLst )
-		push!( zakAuxData.zakArrStartSampleLst, similar(zakAuxData.zakArr) );
-	end
+# function checkDataSampleExtend!( zakAuxData::ZakArrAuxData, itSample::Int64 )
+	# if itSample > length( zakAuxData.zakArrSampleLst )
+		# push!( zakAuxData.zakArrSampleLst, similar(zakAuxData.zakArr) );
+	# end
+# end
+
+function storeAuxDataStartSampleNoBndCheck( zakAuxData::ZakArrAuxData, itStartSample::Int64 )
 	zakAuxData.zakArrStartSampleLst[itStartSample] .= zakAuxData.zakArr;
 end
 
-function storeAuxDataNum( zakAuxData::ZakArrAuxData, it::Int64 )
-	if it > length(zakAuxData.zakMeanLst)
-		push!( zakAuxData.zakMeanLst, zeros(zakAuxData.nDim) );
-	end
+# function checkDataStartSampleExtend!( zakAuxData.ZakArrAuxData )
+	# if itStartSample > length( zakAuxData.zakArrSampleLst )
+		# push!( zakAuxData.zakArrStartSampleLst, similar(zakAuxData.zakArr) );
+	# end
+# end
+
+function storeAuxDataNumNoBndCheck( zakAuxData::ZakArrAuxData, it::Int64 )
 	@views for dim = 1 : zakAuxData.nDim
-		zakMeanLst[it][dim] = mean( zakAuxData.zakArr[:,:,dim] );
+		zakAuxData.zakMeanLst[it][dim] = mean( zakAuxData.zakArr[:,:,dim] );
 	end
 end
 
+# function checkDataNumExtend!( zakAuxData::ZakArrAuxData, it::Int64 )
+	# if it > length(zakAuxData.zakMeanLst)
+		# push!( zakAuxData.zakMeanLst, zeros(zakAuxData.nDim) );
+	# end
+# end
 
 
 
 
-function getAuxDataSummaryName( auxDataType::Type{BLinkAuxData} )
+function getAuxDataSummaryName( auxDataType::Type{<:BLinkAuxData} )
 	return "BLink";
 end
 
-function getAuxDataNameLst( auxDataType::Type{BLinkAuxData} )
+function getAuxDataNameLst( auxDataType::Type{<:BLinkAuxData} )
 	return ["Bfield","link","linkFerro"]
 end
 
@@ -116,8 +124,64 @@ function calcAuxData!( auxData::BLinkAuxData )
 	nothing;
 end
 
-function storeAuxDataSampleDataOnly( auxData::BLinkAuxData )
+function renewAuxDataOutLst!( auxData::BLinkAuxData )
+	posLst = auxData.params.posLst;
+	colonLst = ntuple(ii->Colon(),auxData.nDim);
+	divTup = auxData.params.divTup;
+	iDimLstLst = [ CartesianIndices( auxData.dataLst[iD] ) for iD = 1 : length(auxData.dataLst) ];
+	dimLstLst = [ size(iDimLstLst[iD]) for iD = 1 : length(auxData.dataLst) ];
+	itNum = length(auxData.dataNumLst[1]);
+	itSampleNum = length(auxData.dataSampleLst[1]);
+	itStartSampleNum = length(auxData.dataStartSampleLst[1]);
+	
 	for iD = 1 : length(auxData.dataLst)
-		auxData.;
+		auxData.dataSampleOutLst[iD] = zeros( Bool, divTup..., dimLstLst[iD]..., itSampleNum );
+		auxData.dataStartSampleOutLst[iD] = zeros( Bool, divTup..., dimLstLst[iD]..., itStartSampleNum );
+		auxData.dataNumOutLst[iD] = zeros( Bool, itNum, dimLstLst[iD]... );
+		Threads.@threads for it = 1 : itSampleNum 
+			for iDim in iDimLstLst[iD]
+				auxData.dataSampleOutLst[iD][colonLst..., iDim, it] = auxData.dataSampleLst[iD][it][iDim];
+			end
+		end
+		Threads.@threads for it = 1 : itStartSampleNum
+			for iDim in iDimLstLst[iD]
+				auxData.dataStartSampleOutLst[iD][colonLst..., iDim, it] .= auxData.dataStartSampleLst[iD][it][iDim] ;
+			end
+		end
+		Threads.@threads for it = 1 : itNum
+			for iDim in iDimLstLst[iD]
+				auxData.dataNumOutLst[iD][it, iDim] = auxData.dataNumLst[iD][it][iDim];
+			end
+		end
+		# @infiltrate
+	end
+	# @infiltrate
+	
+	GC.gc();
+end
+
+function storeAuxDataSampleNoBndCheck( auxData::BLinkAuxData, itSample::Int64 )
+	for iD = 1 : length(auxData.dataLst)
+		( (a,b) -> (a .= b) ).(auxData.dataSampleLst[iD][itSample], auxData.dataLst[iD]);
+	end
+end
+
+function storeAuxDataStartSampleNoBndCheck( auxData::BLinkAuxData, itStartSample::Int64 )
+	# @infiltrate
+	for iD = 1 : length(auxData.dataLst)
+		( (a,b) -> (a .= b) ).(auxData.dataStartSampleLst[iD][itStartSample], auxData.dataLst[iD]);
+	end
+end
+
+function storeAuxDataNumNoBndCheck( auxData::BLinkAuxData, it::Int64 )
+	# @infiltrate
+	for iDim = 1 : auxData.nDimB
+		auxData.dataNumLst[1][it][iDim] = sum( auxData.dataLst[1][iDim] );
+	end
+	for iDim = 1 : auxData.nDim
+		auxData.dataNumLst[2][it][iDim] = sum( auxData.dataLst[2][iDim] );
+	end
+	for iDimB = 1 : auxData.nDimB, iDimLayer = 1 : auxData.nDimLayer
+		auxData.dataNumLst[3][it][iDimLayer,iDimB] = sum( auxData.dataLst[3][iDimLayer,iDimB] );
 	end
 end
