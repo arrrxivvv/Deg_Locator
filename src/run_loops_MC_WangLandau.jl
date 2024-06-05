@@ -4,14 +4,14 @@ using Utils
 using DelimitedFiles
 
 
-# isFileNameOnly = false;
-isFileNameOnly = true;
+isFileNameOnly = false;
+# isFileNameOnly = true;
 
 
 divNum = 8;
 itNum = 640000;
 
-dosIncrMin = 0.01;
+dosIncrMin = 1e-8;
 
 fLstName = "Loops_MC_WangLandau.txt";
 fLstName2d = "Loops_MC_WL2d.txt";
