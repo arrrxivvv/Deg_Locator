@@ -163,7 +163,7 @@ end
 
 
 
-function getUpdaterFMod( updaterType::Type{StaggeredCubeUpdaterBase} )
+function getUpdaterFMod( updaterType::Type{<:StaggeredCubeUpdaterBase} )
 	return "upStagCube";
 end
 

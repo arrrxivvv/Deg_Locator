@@ -34,3 +34,25 @@ function getAttrValInitializer( initializer::ConstantInitializer; rndDigs = rndD
 	
 	return attrLst, valLst;
 end
+
+
+
+
+
+function initializeBL( initializer::PresetInitializer, BfieldLst, params::ParamsLoops )
+	for dim = 1 : params.nDimB
+		BfieldLst[dim] .= initializer.BfieldLst[dim];
+	end
+end
+
+function getInitializerName( initType::Type{<:PresetInitializer} )
+	return "PresetInit";
+end
+
+function getAttrValInitializer( initializer::PresetInitializer; rndDigs = rndDigsLpsMC )
+	attrLst = [getInitializerName( initializer )];
+	sAvg = sum( sum.(initializer.BfieldLst) ) / length(initializer.BfieldLst[1]) / length(initializer.BfieldLst);
+	valLst = roundKeepInt.( [sAvg]; digits = rndDigs );
+	
+	return attrLst, valLst;
+end

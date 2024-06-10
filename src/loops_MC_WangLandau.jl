@@ -21,6 +21,20 @@ abstract type AbstractWLHistDos end
 
 throwWLHistDosUndefined() = error( "Lops_MC: WLHistDos undefined" );
 
+getWLHistDosName( wlHistDosType::Type{<:AbstractWLHistDos} ) = throwWLHistDosUndefined();
+
+getAttrLst( wlHistDosType::Type{<:AbstractWLHistDos} ) = throwWLHistDosUndefined();
+getAttrLst( wlHistDos::AbstractWLHistDos ) = getAttrLst(typeof(wlHistDos));
+
+getValLst( wlHistDos::AbstractWLHistDos ) = throwWLHistDosUndefined();
+
+function getAttrValLst( wlHistDos::AbstractWLHistDos ) 
+	attrLst = getAttrLst(wlHistDos);
+	valLst = getValLst(wlHistDos);
+	
+	return attrLst, valLst;
+end
+
 function getHistArr( histDos::AbstractWLHistDos )
 	if getIsHistOutBackup( histDos )
 		return histDos.histArrFlatBackup;
@@ -43,14 +57,72 @@ function unsetHistOutBackup!( histDos::AbstractWLHistDos )
 	histDos.isHistOutBackupRef[] = false;
 end
 
+getHistUpdateId( wlHistDos::AbstractWLHistDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D} = throwWLHistDosUndefined();
+
 getHistUpdateId( wlHistDos::AbstractWLHistDos, params::ParamsLoops, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D} = throwWLHistDosUndefined();
+
+getHistThisId( wlHistDos::AbstractWLHistDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}} ) where {D} = throwWLHistDosUndefined();
+
+getAndTestHistThisId( wlHistDos::AbstractWLHistDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}} ) where {D} = throwWLHistDosUndefined();
+
+getHistThisId( wlHistDos::AbstractWLHistDos, params::ParamsLoops, linkLst::Vector{Array{Bool,D}} ) where {D} = throwWLHistDosUndefined();
 
 getLinkHistId( wlHistDos::AbstractWLHistDos, lnkVal::Int64 ) = throwWLHistDosUndefined();
 
-function histUpdate( histDos::AbstractWLHistDos, params::ParamsLoops, flipProposer::FlipProposer, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D}, dosIncr::Float64 ) where {D}
-	id, idNxt = getHistUpdateId( histDos, params, linkLst, dim, pos );
-	isFlip = histUpdateWithId( histDos, dosIncr, id, idNxt );
+function histUpdateExchange( histDos1::AbstractWLHistDos, histDos2::AbstractWLHistDos, params::ParamsLoops, bLinkData1::BLinkAuxData, bLinkData2::BLinkAuxData, dosIncr1::Float64, dosIncr2::Float64 )
+	isFlip = histUpdateExchangeNoBackupSet( histDos1, histDos2, params, bLinkData1, bLinkData2, dosIncr1, dosIncr2 )
+	unsetHistOutBackup!( histDos1 );
+	unsetHistOutBackup!( histDos2 );
+	
+	return isFlip;
+end
+
+function histUpdateExchangeNoBackupSet( histDos1::AbstractWLHistDos, histDos2::AbstractWLHistDos, params::ParamsLoops, bLinkData1::BLinkAuxData, bLinkData2::BLinkAuxData, dosIncr1::Float64, dosIncr2::Float64 )
+	histDosLst = [histDos1, histDos2];
+	bLinkDataLst = [bLinkData1, bLinkData2];
+	idLst = zeros(eltype(histDos1.posLst), length(histDosLst), length(bLinkDataLst));
+	isOutBndLst = similar( idLst, Bool );
+	for iHist = 1 : length(histDosLst), iBLink = 1 : length(bLinkDataLst)
+		histDos = histDosLst[iHist];
+		bLinkData = bLinkDataLst[iBLink];
+		idLst[iHist, iBLink], isOutBndLst[iHist, iBLink] = getAndTestHistThisId( histDos, params, bLinkData.BfieldLst, bLinkData.linkLst )
+	end
+	if any(isOutBndLst)
+		return;
+	end
+	# idLst = [ getHistThisId( histDos, params, bLinkData.BfieldLst, bLinkData.linkLst ) for histDos in histDosLst, bLinkData in bLinkDataLst ];
+	# id1 = getHistThisId( histDos1, params, bLinkData1.BfieldLst, bLinkData1.linkLst );
+	# id2 = getHistThisId( histDos1, params, bLinkData2.BfieldLst, bLinkData2.linkLst );
+	
+	p = exp( histDos1.dosArr[idLst[1,1]] - histDos1.dosArr[idLst[1,2]] - histDos2.dosArr[idLst[2,1]] + histDos2.dosArr[idLst[2,2]] );
+	isFlip = rand() < p;
+	
+	if isFlip
+		idEnd1 = idLst[1,2];
+		idEnd2 = idLst[2,1];
+	else
+		idEnd1 = idLst[1,1] ;
+		idEnd2 = idLst[2,2];
+	end
+	
+	histUpdateWithId( histDos1, dosIncr1, idEnd1 );
+	histUpdateWithId( histDos2, dosIncr2, idEnd2 );
+		
+	return isFlip;
+end
+
+function histUpdate( histDos::AbstractWLHistDos, params::ParamsLoops, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D}, dosIncr::Float64 ) where {D}
+	# id, idNxt = getHistUpdateId( histDos, params, linkLst, dim, pos );
+	# isFlip = histUpdateWithId( histDos, dosIncr, id, idNxt );
+	isFlip = histUpdateNoBackupSet( histDos, params, flipProposer, BfieldLst, linkLst, dim, pos, dosIncr )
 	unsetHistOutBackup!( histDos );
+	
+	return isFlip;
+end
+
+function histUpdateNoBackupSet( histDos::AbstractWLHistDos, params::ParamsLoops, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D}, dosIncr::Float64 ) where {D}
+	id, idNxt = getHistUpdateId( histDos, params, BfieldLst, linkLst, dim, pos );
+	isFlip = histUpdateWithId( histDos, dosIncr, id, idNxt );
 	
 	return isFlip;
 end
@@ -60,14 +132,24 @@ function histUpdateWithId( histDos::AbstractWLHistDos, dosIncr::Float64, lId::Ca
 	isFlip = rand() < p;
 	
 	if isFlip
-		histDos.histArr[lIdNxt] += 1;
-		histDos.dosArr[lIdNxt] += dosIncr;
+		# histDos.histArr[lIdNxt] += 1;
+		# histDos.dosArr[lIdNxt] += dosIncr;
+		histUpdateWithId( histDos, dosIncr, lIdNxt );
 	else
-		histDos.histArr[lId] += 1;
-		histDos.dosArr[lId] += dosIncr;
+		# histDos.histArr[lId] += 1;
+		# histDos.dosArr[lId] += dosIncr;
+		histUpdateWithId( histDos, dosIncr, lId );
 	end
 	
+	
 	return isFlip;
+end
+
+function histUpdateWithId( histDos::AbstractWLHistDos, dosIncr::Float64, lId::CartesianIndex{D_hist} ) where {D_hist}
+	histDos.histArr[lId] += 1;
+	histDos.dosArr[lId] += dosIncr;
+	
+	@infiltrate any( isnan, getDosArr( histDos ) );
 end
 
 function histResetZero!( histDos::AbstractWLHistDos )
@@ -107,7 +189,19 @@ struct WLHistDos2DFull <: AbstractWLHistDos
 	end
 end
 
-function getHistUpdateId( wlHistDos::WLHistDos2DFull, params::ParamsLoops, linkLst::Vector{Array{Bool,2}}, dim::Int64, pos::CartesianIndex{2} )
+function getWLHistDosName( wlHistDosType::Type{<:WLHistDos2DFull} )
+	return "WLHist2DFull";
+end
+
+function getAttrLst( wlHistDosType::Type{<:WLHistDos2DFull} )
+	return [ getWLHistDosName( wlHistDosType ) * "_grdNum" ]
+end
+
+function getValLst( wlHistDos::WLHistDos2DFull )
+	return [ wlHistDos.grdNum ];
+end
+
+function getHistUpdateId( wlHistDos::WLHistDos2DFull, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
 	dL = calcDL( params, linkLst, dim, pos );
 	
 	lTotal = sum( sum.(linkLst) );
@@ -163,7 +257,19 @@ struct WLHistDos2DHalf <: AbstractWLHistDos
 	end
 end
 
-function getHistUpdateId( wlHistDos::WLHistDos2DHalf, params::ParamsLoops, linkLst::Vector{Array{Bool,2}}, dim::Int64, pos::CartesianIndex{2} )
+function getWLHistDosName( wlHistDosType::Type{<:WLHistDos2DHalf} )
+	return "WLHist2DHalf";
+end
+
+function getAttrLst( wlHistDosType::Type{<:WLHistDos2DHalf} )
+	return [ getWLHistDosName( wlHistDosType ) * "_grdNum" ]
+end
+
+function getValLst( wlHistDos::WLHistDos2DHalf )
+	return [ wlHistDos.grdNum ];
+end
+
+function getHistUpdateId( wlHistDos::WLHistDos2DHalf, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
 	dL = calcDL( params, linkLst, dim, pos );
 	
 	lTotal = sum( sum.(linkLst) );
@@ -178,7 +284,7 @@ end
 function getLinkHistId( wlHistDos::WLHistDos2DHalf, lnkVal::Int64 )
 	lnkId = Int64( lnkVal / 2 );
 	if lnkId > wlHistDos.grdNumHalf
-		lnkId = wlHistDos.grdNum zZzZS1111111111111111111111   - lnkId;
+		lnkId = wlHistDos.grdNum - lnkId;
 	end
 	if lnkId > 0
 		lnkId -= 1;
@@ -189,6 +295,211 @@ function getLinkHistId( wlHistDos::WLHistDos2DHalf, lnkVal::Int64 )
 	return lnkId;
 end
 
+
+
+struct WLHistDos2DZoned <: AbstractWLHistDos
+	histArr::Vector{Int64};
+	histArrFlatBackup::Vector{Int64};
+	dosArr::Vector{Float64};
+	
+	isHistOutBackupRef::Ref{Bool};
+	
+	grdNum::Int64;
+	idMin::Int64;
+	idMax::Int64;
+	
+	posLst::CartesianIndices{1,Tuple{Vararg{Base.OneTo{Int64},1}}};
+	
+	function WLHistDos2DZoned( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+		nDim = 2;
+		grdNum = divNum ^ nDim;
+		lnkValMin = Int64( floor( eRatioToLnk01Val( grdNum, EMinRatio )/2 ) )*2;
+		lnkValMax = Int64( ceil( eRatioToLnk01Val( grdNum, EMaxRatio )/2 ) )*2;
+		idMin = getLinkHistIdFull( grdNum, lnkValMin );
+		idMax = getLinkHistIdFull( grdNum, lnkValMax );
+		
+		histArr = zeros(Int64, idMax - idMin + 1);
+		histArrFlatBackup = similar(histArr);
+		dosArr = similar(histArr, Float64);
+		dosArr .= 0;
+		
+		posLst = CartesianIndices( histArr );
+		
+		isHistFlatVal = false;
+		
+		new( histArr, histArrFlatBackup, dosArr, Ref(isHistFlatVal), grdNum, idMin, idMax, posLst );
+	end
+end
+
+function genWLHistDos2DZonedFull( divNum::Int64 )
+	return WLHistDos2DZoned( divNum, -2, 2 );
+end
+
+function getWLHistDosName( wlHistDosType::Type{<:WLHistDos2DZoned} )
+	return "WLHist2Zoned";
+end
+
+function getAttrLst( wlHistDosType::Type{<:WLHistDos2DZoned} )
+	return [ getWLHistDosName( wlHistDosType ) * "_grdNum", "idMin", "idMax" ];
+end
+
+function getValLst( wlHistDos::WLHistDos2DZoned )
+	return [ wlHistDos.grdNum, wlHistDos.idMin, wlHistDos.idMax ];
+end
+
+function getLinkHistIdFull( grdNum::Int64, lnkVal::Int64 )
+	lnkId = Int64( lnkVal / 2 );
+	if lnkId == grdNum
+		lnkId -= 2;
+	elseif lnkId > 0
+		lnkId -= 1;
+	end
+	
+	lnkId += 1;
+	
+	return lnkId;
+end
+
+function eRatioToLnk01Val( grdNum::Int64, eRatio::Real )
+	return ( eRatio/2 * grdNum + grdNum );
+end
+
+function histUpdateNoBackupSet( histDos::WLHistDos2DZoned, params::ParamsLoops, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D}, dosIncr::Float64 ) where {D}
+	id, idNxt, isInBnd = getHistUpdateId( histDos, params, BfieldLst, linkLst, dim, pos );
+	isFlip = histUpdateWithId( histDos, dosIncr, id, idNxt );
+	isFlip = isFlip && isInBnd;
+	
+	return isFlip;
+end
+
+function getHistUpdateId( wlHistDos::WLHistDos2DZoned, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
+	dL = calcDL( params, linkLst, dim, pos );
+	
+	lTotal = sum( sum.(linkLst) );
+	lNxt = lTotal + dL;
+	
+	lId = getLinkHistIdFull( wlHistDos.grdNum, lTotal );
+	lIdNxt = getLinkHistIdFull( wlHistDos.grdNum, lNxt );
+	
+	if testHistIdOutBnd( wlHistDos, lId ) 
+		error( "Loops_MC.WLHistDos2DZoned: id out of bound" )
+	end
+	
+	isInBnd = true;
+	if testHistIdOutBnd( wlHistDos, lIdNxt )
+		lIdNxt = lId;
+		isInBnd = false;
+	end
+	
+	lIdZoned = getZonedIdFromFull( wlHistDos, lId );
+	lIdNxtZoned = getZonedIdFromFull( wlHistDos, lIdNxt );
+	
+	return wlHistDos.posLst[lIdZoned], wlHistDos.posLst[lIdNxtZoned], isInBnd;
+end
+
+function getAndTestHistThisId( wlHistDos::WLHistDos2DZoned, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}} ) where {D}
+	lTotal = sum( sum.(linkLst) );
+	
+	lId = getLinkHistIdFull( wlHistDos.grdNum, lTotal );
+	
+	isOutBnd = testHistIdOutBnd( wlHistDos, lId );
+	if isOutBnd
+		# error( "Loops_MC.WLHistDos2DZoned: id out of bound" )
+		lIdZoned = 1;
+	else
+		lIdZoned = getZonedIdFromFull( wlHistDos, lId );
+	end
+	
+	return wlHistDos.posLst[lIdZoned], testHistIdOutBnd( wlHistDos, lId ) ;
+end
+
+function testHistIdOutBnd( wlHistDos::WLHistDos2DZoned, id::Int64 )
+	if id < wlHistDos.idMin || id > wlHistDos.idMax
+		return true;
+	else
+		return false;
+	end
+end
+
+function getZonedIdFromFull( wlHistDos::WLHistDos2DZoned, idFull::Int64 )
+	idZoned = idFull - wlHistDos.idMin + 1;
+	
+	return idZoned;
+end
+
+
+
+
+struct WLHistDosJoint2DFull <: AbstractWLHistDos
+	histArr::Matrix{Int64};
+	histArrFlatBackup::Matrix{Int64};
+	dosArr::Matrix{Float64};
+	
+	isHistOutBackupRef::Ref{Bool};
+	
+	grdNum::Int64;
+	
+	posLst::CartesianIndices{2,Tuple{Vararg{Base.OneTo{Int64},2}}};
+	
+	function WLHistDosJoint2DFull( divNum )
+		nDim = 2;
+		grdNum = divNum^nDim;
+		histArr = zeros( Int64, grdNum+1, grdNum+1-2 );
+		histArrFlatBackup = similar(histArr);
+		dosArr = similar(histArr, Float64);
+		dosArr .= 0;
+		
+		isHistOutBackupVal = false;
+		
+		posLst = CartesianIndices(histArr);
+		
+		new( histArr, histArrFlatBackup, dosArr, isHistOutBackupVal, grdNum, posLst );
+	end
+end
+
+function getWLHistDosName( wlHistDosType::Type{<:WLHistDosJoint2DFull} )
+	return "WLHistJoint2DFull";
+end
+
+function getAttrLst( wlHistDosType::Type{<:WLHistDosJoint2DFull} )
+	return [ getWLHistDosName( wlHistDosType ) * "_grdNum" ]
+end
+
+function getValLst( wlHistDos::WLHistDosJoint2DFull )
+	return [ wlHistDos.grdNum ];
+end
+
+function getHistUpdateId( wlHistDos::WLHistDosJoint2DFull, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
+	dS = boolToFlipChange( BfieldLst[dim][pos] );
+	dL = calcDL( params, linkLst, dim, pos );
+	
+	sTotal = sum( sum.( BfieldLst ) );
+	lTotal = sum( sum.( linkLst ) );
+	
+	sNxt = sTotal + dS;
+	lNxt = lTotal + dL;
+	
+	sId = sTotal + 1;
+	sIdNxt = sNxt + 1;
+	
+	lId = getLinkHistId( wlHistDos, lTotal );
+	lIdNxt = getLinkHistId( wlHistDos, lNxt );
+	
+	return wlHistDos.posLst[sId,lId], wlHistDos.posLst[sIdNxt,lIdNxt];
+end
+
+function getLinkHistId( wlHistDos::WLHistDosJoint2DFull, lnkVal::Int64 )
+	lnkId = Int64( lnkVal / 2 );
+	if lnkId == wlHistDos.grdNum
+		lnkId -= 2;
+	elseif lnkId > 0
+		lnkId -= 1;
+	end
+	
+	lnkId += 1;
+	
+	return lnkId;
+end
 
 
 
@@ -247,6 +558,55 @@ testItDoStartSample( wlItController::WangLandauItController ) = false;
 
 
 
+struct WangLandauReplicaItController <: ItController
+	dosIncrMin::Float64;
+	itExchange::Int64;
+	flipCheckerLst::Array{<:AbstractWangLandauFlipChecker};
+	
+	dosIncrLst::Array{Float64};
+	
+	itRef::Ref{Int64};
+	
+	function WangLandauReplicaItController( flipCheckerLst::Array{<:AbstractWangLandauFlipChecker}, dosIncrMin::Float64, itExchange::Int64 )
+		itVal = 1;
+		dosIncrLst = similar(flipCheckerLst, Float64)
+		
+		new( dosIncrMin, itExchange, flipCheckerLst, dosIncrLst, Ref(itVal) );
+	end
+end
+
+getItControllerName( itControllerType::Type{WangLandauReplicaItController} ) = "WLReplicaItCtrl";
+
+function getAttrLstItController( itControllerType::Type{WangLandauReplicaItController} )
+	return [getItControllerName(itControllerType) * "dosIncrMin"];
+end
+
+function getValLstItController( itController::WangLandauReplicaItController )
+	return [itController.dosIncrMin];
+end
+
+function getItNumLst( itController::WangLandauReplicaItController )
+	return zeros(Int64, 3);
+end
+
+function testItNotDone( wlItController::WangLandauReplicaItController )
+	wlItController.dosIncrLst .= getDosIncr.( wlItController.flipCheckerLst );
+	return maximum( wlItController.dosIncrLst ) > wlItController.dosIncrMin;
+end
+
+function testItDoSample( wlItController::WangLandauReplicaItController )
+	return reduce( |, getIsHistFlat.( wlItController.flipCheckerLst ) );
+end
+
+testItDoStartSample( wlItController::WangLandauReplicaItController ) = false;
+
+testItDoExchange( wlItController::WangLandauReplicaItController ) = mod( wlItController.itRef[], wlItController.itExchange ) == 0;
+
+
+
+
+
+
 
 function flipCheck( flipChecker::AbstractWangLandauFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	isFlip = wangLandauUpdateHistDos( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
@@ -286,6 +646,10 @@ function getHistArr( flipChecker::AbstractWangLandauFlipChecker )
 	end
 end
 
+function getHistDos( flipChecker::AbstractWangLandauFlipChecker )
+	return flipChecker.histDos;
+end
+
 function getDosArr( flipChecker::AbstractWangLandauFlipChecker )
 	return flipChecker.dosArr;
 end
@@ -308,19 +672,54 @@ function wangLandauUpdateDosIncr( flipChecker::AbstractWangLandauFlipChecker )
 end
 
 
-
 abstract type AbstractWLHistStructFlipChecker <: AbstractWangLandauFlipChecker end
 
-function flipCheck( flipChecker::AbstractWLHistStructFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
-	# wangLandauUpdateHistDos( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
-	isFlip = histUpdate( flipChecker.histDos, params, flipProposer, linkLst, dim, pos, flipChecker.dosIncrRef[] );
+function flipCheckExchange( flipChecker1::AbstractWLHistStructFlipChecker, flipChecker2::AbstractWLHistStructFlipChecker, params::ParamsLoops, bLinkData1::BLinkAuxData, bLinkData2::BLinkAuxData )
+	isFlip = histUpdateExchange(  getHistDos( flipChecker1 ), getHistDos( flipChecker2 ), params, bLinkData1, bLinkData2, getDosIncr( flipChecker1 ), getDosIncr( flipChecker2 ) );
 	
+	# for flipChecker in [flipChecker1, flipChecker2]
+		# if wangLandauHistResetCheck( flipChecker )
+			# setIsHistFlat!( flipChecker );
+			# wangLandauUpdateDosIncr( flipChecker );
+		# else
+			# unsetIsHistFlat!(flipChecker);
+		# end
+	# end
+	
+	return isFlip;
+end
+
+function flipCheck( flipChecker::AbstractWLHistStructFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	isFlip = wangLandauUpdateHistDos( flipChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+	# isFlip = histUpdate( getHistDos( flipChecker ), params, flipProposer, BfieldLst, linkLst, dim, pos, flipChecker.dosIncrRef[] );
+	
+	# if wangLandauHistResetCheck( flipChecker )
+		# wangLandauUpdateDosIncr( flipChecker );
+		# histResetZero!( flipChecker.histDos );
+	# end
+	wangLandauHistReset( flipChecker );
+	
+	return isFlip;
+end
+
+function wangLandauUpdateHistDos( flipChecker::AbstractWLHistStructFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
+	return histUpdate( getHistDos( flipChecker ), params, flipProposer, BfieldLst, linkLst, dim, pos, flipChecker.dosIncrRef[] );
+end
+
+function wangLandauHistReset( flipChecker::AbstractWLHistStructFlipChecker )
 	if wangLandauHistResetCheck( flipChecker )
 		wangLandauUpdateDosIncr( flipChecker );
 		histResetZero!( flipChecker.histDos );
 	end
-	
-	return isFlip;
+end
+
+function wangLandauHistResetNoCheck( flipChecker::AbstractWLHistStructFlipChecker )
+	wangLandauUpdateDosIncr( flipChecker );
+	histResetZero!( flipChecker.histDos );
+end
+
+function histResetZero!( flipChecker::AbstractWLHistStructFlipChecker );
+	histResetZero!( flipChecker.histDos );
 end
 
 function getDosIncr( flipChecker::AbstractWLHistStructFlipChecker )
@@ -365,6 +764,152 @@ end
 
 
 
+
+
+struct WLFriendsFlipChecker{T_flip<:AbstractWangLandauFlipChecker} <: AbstractWLHistStructFlipChecker
+	selfChecker::T_flip;
+	friendCheckerLst::Vector{WLFriendsFlipChecker{T_flip}};
+	
+	function WLFriendsFlipChecker{T_flip}( args...; kwargs... ) where {T_flip <: AbstractWangLandauFlipChecker}
+		selfChecker = T_flip(args...; kwargs...);
+		friendCheckerLst = Vector{T_flip}(undef,0);
+		
+		new{T_flip}( selfChecker, friendCheckerLst );
+	end
+end
+
+function setFriendCheckerLst!( friendChecker::WLFriendsFlipChecker, checkers... )
+	resize!( friendChecker.friendCheckerLst, length(checkers) )
+	for iCh = 1 : length(checkers)
+		friendChecker.friendCheckerLst[iCh] = checkers[iCh];
+	end
+end
+
+function getFlipCheckerName( flipCheckerType::Type{<:WLFriendsFlipChecker} )
+	return getFlipCheckerName( flipCheckerType.parameters[1] );
+end
+
+function getFlipCheckerAttrLst( flipCheckerType::Type{<:WLFriendsFlipChecker} )
+	return getFlipCheckerAttrLst( flipCheckerType.parameters[1] );
+end
+
+function getFlipCheckerAttrLst( flipChecker::WLFriendsFlipChecker )
+	return getFlipCheckerAttrLst( typeof(flipChecker) );
+end
+
+function getFlipCheckerValLst( flipChecker::WLFriendsFlipChecker; rndDigs::Int64 )
+	return getFlipCheckerValLst( flipChecker.selfChecker; rndDigs );
+end
+
+function getIsHistFlat( checker::WLFriendsFlipChecker )
+	return reduce( &, ( c -> getIsHistFlat( c.selfChecker ) ).(checker.friendCheckerLst) );
+end
+
+function wangLandauUpdateHistDos( flipChecker::WLFriendsFlipChecker, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} )where {D}
+	return wangLandauUpdateHistDos( flipChecker.selfChecker, flipProposer, params, dim, pos, BfieldLst, linkLst, linkFerroLst );
+end
+
+function wangLandauHistReset( flipChecker::WLFriendsFlipChecker )
+	nothing;
+end
+
+function wangLandauHistResetNoCheck( flipChecker::WLFriendsFlipChecker )
+	wangLandauHistResetNoCheck( flipChecker.selfChecker );
+end
+
+function wangLandauHistResetSynchronized( flipCheckerLst::AbstractVector{<:WLFriendsFlipChecker} )
+	if wangLandauHistResetCheck( flipCheckerLst )
+		wangLandauHistResetNoCheck.( flipCheckerLst );
+		avgDosAllFriends!( flipCheckerLst );
+	end
+end
+
+function wangLandauHistResetCheck( flipChecker::WLFriendsFlipChecker )
+	# return reduce( &, ( c -> wangLandauHistResetCheck( c.selfChecker ) ).(flipChecker.flipCheckerLst) );
+	return wangLandauHistResetCheck( flipChecker.friendCheckerLst );
+end
+
+function wangLandauHistResetCheck( flipCheckerLst::AbstractVector{<:WLFriendsFlipChecker} )
+	return reduce( &, ( c -> wangLandauHistResetCheck( c.selfChecker ) ).(flipCheckerLst) );
+end
+
+function wangLandauUpdateDosIncr( flipChecker::WLFriendsFlipChecker )
+	# avgDosFriends!( flipChecker );
+	
+	return wangLandauUpdateDosIncr( flipChecker.selfChecker );
+end
+
+function avgDosFriends!( flipChecker::WLFriendsFlipChecker, flipCheckerLst::AbstractVector{<:WLFriendsFlipChecker} )
+	getDosArr( flipChecker ) .= getDosArr( flipCheckerLst[1] );
+	
+	for iF = 2 : length(flipCheckerLst)
+		getDosArr( flipChecker ) .+= getDosArr( flipCheckerLst[iF] );
+	end
+	
+	getDosArr( flipChecker ) ./= length(flipCheckerLst);
+end
+
+function avgDosFriends!( flipChecker::WLFriendsFlipChecker )
+	# getDosArr( flipChecker ) .= getDosArr( flipChecker.friendCheckerLst[1] );
+	
+	# for iF = 2 : length(flipChecker.friendCheckerLst)
+		# getDosArr( flipChecker ) .+= getDosArr( flipChecker.friendCheckerLst[iF] );
+	# end
+	
+	# getDosArr( flipChecker ) ./= length(flipChecker.friendCheckerLst);
+	avgDosFriends!( flipChecker, flipChecker.friendCheckerLst );
+end
+
+function avgDosAllFriends!( flipCheckerLst::AbstractVector{<:WLFriendsFlipChecker} )
+	avgDosFriends!( flipCheckerLst[1], flipCheckerLst );
+	
+	for iF = 2 : length(flipCheckerLst)
+		getDosArr( flipCheckerLst[iF] ) .= getDosArr( flipCheckerLst[1] );
+	end
+end
+
+function avgDosAllFriends!( flipChecker::WLFriendsFlipChecker )
+	avgDosFriends!( flipChecker );
+	
+	for iF = 1 : length(flipChecker.friendCheckerLst)
+		getDosArr( flipChecker.friendCheckerLst[iF] ) .= getDosArr( flipChecker.selfChecker );
+	end
+end
+
+function getHistDos( flipChecker::WLFriendsFlipChecker )
+	return getHistDos( flipChecker.selfChecker );
+end
+
+function getDosIncr( flipChecker::WLFriendsFlipChecker )
+	return getDosIncr( flipChecker.selfChecker );
+end
+
+function setIsHistFlat!( flipChecker::WLFriendsFlipChecker )
+	return setIsHistFlat!( flipChecker.selfChecker );
+end
+
+function unsetIsHistFlat!( flipChecker::WLFriendsFlipChecker )
+	return unsetIsHistFlat!( flipChecker.selfChecker );
+end
+
+function getHistArr( flipChecker::WLFriendsFlipChecker )
+	return getHistArr( flipChecker.selfChecker );
+end
+
+function getDosArr( flipChecker::WLFriendsFlipChecker )
+	return getDosArr( flipChecker.selfChecker );
+end
+
+function getHistDosArr( flipChecker::WLFriendsFlipChecker )
+	return getHistDosArr( flipChecker.selfChecker );
+end
+
+
+
+
+
+
+
 struct WL2dHistStructFlipChecker{T_histDos} <: AbstractWLHistStructFlipChecker
 	divNum::Int64;
 	grdNum::Int64;
@@ -375,16 +920,17 @@ struct WL2dHistStructFlipChecker{T_histDos} <: AbstractWLHistStructFlipChecker
 	histCutoffThres::Float64;
 	histStdRatioThres::Float64;	
 	
-	histIsOverArr::Vector{Bool};
-	histIsOverArrPrev::Vector{Bool};
-	histMaskedArr::Vector{Int64};
+	histIsOverArr::Array{Bool};
+	histIsOverArrPrev::Array{Bool};
+	histMaskedArr::Array{Int64};
 	
 	wlCounter::Ref{Int64};
 	wlResetInterval::Int64;
 	
-	function WL2dHistStructFlipChecker( divNum::Int64, nDim::Int64; dosIncrVal::Float64 = 1.0, histCutoffThres = 0.5, histStdRatioThres::Float64 = 0.15, wlResetInterval::Int64 = 100, wlHistDosType = WLHistDos2DFull )
+	function WL2dHistStructFlipChecker{T_histDos}( divNum::Int64, nDim::Int64; dosIncrVal::Float64 = 1.0, histCutoffThres = 0.5, histStdRatioThres::Float64 = 0.15, wlResetInterval::Int64 = 100, wlHistDosArgs = () ) where {T_histDos <: AbstractWLHistDos}
 		grdNum = divNum^nDim;
-		histDos = wlHistDosType( divNum );
+		histDos = T_histDos( divNum, wlHistDosArgs... );
+		D_hist = ndims( getHistArr(histDos) );
 		histIsOverArr = similar( getHistArr(histDos), Bool );
 		histIsOverArrPrev = similar( histIsOverArr );
 		histIsOverArr .= false;
@@ -392,24 +938,38 @@ struct WL2dHistStructFlipChecker{T_histDos} <: AbstractWLHistStructFlipChecker
 		histMaskedArr = similar( getHistArr(histDos) );
 		wlCounterVal = 1;
 		
-		new{wlHistDosType}( divNum, grdNum, histDos, Ref(dosIncrVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, Ref(wlCounterVal), wlResetInterval );
+		new{T_histDos}( divNum, grdNum, histDos, Ref(dosIncrVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, Ref(wlCounterVal), wlResetInterval );
 	end
+end
+
+function WL2dHistStructFlipChecker( divNum::Int64, nDim::Int64; dosIncrVal::Float64 = 1.0, histCutoffThres = 0.5, histStdRatioThres::Float64 = 0.15, wlResetInterval::Int64 = 100, wlHistDosType::Type{<:AbstractWLHistDos} = WLHistDos2DFull, wlHistDosArgs = () )
+	return WL2dHistStructFlipChecker{wlHistDosType}( divNum, nDim; dosIncrVal = dosIncrVal, histCutoffThres = histCutoffThres, histStdRatioThres = histStdRatioThres, wlResetInterval = wlResetInterval, wlHistDosArgs = wlHistDosArgs );
 end
 
 function getFlipCheckerName( flipCheckerType::Type{<:WL2dHistStructFlipChecker} ) 
 	return "WL2dExploredFlatFlip";
 end
 
-function getFlipCheckerAttrLst( flipChecker::WL2dHistStructFlipChecker )
-	return ["histStdRatioThres", "histCutoffThres", "wlResetIntvl"];
+function getFlipCheckerAttrLst( flipCheckerType::Type{<:WL2dHistStructFlipChecker} )
+	return append!( ["histStdRatioThres", "histCutoffThres", "wlResetIntvl"], getAttrLst( flipCheckerType.parameters[1] ) );
 end
 
-function getFlipCheckerAttrValLst( flipChecker::WL2dHistStructFlipChecker; rndDigs = rndDigsLpsMC )
-	attrLst = getFlipCheckerAttrLst( flipChecker );
-	valLst = roundKeepInt.( [flipChecker.histStdRatioThres, flipChecker.histCutoffThres, flipChecker.wlResetInterval]; digits = rndDigs );
+# function getFlipCheckerAttrLst( flipChecker::WL2dHistStructFlipChecker )
+	# return append!( ["histStdRatioThres", "histCutoffThres", "wlResetIntvl"], getAttrLst( flipChecker.histDos ) );
+# end
+
+function getFlipCheckerValLst( flipChecker::WL2dHistStructFlipChecker; rndDigs = rndDigsLpsMC )
+	return append!( roundKeepInt.( [flipChecker.histStdRatioThres, flipChecker.histCutoffThres, flipChecker.wlResetInterval]; digits = rndDigs ), getValLst(flipChecker.histDos) );
 	
 	return attrLst, valLst;
 end
+
+# function getFlipCheckerAttrValLst( flipChecker::WL2dHistStructFlipChecker; rndDigs = rndDigsLpsMC )
+	# attrLst = getFlipCheckerAttrLst( flipChecker );
+	# valLst = roundKeepInt.( [flipChecker.histStdRatioThres, flipChecker.histCutoffThres, flipChecker.wlResetInterval]; digits = rndDigs );
+	
+	# return attrLst, valLst;
+# end
 
 function wangLandauHistResetCheck( flipChecker::WL2dHistStructFlipChecker )
 	isHistReset = false;
@@ -606,9 +1166,7 @@ function wangLandauHistResetCheck( flipChecker::WL2dLinkPartFlatFlipChecker )
 		if stdHistOver < meanHistOver .* flipChecker.histStdRatioThres
 			isHistReset = true;
 			flipChecker.histIsOverArrPrev .= flipChecker.histIsOverArr;
-			# @infiltrate
 		end
-		# @infiltrate
 	end
 	
 	return isHistReset
@@ -954,10 +1512,11 @@ struct WangLandauAuxData <: AuxData
 		itSampleLst = zeros(Int64, itNumSample);
 		
 		dataLst = Array[getHistArr(flipChecker), getDosArr(flipChecker)];
-		dataSampleLst = [ Vector[ similar( dataLst[ii] ) for itSample = 1 : itNumSample ] for ii = 1 : length(dataLst) ];
+		nDimHist = ndims(getHistArr(flipChecker));
+		dataSampleLst = [ Array{<:Real,nDimHist}[ similar( dataLst[ii] ) for itSample = 1 : itNumSample ] for ii = 1 : length(dataLst) ];
 		# dataSampleLst = Vector{Array}[histArrSampleLst, dosArrSampleLst];
 		# dataStartSampleLst = Vector{Array}[histArrStartSampleLst, dosArrStartSampleLst];
-		dataStartSampleLst = [ Vector[ similar( dataLst[ii] ) for itSample = 1 : itNumStartSample ] for ii = 1 : length(dataLst) ];
+		dataStartSampleLst = [ Array{<:Real,nDimHist}[ similar( dataLst[ii] ) for itSample = 1 : itNumStartSample ] for ii = 1 : length(dataLst) ];
 		dataNumLst = Vector{Vector}[];
 		
 		dataSampleOutLst = Vector{Array}(undef, length(dataSampleLst));
@@ -1019,6 +1578,125 @@ function renewAuxDataOutLst!( wlAuxData::WangLandauAuxData )
 	
 	GC.gc();
 end
+
+
+
+struct BConfigOfLnkValAuxData{D} <: AuxData
+	itSampleLst::Vector{Int64};
+	
+	configArr::Array{Vector{Array{Bool,D}}};
+	
+	flipChecker::FlipChecker;
+	
+	dataLst::Vector{Array};
+	dataSampleLst::Vector{<:Vector{<:Array}};
+	dataStartSampleLst::Vector{<:Vector{<:Array}};
+	dataNumLst::Vector{Vector};
+	
+	dataSampleOutLst::Vector{Array};
+	dataStartSampleOutLst::Vector{Array};
+	dataNumOutLst::Vector{Array};
+	
+	jldVarSampleLst::Vector{Any};
+	jldVarStartSampleLst::Vector{Any};
+	jldVarNumLst::Vector{Any};
+	jldVarItSampleLst::Vector{Any};
+	
+	foundCntRef::Ref{Int64};
+	
+	function BConfigOfLnkValAuxData{D}( flipChecker::AbstractWangLandauFlipChecker, itNum::Int64, itNumSample::Int64, itNumStartSample::Int64 ) where {D}
+		itSampleLst = zeros(Int64, itNumSample);
+		
+		configArr = similar( getHistArr(flipChecker), Vector{Array{Bool,D}} )
+		dataLst = Array[configArr];
+		dataSampleLst = [ Vector[ similar( dataLst[ii] ) for itSample = 1 : itNumSample ] for ii = 1 : length(dataLst) ];
+		dataStartSampleLst = [ Vector[ similar( dataLst[ii] ) for itSample = 1 : itNumStartSample ] for ii = 1 : length(dataLst) ];
+		dataNumLst = Vector{Vector}[];
+		
+		dataSampleOutLst = dataSampleLst;
+		dataStartSampleOutLst = dataStartSampleLst;
+		dataNumOutLst = dataNumLst;
+		
+		jldVarSampleLst = Vector{Any}(undef,0);
+		jldVarStartSampleLst = similar(jldVarSampleLst);
+		jldVarNumLst = similar(jldVarSampleLst);
+		jldVarItSampleLst = similar(jldVarSampleLst);
+		
+		foundCntVal = 0;
+		
+		new{D}( itSampleLst, configArr, flipChecker, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, Ref(foundCntVal) );
+	end
+end
+
+BConfigOfLnkValAuxData{D}( flipChecker::AbstractWangLandauFlipChecker ) where {D} = BConfigOfLnkValAuxData{D}( flipChecker, 0,0 ,0 );
+
+function getAuxDataSummaryName( wlAuxDataType::Type{<:BConfigOfLnkValAuxData} )
+	return "BConfigOfLnkVal";
+end
+
+function getAuxDataNameLst( wlAuxDataType::Type{<:BConfigOfLnkValAuxData} )
+	return ["BfieldOfLnkVal"];
+end
+
+getAuxDataNumNameLst( wlAuxDataType::Type{<:BConfigOfLnkValAuxData} ) = String[];
+
+function flipAuxData!( wlAuxData::BConfigOfLnkValAuxData{D}, flipProposer::FlipProposer, params::ParamsLoops, dim::Int64, pos::CartesianIndex{D}, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	nothing;
+end
+
+function calcAuxData!( wlAuxData::BConfigOfLnkValAuxData{D}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
+	lnkVal = sum( sum.(linkLst) );
+	lId = getLinkHistIdFull( params.grdNum, lnkVal );
+	if !isassigned( wlAuxData.configArr, lId )
+		wlAuxData.configArr[lId] = deepcopy( BfieldLst );
+		wlAuxData.foundCntRef[] += 1;
+	end
+end
+
+function getIsConfigAllFnd( wlAuxData::BConfigOfLnkValAuxData )
+	return wlAuxData.foundCntRef[] >= length(wlAuxData.configArr);
+end
+
+function renewAuxDataOutLst!( wlAuxData::BConfigOfLnkValAuxData )
+	nothing;
+end
+
+
+
+
+struct FindConfigItController <: ItController
+	configAuxData::BConfigOfLnkValAuxData
+	
+	itRef::Ref{Int64}
+	
+	function FindConfigItController( configAuxData::BConfigOfLnkValAuxData )
+		itVal = 1;
+		
+		new(configAuxData, Ref(itVal));
+	end
+end
+
+getItControllerName( itControllerType::Type{FindConfigItController} ) = "FindConfigController";
+
+function getAttrLstItController( itControllerType::Type{FindConfigItController} )
+	return [getItControllerName(itControllerType)];
+end
+
+function getValLstItController( itController::FindConfigItController )
+	return [length( itController.configAuxData.configArr )];
+end
+
+function testItNotDone( wlItController::FindConfigItController )
+	return !getIsConfigAllFnd( wlItController.configAuxData );
+end
+
+function getItNumLst( wlItController::FindConfigItController )
+	return zeros(Int64, 3);
+end
+
+testItDoSample( wlItController::FindConfigItController ) = false;
+
+testItDoStartSample( wlItController::FindConfigItController ) = false;
 
 
 
@@ -1138,7 +1816,7 @@ function loops_MC_methods_WangLandau( divNum = 64, itNum = 10000; histDivNum = 6
 	return fNameWL;
 end
 
-function loops_MC_methods_WL2d( divNum, itNum; itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, nDim = 2, isFileNameOnly = false, fMainOutside = "" )
+function loops_MC_methods_WL2d( divNum, itNum; itNumSample = 100, itStartSample = 50, isInit0 = false, cAreaInit = 0, dosIncrInit = 1, dosIncrMin = 0.01, nDim = 2, isFileNameOnly = false, fMainOutside = "", wlHistDosType = WLHistDos2DFull, wlHistDosArgs = () )
 	# flipChecker = WangLandauFlipChecker( histDivNum; dosIncrVal = dosIncrInit );
 	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
 	# flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
@@ -1171,38 +1849,356 @@ function loops_MC_methods_WL2d( divNum, itNum; itNumSample = 100, itStartSample 
 	return fName;
 end
 
-function loops_MC_methods_WL2d( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "" )
-	# flipChecker = WangLandauFlipChecker( histDivNum; dosIncrVal = dosIncrInit );
-	# flipChecker = WangLandauNoResetFlipChecker( histDivNum );
-	# flipChecker = WL2dLinkFlatFlipChecker( divNum, nDim; histMinRatioThres = 0.8 );
-	# flipChecker = WL2dLinkPartFlatFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000 );
-	flipChecker = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000, wlHistDosType = WLHistDos2DHalf );
+function loops_MC_methods_WL2d( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", wlHistDosType = WLHistDos2DFull, wlHistDosArgs = (), wlResetInterval = 1000 )	
+	flipChecker = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, wlHistDosType = wlHistDosType, wlHistDosArgs = wlHistDosArgs );
 	flipProposer = OneFlipProposer();
 	initializer = genMeanFieldInitializer( cAreaInit );
 	updaterType = SingleUpdater;
 	auxDataType = WangLandauAuxData;
 	
 	itController = WangLandauItController( dosIncrMin, flipChecker );
-	
-	# fName = loops_MC_methods_Base( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxDataType = auxDataType, itNumSample = itNumSample, itStartSample = itStartSample, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
-	
 	fName = loops_MC_methods_Base( divNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxDataType = auxDataType, itController = itController, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
 	
 	itNum = itController.itRef[];
 	
-	fMain = "loops_WL2d";
-	attrLst, valLst = genAttrLstLttcFlipInit( divNum, itNum, nDim, flipChecker, initializer );
-	fNameWL = fNameFunc( fMain, attrLst, valLst, jld2Type );
-	
 	println( "f = ", flipChecker.dosIncrRef[] );
 	
-	save( fNameWL, "histArr", getHistArr( flipChecker ), "dosArr", getDosArr( flipChecker ) );
+	# save( fNameWL, "histArr", flipChecker.histArr, "dosArr", flipChecker.dosArr );
 	
-	open( dirLog * fNameFileLstWL, "w" ) do io
-		println( io, fNameWL );
-	end
+	# open( dirLog * fNameFileLstWL, "w" ) do io
+		# println( io, fNameWL );
+	# end
 	
 	# @infiltrate
 	
 	return fName;
+end
+
+function loops_MC_methods_WL2dZoned( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", EMinRatio = -2.0, EMaxRatio = 0.2, EOverlap = 0.06, numZones = 8 )
+	updaterType = SingleUpdater;
+	auxDataType = WangLandauAuxData;
+	flipProposer = OneFlipProposer();
+	if !isFileNameOnly
+		EWidth = ( (EMaxRatio - EMinRatio) + EOverlap * (numZones - 1) ) / numZones;
+		
+		EIntervalLst = [ Tuple( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1) ) for iE = 1 : numZones ];
+		EMidLst = [ ( EIntervalLst[iE][1] + EIntervalLst[iE][2] ) / 2 for iE = 1 : numZones ];
+		probLst = EMidLst ./ 4 .+ 1/2;
+		
+		configLst = loops_MC_WL_ScanConfig( divNum; nDim = nDim );
+		
+		flipCheckerLst = [ WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000, wlHistDosType = WLHistDos2DZoned, wlHistDosArgs = EIntervalLst[iE] ) for iE = 1 : numZones ];
+		initializerLst = [ PresetInitializer( configLst[ flipCheckerLst[iE].histDos.idMin ] ) for iE = 1 : numZones ];
+		
+		itControllerLst = [ WangLandauItController( dosIncrMin, flipCheckerLst[iE] ) for iE = 1 : numZones ];
+		auxDataLst = Vector{auxDataType}(undef,numZones);
+		fMainLst = Vector{String}(undef,numZones);
+		
+		println("Loops_MC zoning starts:")
+		Threads.@threads for iE = 1 : numZones
+			fMainLst[iE], auxDataLst[iE] = loops_MC_methods_Base_detailed_output( divNum; updaterType = updaterType, flipChecker = flipCheckerLst[iE], flipProposer = flipProposer, initializer = initializerLst[iE], auxDataType = auxDataType, itController = itControllerLst[iE], nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+		end
+		
+		dosArrLst = [ (auxDataLst[iE].dataSampleLst)[2][end] for iE = 1 : numZones ];
+		
+		idMinLst = [ flipCheckerLst[iE].histDos.idMin for iE = 1 : numZones ];
+		idMaxLst = [ flipCheckerLst[iE].histDos.idMax for iE = 1 : numZones ];
+		grdNum = flipCheckerLst[1].grdNum;
+		dosArrFull = zeros(grdNum-1);
+		
+		dosArrFull[idMinLst[1]:idMaxLst[1]] .= dosArrLst[1];
+		@views for iE = 2 : numZones
+			lnOverlap = idMaxLst[iE-1] - idMinLst[iE] + 1;
+			shOverlap = mean( dosArrLst[iE][1:lnOverlap] - dosArrLst[iE-1][end-lnOverlap+1:end] );
+			dosArrLst[iE] .-= shOverlap;
+			dosArrFull[idMinLst[iE]:idMaxLst[iE-1]] .= ( dosArrFull[idMinLst[iE]:idMaxLst[iE-1]] .+ dosArrLst[iE][1:lnOverlap] ) ./ 2;
+			dosArrFull[(idMaxLst[iE-1]+1) : idMaxLst[iE]] .= dosArrLst[iE][lnOverlap+1:end];
+		end
+		
+		# @infiltrate
+		for id = idMaxLst[end]+1 : length(dosArrFull)
+			if dosArrFull[id] == 0
+				dosArrFull[id] = dosArrFull[length(dosArrFull)+1-id];
+			end
+		end
+		
+		itNum = itControllerLst[1].itRef[];
+	end
+	
+	fMainGlued = "loops_WL2dZonesGluedThrd";
+	
+	flipCheckerGluedDummy = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000, wlHistDosType = WLHistDos2DFull );
+	initializerDummy = PresetInitializer( [zeros(Bool,divNum, divNum)] );
+	itControllerDummy = WangLandauItController( dosIncrMin, flipCheckerGluedDummy )
+	
+	fNameGlued = loops_MC_methods_Base( divNum; updaterType = updaterType, flipChecker = flipCheckerGluedDummy, flipProposer = flipProposer, initializer = initializerDummy, auxDataType = auxDataType, itController = itControllerDummy, nDim = nDim, isFileNameOnly = true, fMainOutside = fMainGlued );
+	
+	if !isFileNameOnly
+		save( fNameGlued, "dosArrGlued", dosArrFull );
+		println( "f = ", flipCheckerLst[end].dosIncrRef[] );
+	end
+	
+	if isFileNameOnly
+		return fNameGlued
+	else
+		return fMainLst;
+	end
+end
+
+function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", EMinRatio = -2.0, EMaxRatio = 0.2, EOverlapRatio = 0.7, numZones = 8, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000 )
+	updaterType = SingleUpdater;
+	auxDataType = WangLandauAuxData;
+	flipProposer = OneFlipProposer();
+	
+	
+	params = ParamsLoops( divNum, nDim );
+	
+	histDosType = WLHistDos2DZoned;
+	flipCheckerType = WL2dHistStructFlipChecker{histDosType};
+	
+	if !isFileNameOnly
+		EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
+		EOverlap = EWidth * EOverlapRatio;
+		
+		EIntervalLst = [ Tuple( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1) ) for iE = 1 : numZones ];
+		EMidLst = [ ( EIntervalLst[iE][1] + EIntervalLst[iE][2] ) / 2 for iE = 1 : numZones ];
+		probLst = EMidLst ./ 4 .+ 1/2;
+		
+		configLst = loops_MC_WL_ScanConfig( divNum; nDim = nDim );
+		
+		updaterLst = [ updaterType(params) for iE = 1 : numZones, iW = 1 : numWalksEach ]
+		flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, wlHistDosArgs = EIntervalLst[iE] ) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+		initializerLst = [ PresetInitializer( configLst[ getHistDos( flipCheckerLst[iE,1] ).idMin ] ) for iE = 1 : numZones ];
+		auxDataLst = [ auxDataType( flipCheckerLst[iZ,iW] ) for iZ = 1 : numZones, iW = 1 : numWalksEach ];
+		
+		@views for iE = 1 : numZones, iW = 1 : numWalksEach
+			setFriendCheckerLst!( flipCheckerLst[iE, iW], flipCheckerLst[iE,:]... );
+		end
+		
+		itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
+		fMainLst = Vector{String}(undef,numZones);
+		
+		println("Loops_MC zoning starts:")
+		fName = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+		
+		dosArrLst = [ (auxDataLst[iE,1].dataSampleLst)[2][end] for iE = 1 : numZones ];
+		
+		idMinLst = [ getHistDos( flipCheckerLst[iE,1] ).idMin for iE = 1 : numZones ];
+		idMaxLst = [ getHistDos( flipCheckerLst[iE,1] ).idMax for iE = 1 : numZones ];
+		histDosFull = genWLHistDos2DZonedFull( divNum );
+		dosArrFull = histDosFull.dosArr;
+		
+		iMatchLst = findGluePtsDosArrReplica( dosArrLst, idMinLst, idMaxLst );
+		glueDosArrReplicaFromGluePts!( dosArrFull, dosArrLst, idMinLst, idMaxLst, iMatchLst )
+		
+		itNum = itController.itRef[];
+	end
+	
+	fMainGlued = "loops_WL2dZonesGluedReplica";
+	
+	flipCheckerGluedDummy = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, wlHistDosType = WLHistDos2DFull );
+	initializerDummy = PresetInitializer( [zeros(Bool,divNum, divNum)] );
+	attrLstMod = ["numZones", "numWalks"];
+	valLstMod = [numZones, numWalksEach];
+	itController = WangLandauItController( dosIncrMin, flipCheckerGluedDummy );
+	
+	fNameGlued = loops_MC_methods_Base( divNum; updaterType = updaterType, flipChecker = flipCheckerGluedDummy, flipProposer = flipProposer, initializer = initializerDummy, auxDataType = auxDataType, itController = itController, nDim = nDim, isFileNameOnly = true, fMainOutside = fMainGlued, attrLstMod = attrLstMod, valLstMod = valLstMod );
+	
+	if !isFileNameOnly
+		save( fNameGlued, "dosArrGlued", dosArrFull );
+		println( "f = ", getDosIncr( flipCheckerLst[end] ) );
+	end
+	
+	if isFileNameOnly
+		return fNameGlued
+	else
+		return fName;
+	end
+end
+
+function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::WangLandauReplicaItController, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+	fNameLst = similar( flipCheckerLst, String );
+	fModOutLst = similar( fNameLst );
+	attrLstLst = similar(fNameLst, Vector{String});
+	valLstLst = similar(fNameLst, Vector);
+	for iZ = 1 : numZones, iW = 1 : numWalksEach
+		updater = updaterLst[iZ, iW];
+		flipChecker = flipCheckerLst[iZ, iW];
+		initializer = initializerLst[iZ];
+		fModOut = getFModLoopsMC( fMod, typeof( updater ); flipChecker = flipChecker, flipProposer = flipProposer );
+		
+		fMain = fMainLoopsMC;
+		attrLst, valLst = genAttrLstLttcFullUpdater( params.divNum, params.nDim, flipChecker, initializer; itController = itController );
+		fNameLst[iZ, iW] = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
+		fModOutLst[iZ, iW] = fModOut;
+		attrLstLst[iZ,iW] = attrLst;
+		valLstLst[iZ,iW] = valLst;
+	end
+	
+	# attrLst, valLst = genAttrLstLttcFullUpdater( params.divNum, params.nDim, flipChecker, initializer; itController = itController );
+	
+	# if isFileNameOnly
+		# fNameOutside = fNameFunc( fMainOutside, attrLst, valLst, jld2Type; fMod = fModOut );
+		# return fNameOutside;
+	# end
+	
+	bLinkDataLst = [ genAuxData( BLinkAuxData, params, itController ) for iZ = 1 : numZones, iW = 1 : numWalksEach ];
+	# BfieldLst, linkLst, linkFerroLst = bLinkData.dataLst;
+	
+	for iZ = 1 : numZones, iW = 1 : numWalksEach
+		BfieldLst, linkLst, linkFerroLst = bLinkDataLst[iZ,iW].dataLst;
+		initializeBL( initializerLst[iZ], bLinkDataLst[iZ,iW].BfieldLst, params );
+		updateLinkFrom0ByBAllDims( bLinkDataLst[iZ,iW].BfieldLst, bLinkDataLst[iZ,iW].linkLst, bLinkDataLst[iZ,iW].linkFerroLst, params );
+		calcAuxData!( auxDataLst[iZ,iW], params, BfieldLst, linkLst, linkFerroLst );
+	end
+	walksIdLst = [1:numWalksEach;];
+	flipCheckerFriendsLst = [ @view( flipCheckerLst[iZ,:] ) for iZ = 1 : numZones ];
+	flipCheckerMasterLst = @view( flipCheckerLst[:,1] );
+	
+	resetItControl( itController );
+	
+	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
+	
+	itSample = 1;
+	@time while( testItNotDone( itController ) )
+		it = itController.itRef[];
+		if mod(it,1000) == 0
+			print( "it = ", it, ", fmax = ", maximum( getDosIncr.( flipCheckerLst ) ), ", fmin = ", minimum( getDosIncr.( flipCheckerLst ) ), ", ", roundKeepInt.( getDosIncr.( flipCheckerMasterLst ); digits=5 ), " \r" )
+		end
+		
+		if testItDoSample( itController )
+			for iZ = 1 : numZones, iW = 1 : numWalksEach
+				storeAuxDataSample( bLinkDataLst[iZ,iW], itSample, it );
+				storeAuxDataSample( auxDataLst[iZ,iW], itSample, it );
+			end
+			itSample += 1;
+		end
+		
+		if testItDoStartSample( itController )
+			for iZ = 1 : numZones, iW = 1 : numWalksEach
+				storeAuxDataStartSample( bLinkDataLst[iZ,iW], it );
+				storeAuxDataStartSample( auxData[iZ,iW], it );
+			end
+		end
+		
+		if testItDoExchange( itController )
+			for iZ = 1 : numZones - 1
+				shuffle!( walksIdLst );
+				for iW = 1 : numWalksEach
+					iWPair = walksIdLst[iW];
+					flipCheckExchange( flipCheckerLst[iZ,iW], flipCheckerLst[iZ+1,iWPair], params, bLinkDataLst[iZ,iW], bLinkDataLst[iZ+1,iWPair] );
+				end
+			end
+		end
+		
+		Threads.@threads for iSeg = 1 : length(bLinkDataLst)
+			storeAuxDataNum( bLinkDataLst[iSeg], it );
+			storeAuxDataNum( auxDataLst[iSeg], it );
+		end
+		
+		Threads.@threads for iSeg = 1 : length( bLinkDataLst )
+			BfieldLst, linkLst, linkFerroLst = bLinkDataLst[iSeg].dataLst;
+			updateLoops( updaterLst[iSeg], flipCheckerLst[iSeg], flipProposer, auxDataLst[iSeg], BfieldLst, linkLst, linkFerroLst, params );
+		end
+		
+		Threads.@threads for iZ = 1 : numZones
+			wangLandauHistResetSynchronized( flipCheckerFriendsLst[iZ] );
+		end
+		
+		# @infiltrate it > 10000
+		advanceItControl( itController );
+	end
+	
+	# if testItDoSample( itController )
+	it = itController.itRef[];
+	for iZ = 1 : numZones, iW = 1 : numWalksEach
+		storeAuxDataSample( bLinkDataLst[iZ,iW], itSample, it );
+		storeAuxDataSample( auxDataLst[iZ,iW], itSample, it );
+	end
+	itSample += 1;
+	
+	for iZ = 1 : numZones
+		wangLandauHistResetSynchronized( flipCheckerFriendsLst[iZ] );
+	end
+	
+	# end
+	
+	# for iZ = 1 : numZones, iW = 1 : numWalksEach
+		# attrLst = attrLstLst[iZ,iW];
+		# valLst = valLstLst[iZ,iW];
+		# fModOutZones = join( [fModOutLst[iZ, iW], string(iZ), string(iW) ] );
+		# saveAuxDataAll( bLinkDataLst[iZ,iW], attrLst, valLst; fMod = fModOutZones );
+		# saveAuxDataAll( auxDataLst[iZ,iW], attrLst, valLst; fMod = fModOutZones );
+	# end
+	
+	# if isFileNameOnly
+		# return fNameOutside;
+	# end
+	
+	return fNameLst;
+end
+
+function findGluePtsDosArrReplica( dosArrLst, idMinLst, idMaxLst )
+	diffLst1 = zeros(0);
+	diffLst2 = zeros(0);
+	diffDiff = zeros(0);
+	iMatchLst = zeros(Int64, length(dosArrLst) - 1);
+	dosShLst = zeros(length(dosArrLst) - 1);
+	for iZ = 1 : length( dosArrLst ) - 1
+		lnOverlap = idMaxLst[iZ] - idMinLst[iZ+1] + 1;
+		resize!.( [diffLst1, diffLst2, diffDiff], lnOverlap );
+		
+		iDiff = 1;
+		for iOver = 1 : lnOverlap
+			diffLst1[iOver] = arrDiffCalc( dosArrLst[iZ], length(dosArrLst[iZ]) - lnOverlap + iOver );
+			diffLst2[iOver] = arrDiffCalc( dosArrLst[iZ+1], iOver );
+		end
+		diffDiff .= abs.( diffLst2 .- diffLst1 );
+		_, iMatchLst[iZ] = findmin( diffDiff );
+		iMatchLst[iZ] += idMinLst[iZ+1]-1;
+	end
+	
+	return iMatchLst;
+end
+
+function glueDosArrReplicaFromGluePts!( dosArrFull, dosArrLst, idMinLst, idMaxLst, iMatchLst )
+	iMatchLstTailHead = copy( iMatchLst );
+	pushfirst!(iMatchLstTailHead, idMinLst[1]-1 )
+	push!(iMatchLstTailHead, idMaxLst[end]);
+	# @infiltrate
+	# dosArrFull[1] = dosArrLst[1][1];
+	for iZ = 1 : length(dosArrLst)
+		if iZ > 1
+			ii = iMatchLstTailHead[iZ];
+			iThis = ii - idMinLst[iZ] + 1
+			dosArrLst[iZ] .-= dosArrLst[iZ][iThis] - dosArrFull[ii];
+		end
+		for ii = iMatchLstTailHead[iZ]+1 : iMatchLstTailHead[iZ+1]
+			iThis = ii - idMinLst[iZ] + 1
+			dosArrFull[ii] = dosArrLst[iZ][iThis];
+		end
+	end
+	
+	for ii = iMatchLstTailHead[end] + 1 : length(dosArrFull)
+		if dosArrFull[ii] == 0
+			dosArrFull[ii] = dosArrFull[ length(dosArrFull)-ii+1 ];
+		end
+	end
+end
+
+function loops_MC_WL_ScanConfig( divNum = 64; nDim = 2, isFileNameOnly = false, fMainOutside = "" )
+	flipChecker = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000, wlHistDosType = WLHistDos2DFull );
+	params = ParamsLoops( divNum, nDim );
+	
+	flipProposer = OneFlipProposer();
+	initializer = ConstantInitializer();
+	updater = SingleUpdater(params);
+	configAuxData = BConfigOfLnkValAuxData{params.nDim}( flipChecker );
+	
+	itController = FindConfigItController( configAuxData );
+		
+	fName = loops_MC_NoPrefabHelper_Base( ; params = params, updater = updater, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxData = configAuxData, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	itNum = itController.itRef[];
+	
+	return configAuxData.configArr;
 end

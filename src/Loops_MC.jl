@@ -276,6 +276,10 @@ end
 ConstantInitializer() = ConstantInitializer(false);
 
 
+struct PresetInitializer{D} <: BLinkInitializer
+	BfieldLst::Vector{Array{Bool,D}};
+end
+
 
 
 
@@ -374,7 +378,8 @@ function getFlipCheckerName( flipChecker::FlipChecker )
 	return getFlipCheckerName( typeof(flipChecker) );
 end
 
-getFlipCheckerAttrLst( flipChecker::FlipChecker ) = throwFlipCheckerUndefined();
+getFlipCheckerAttrLst( flipCheckerType::Type{<:FlipChecker} ) = throwFlipCheckerUndefined();
+getFlipCheckerAttrLst( flipChecker::FlipChecker ) = getFlipCheckerAttrLst( typeof(flipChecker) );
 
 getFlipCheckerValLst( flipChecker::FlipChecker; rndDigs = rndDigsLpsMC ) = throwFlipCheckerUndefined();
 
@@ -547,6 +552,7 @@ function checkDataExtendHelper!( dataSampleLst::Vector, dataLst::Vector, itSampl
 		return;
 	elseif itSample > length( dataSampleLst[1] )
 		for iD = 1 : length(dataSampleLst)
+			# @infiltrate length(dataLst) == 2
 			push!(dataSampleLst[iD], deepcopy(dataLst[iD]));
 		end
 	end
@@ -559,12 +565,12 @@ end
 storeAuxDataSampleNoBndCheck( auxData::AuxData, itSample::Int64 ) = throwAuxDataUndefined();
 
 function storeAuxDataStartSample( auxData::AuxData, itStartSample::Int64 )
-	checkDataStartsampleExtend!( auxData, itStartSample );
+	checkDataStartSampleExtend!( auxData, itStartSample );
 	storeAuxDataStartSampleNoBndCheck( auxData, itStartSample );
 end
 storeAuxDataStartSampleNoBndCheck( auxData::AuxData, it::Int64 ) = throwAuxDataUndefined();
 
-function checkDataStartSampleExtend!( auxData, itStartSample )
+function checkDataStartSampleExtend!( auxData::AuxData, itStartSample::Int64 )
 	checkDataExtendHelper!( auxData.dataStartSampleLst, auxData.dataLst, itStartSample );
 end
 
@@ -680,6 +686,10 @@ ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
 struct BLinkAuxData{D} <: AuxData
 	itSampleLst::Vector{Int64};
 	
+	BfieldLst::Vector{Array{Bool,D}};
+	linkLst::Vector{Array{Bool,D}};
+	linkFerroLst::Array{Array{Bool,D}};
+	
 	dataLst::Vector{Array{Array{Bool,D}}};
 	dataNumSnapLst::Vector{Array{Int64}};
 	dataSampleLst::Vector{Vector{Array{Array{Bool,D}}}};
@@ -708,7 +718,7 @@ struct BLinkAuxData{D} <: AuxData
 		BfieldLst, linkLst, linkFerroLst = genBfieldLinkArr( params );
 		dataLst = Array{Array{Bool,params.nDim}}[BfieldLst, linkLst, linkFerroLst];
 		dataSampleLst = [ [ deepcopy( dataLst[iD] ) for it = 1 : itNumSample ] for iD = 1 : length(dataLst) ];
-		dataStartSampleLst = [ Array{Bool}[ deepcopy( dataLst[iD] ) for it = 1 : itNumStartSample ] for iD = 1 : length(dataLst) ];
+		dataStartSampleLst = [ [ deepcopy( dataLst[iD] ) for it = 1 : itNumStartSample ] for iD = 1 : length(dataLst) ];
 		# BfieldSampleLst, linkSampleLst, linkFerroSampleLst = genBfieldLinkFerroArrSample( params, itNumSample );
 		# dataSampleLst = Vector{Array{Array{Bool,params.nDim}}}[BfieldSampleLst, linkSampleLst, linkFerroSampleLst];
 		# BfieldStartSampleLst, linkStartSampleLst, linkFerroStartSampleLst = genBfieldLinkFerroArrSample( params, itNumStartSample );
@@ -738,7 +748,7 @@ struct BLinkAuxData{D} <: AuxData
 		jldVarNumLst = similar(jldVarSampleLst);
 		jldVarItSampleLst = similar(jldVarSampleLst);
 		
-		new{params.nDim}( itSampleLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
+		new{params.nDim}( itSampleLst, BfieldLst, linkLst, linkFerroLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
 	end
 end
 
@@ -1122,11 +1132,81 @@ end
 	# return fNameOutside;
 # end
 
-function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, itController::ItController, fMod = "", nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_methods_Base_detailed_output( divNum = 64; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, itController::ItController, fMod = "", nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "", attrLstMod::Vector{String} = Vector{String}(undef,0), valLstMod::Vector = [] )
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker, flipProposer = flipProposer );
 	
 	fMain = fMainLoopsMC;
 	attrLst, valLst = genAttrLstLttcFullUpdater( divNum, nDim, flipChecker, initializer; itController = itController );
+	append!( attrLst, attrLstMod );
+	append!( valLst, valLstMod );
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
+	
+	if isFileNameOnly
+		fNameOutside = fNameFunc( fMainOutside, attrLst, valLst, jld2Type; fMod = fModOut );
+		return fNameOutside, nothing;
+	end
+	
+	params = ParamsLoops( divNum, nDim );
+	
+	updater = updaterType( params );
+	
+	auxData = genAuxData( auxDataType, params, flipChecker, itController );
+	
+	# itSample = 1;
+	# while( testItNotDone( itController ) )
+		# it = itController.itRef[];
+		# print( "it = ", it, "         \r" )
+		
+		# if testItDoSample( itController )
+			# storeAuxDataSample( bLinkData, itSample, it );
+			# storeAuxDataSample( auxData, itSample, it );
+			# itSample += 1;
+		# end
+		
+		# if testItDoStartSample( itController )
+			# storeAuxDataStartSample( bLinkData, it );
+			# storeAuxDataStartSample( auxData, it );
+		# end
+		
+		# storeAuxDataNum( bLinkData, it );
+		# storeAuxDataNum( auxData, it );
+		
+		# if isnothing(flipProposer)
+			# updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
+		# else
+			# updateLoops( updater, flipChecker, flipProposer, auxData, BfieldLst, linkLst, linkFerroLst, params );
+		# end
+		
+		# advanceItControl( itController );
+	# end
+	
+	# if testItDoSample( itController )
+		# it = itController.itRef[];
+		# storeAuxDataSample( bLinkData, itSample, it );
+		# storeAuxDataSample( auxData, itSample, it );
+		# itSample += 1;
+	# end
+	
+	# save( fName, "divNum", divNum, "itNum", itNum );
+	
+	# saveAuxDataAll( bLinkData, attrLst, valLst; fMod = fModOut );
+	# saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
+	
+	# if isFileNameOnly
+		# return fNameOutside;
+	# end
+	
+	# return fName, auxData;
+	fName = loops_MC_NoPrefabHelper_Base( params = params, updater = updater, flipChecker = flipChecker, flipProposer = flipProposer, auxData = auxData, initializer = initializer, itController = itController, fMod = fMod, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	
+	return fName, auxData;
+end
+
+function loops_MC_NoPrefabHelper_Base( ; params::ParamsLoops, updater::LoopsUpdater, flipChecker::FlipChecker, flipProposer::FlipProposer = OneFlipProposer, auxData::AuxData, initializer::BLinkInitializer, itController::ItController, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+	fModOut = getFModLoopsMC( fMod, typeof( updater ); flipChecker = flipChecker, flipProposer = flipProposer );
+	
+	fMain = fMainLoopsMC;
+	attrLst, valLst = genAttrLstLttcFullUpdater( params.divNum, params.nDim, flipChecker, initializer; itController = itController );
 	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fModOut );
 	
 	if isFileNameOnly
@@ -1134,25 +1214,23 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 		return fNameOutside;
 	end
 	
-	params = ParamsLoops( divNum, nDim );
-	
-	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
-	
 	bLinkData = genAuxData( BLinkAuxData, params, itController );
 	BfieldLst, linkLst, linkFerroLst = bLinkData.dataLst;
 	
 	initializeBL( initializer, BfieldLst, params );
 	updateLinkFrom0ByBAllDims( BfieldLst, linkLst, linkFerroLst, params );
-	updater = updaterType( params );
 	
-	auxData = genAuxData( auxDataType, params, flipChecker, itController );
 	calcAuxData!( auxData, params, BfieldLst, linkLst, linkFerroLst );
 	resetItControl( itController );
+	
+	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
 	
 	itSample = 1;
 	while( testItNotDone( itController ) )
 		it = itController.itRef[];
-		print( "it = ", it, "         \r" )
+		# if Threads.threadid() == 1
+			# print( "it = ", it, "         \r" )
+		# end
 		
 		if testItDoSample( itController )
 			storeAuxDataSample( bLinkData, itSample, it );
@@ -1184,7 +1262,7 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 		itSample += 1;
 	end
 	
-	save( fName, "divNum", divNum, "itNum", itNum );
+	# save( fName, "divNum", divNum, "itNum", itNum );
 	
 	saveAuxDataAll( bLinkData, attrLst, valLst; fMod = fModOut );
 	saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
@@ -1196,7 +1274,19 @@ function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, 
 	return fName;
 end
 
-function loops_MC_methods_Base( divNum, itNum; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+# function loops_MC_methods_Base( divNum = 64; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, itController::ItController, fMod = "", nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+	# fName, auxData = loops_MC_methods_Base_detailed_output( divNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, auxDataType = auxDataType, initializer = initializer, itController = itController, fMod = fMod, nDim = nDim, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	
+	# return fName;
+# end
+
+function loops_MC_methods_Base( args...; kwargs... )
+	fName, auxData = loops_MC_methods_Base_detailed_output( args...; kwargs... );
+	
+	return fName;
+end
+
+function loops_MC_methods_Base_detailed_output( divNum, itNum; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	fModOut = getFModLoopsMC( fMod, updaterType; flipChecker = flipChecker, flipProposer = flipProposer );
 	
 	fMain = fMainLoopsMC;
@@ -1282,6 +1372,12 @@ function loops_MC_methods_Base( divNum, itNum; updaterType::Type{<:LoopsUpdater}
 	if isFileNameOnly
 		return fNameOutside;
 	end
+	
+	return fName, auxData;
+end
+
+function loops_MC_methods_Base( divNum, itNum; updaterType::Type{<:LoopsUpdater}, flipChecker::FlipChecker, flipProposer::Union{FlipProposer,Nothing} = nothing, auxDataType::Type{<:AuxData} = NoAuxData, initializer::BLinkInitializer, fMod = "", itNumSample = 100, itStartSample = 50, nDim = 3, isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+	fName, auxData = loops_MC_methods_Base_detailed_output( divNum, itNum; updaterType = updaterType, flipChecker = flipChecker, flipProposer = flipProposer, auxDataType = auxDataType, initializer = initializer, fMod =fMod, itNumSample = itNumSample, itStartSample = itStartSampe, nDim = nDim, isFilenameOnly = isFileNameOnly, fMainOutside = fMainOutside );
 	
 	return fName;
 end

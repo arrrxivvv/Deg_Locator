@@ -53,3 +53,13 @@ function lstSplicing!( lstDest::AbstractVector, lst1::AbstractVector, lst2::Abst
 	
 	return lstDest;
 end
+
+function arrDiffCalc( lst::AbstractVector, id::Int64 )
+	if id == length(lst)
+		( 3*lst[id] - 4*lst[id-1] + lst[id-2] ) / 2
+	elseif id == 1
+		( -3*lst[id] + 4*lst[id+1] - lst[id+2] ) / 2
+	else
+		return (lst[id+1] - lst[id-1]) / 2
+	end
+end
