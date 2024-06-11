@@ -11,16 +11,24 @@ isFileNameOnly = false;
 divNum = 16;
 itNum = 640000;
 
-dosIncrMin = 0.01;
-wlResetInterval = 1000;
-itExchange = 100;
+dosIncrMin = 0.1;
+wlResetInterval = 2000;
+itExchange = 200;
 
 cAreaInit = 0;
 # wlHistDosType = Loops_MC.WLHistDos2DZoned;
-wlHistDosType = Loops_MC.WLHistDosJoint2DFull;
+# wlHistDosType = Loops_MC.WLHistDosJoint2DFull;
+# wlHistDosType = Loops_MC.WLHistDosFull1dDos;
+wlHistDosType = Loops_MC.WLHistDosFull2dDos;
 
 # wlHistDosArgs = (-1, 0.2);
 wlHistDosArgs = ();
+D_hist = 2;
+histCutoffThres = 0.5;
+numZones = 16;
+numWalksEach = 3;
+EMinRatio = -2.0;
+EMaxRatio = 2.0;
 
 fLstName = "Loops_MC_WangLandau.txt";
 fLstName2d = "Loops_MC_WL2d.txt";
@@ -50,7 +58,7 @@ fNameLst = Vector{String}(undef,0);
 	# push!(fNameLst, fNameGotten)
 # end
 
-@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange );
+@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio );
 if !isFileNameOnly
 	push!(fNameLst, fNameGotten...)
 else

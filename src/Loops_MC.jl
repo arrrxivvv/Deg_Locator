@@ -550,10 +550,18 @@ end
 function checkDataExtendHelper!( dataSampleLst::Vector, dataLst::Vector, itSample::Int64 )
 	if isempty(dataSampleLst)
 		return;
-	elseif itSample > length( dataSampleLst[1] )
+	elseif itSample == length( dataSampleLst[1] ) + 1
 		for iD = 1 : length(dataSampleLst)
 			# @infiltrate length(dataLst) == 2
 			push!(dataSampleLst[iD], deepcopy(dataLst[iD]));
+		end
+	elseif itSample > length(dataSampleLst[1]) + 1
+		for iD = 1 : length(dataSampleLst)
+			# @infiltrate length(dataLst) == 2
+			resize!(dataSampleLst[iD], itSample);
+			for ii = length(dataSampleLst[1]) + 1 : itSample
+				dataSampleLst[iD][ii] = deepcopy(dataLst[iD]);
+			end
 		end
 	end
 end
@@ -686,9 +694,9 @@ ZakArrAuxData( params::ParamsLoops ) = ZakArrAuxData( params, 0, 0, 0 );
 struct BLinkAuxData{D} <: AuxData
 	itSampleLst::Vector{Int64};
 	
-	BfieldLst::Vector{Array{Bool,D}};
-	linkLst::Vector{Array{Bool,D}};
-	linkFerroLst::Array{Array{Bool,D}};
+	# BfieldLst::Vector{Array{Bool,D}};
+	# linkLst::Vector{Array{Bool,D}};
+	# linkFerroLst::Array{Array{Bool,D}};
 	
 	dataLst::Vector{Array{Array{Bool,D}}};
 	dataNumSnapLst::Vector{Array{Int64}};
@@ -748,7 +756,7 @@ struct BLinkAuxData{D} <: AuxData
 		jldVarNumLst = similar(jldVarSampleLst);
 		jldVarItSampleLst = similar(jldVarSampleLst);
 		
-		new{params.nDim}( itSampleLst, BfieldLst, linkLst, linkFerroLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
+		new{params.nDim}( itSampleLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
 	end
 end
 
@@ -1228,9 +1236,17 @@ function loops_MC_NoPrefabHelper_Base( ; params::ParamsLoops, updater::LoopsUpda
 	itSample = 1;
 	while( testItNotDone( itController ) )
 		it = itController.itRef[];
-		# if Threads.threadid() == 1
-			# print( "it = ", it, "         \r" )
-		# end
+		
+		if Threads.threadid() == 1 && mod(it, 1000) == 0
+			# configCnt = 0;
+			# for ii = 1 : length(auxData.configArr)
+				# if isassigned(auxData.configArr,ii)
+					# configCnt += 1
+				# end
+			# end
+			print( "it = ", it, "         \r" )
+			# , ", configNum = ", configCnt
+		end
 		
 		if testItDoSample( itController )
 			storeAuxDataSample( bLinkData, itSample, it );

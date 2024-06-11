@@ -120,6 +120,10 @@ function getAuxDataNameLst( auxDataType::Type{<:BLinkAuxData} )
 	return ["Bfield","link","linkFerro"]
 end
 
+getBfieldLst( auxData::BLinkAuxData ) = auxData.dataLst[1];
+getLinkLst( auxData::BLinkAuxData ) = auxData.dataLst[2];
+getLinkFerroLst( auxData::BLinkAuxData ) = auxData.dataLst[3];
+
 function calcAuxData!( auxData::BLinkAuxData )
 	nothing;
 end
