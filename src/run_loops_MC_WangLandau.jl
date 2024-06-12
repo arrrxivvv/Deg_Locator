@@ -4,28 +4,31 @@ using Utils
 using DelimitedFiles
 
 
-isFileNameOnly = false;
-# isFileNameOnly = true;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
 
-divNum = 16;
+divNum = 4;
 itNum = 640000;
+nDim = 3;
+D_hist = 2;
 
 dosIncrMin = 0.1;
-wlResetInterval = 2000;
-itExchange = 200;
+wlResetInterval = 1000;
+itExchange = 100;
 
 cAreaInit = 0;
 # wlHistDosType = Loops_MC.WLHistDos2DZoned;
 # wlHistDosType = Loops_MC.WLHistDosJoint2DFull;
 # wlHistDosType = Loops_MC.WLHistDosFull1dDos;
-wlHistDosType = Loops_MC.WLHistDosFull2dDos;
+# wlHistDosType = Loops_MC.WLHistDosFull2dDos;
+# wlHistDosType = Loops_MC.WL3dHistDosFull1dDos;
+wlHistDosType = Loops_MC.WLHistDosFull{nDim,D_hist};
 
 # wlHistDosArgs = (-1, 0.2);
 wlHistDosArgs = ();
-D_hist = 2;
 histCutoffThres = 0.5;
-numZones = 16;
+numZones = 8;
 numWalksEach = 3;
 EMinRatio = -2.0;
 EMaxRatio = 2.0;
@@ -48,7 +51,7 @@ fNameLst = Vector{String}(undef,0);
 # @time fName = Loops_MC.loops_MC_methods_WL2d( divNum, itNum; cAreaInit = 3, dosIncrInit = 1.0, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
 # push!(fNameLst, fName)
 
-# @time fNameGotten = Loops_MC.loops_MC_methods_WL2d( divNum; cAreaInit = cAreaInit, dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, wlHistDosType = wlHistDosType, wlHistDosArgs = wlHistDosArgs, wlResetInterval = wlResetInterval );
+# @time fNameGotten = Loops_MC.loops_MC_methods_WL2d( divNum; cAreaInit = cAreaInit, dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, wlHistDosType = wlHistDosType, wlHistDosArgs = wlHistDosArgs, wlResetInterval = wlResetInterval, nDim = nDim );
 # push!(fNameLst, fNameGotten)
 
 # @time fNameGotten = Loops_MC.loops_MC_methods_WL2dZoned( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad );
@@ -58,7 +61,7 @@ fNameLst = Vector{String}(undef,0);
 	# push!(fNameLst, fNameGotten)
 # end
 
-@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio );
+@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio, nDim = nDim );
 if !isFileNameOnly
 	push!(fNameLst, fNameGotten...)
 else
