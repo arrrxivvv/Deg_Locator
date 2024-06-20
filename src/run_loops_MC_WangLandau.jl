@@ -13,7 +13,7 @@ itNum = 640000;
 nDim = 2;
 D_hist = 2;
 
-dosIncrMin = 0.1;
+dosIncrMin = 0.1001;
 wlResetInterval = 1000;
 itExchange = 100;
 

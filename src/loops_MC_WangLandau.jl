@@ -688,14 +688,27 @@ function getGrdNum_NumLnkVal( typeHist::Type{<:WLHistDosZonedInE}, divNum::Int64
 	throwWLHistDosUndefined();
 end
 
-function WLHistDosZonedInE{nDim,D_hist}( divNum::Int64, EMinRatio::Real, EMaxRatio::Real ) where {nDim, D_hist}
-	histType = WLHistDosZonedInE{nDim,D_hist};
+function getIdMinMaxWLHist( histType::Type{<:WLHistDosZonedInE}, divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
 	_, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
 	
 	lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
 	lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
 	idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
 	idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	return idMin, idMax;
+end
+
+function WLHistDosZonedInE{nDim,D_hist}( divNum::Int64, EMinRatio::Real, EMaxRatio::Real ) where {nDim, D_hist}
+	histType = WLHistDosZonedInE{nDim,D_hist};
+	# _, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	idMin, idMax = getIdMinMaxWLHist( histType, divNum, EMinRatio, EMaxRatio );
 	
 	histType( divNum, idMin, idMax );
 end
