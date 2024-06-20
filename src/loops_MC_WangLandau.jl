@@ -684,38 +684,95 @@ function getValLst( wlHistDos::WLHistDosZonedInE )
 	return [ wlHistDos.numLnkVal, wlHistDos.idMin, wlHistDos.idMax ];
 end
 
-
-
-
-const WLHistDosZonedInE1dDos = WLHistDosZonedInE{2,1};
-const WLHistDosZonedInE2dDos = WLHistDosZonedInE{2,2};
-
-function WLHistDosZonedInE1dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
-	D_hist = 1;
-	nDim = 2;
-	grdNum = divNum ^ nDim;
-	numLnkVal = grdNum;
-	
-	histArr = zeros(Int64, idMax - idMin + 1);
-	
-	WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+function getGrdNum_NumLnkVal( typeHist::Type{<:WLHistDosZonedInE}, divNum::Int64 )
+	throwWLHistDosUndefined();
 end
 
-function WLHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	D_hist = 1;
-	nDim = 2;
-	grdNum = divNum ^ nDim;
-	numLnkVal = grdNum;
+function WLHistDosZonedInE{nDim,D_hist}( divNum::Int64, EMinRatio::Real, EMaxRatio::Real ) where {nDim, D_hist}
+	histType = WLHistDosZonedInE{nDim,D_hist};
+	_, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
 	
 	lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
 	lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
 	idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
 	idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
 	
+	histType( divNum, idMin, idMax );
+end
+
+function WLHistDosZonedInE{nDim,D_hist}( divNum::Int64, idMin::Int64, idMax::Int64 ) where {nDim, D_hist}
+	throwWLHistDosUndefined();
+end
+
+function WLHistDosZonedInE{nDim,1}( divNum::Int64, idMin::Int64, idMax::Int64 ) where {nDim}
+	histType = WLHistDosZonedInE{nDim,1};
+	grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
 	histArr = zeros(Int64, idMax - idMin + 1);
 	
-	WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+	histType( idMin, idMax, histArr, numLnkVal );
 end
+
+function WLHistDosZonedInE{nDim,2}( divNum::Int64, idMin::Int64, idMax::Int64 ) where {nDim}
+	histType = WLHistDosZonedInE{nDim,2};
+	grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
+	histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
+	
+	histType( idMin, idMax, histArr, numLnkVal );
+end
+
+
+
+
+
+const WLHistDosZonedInE1dDos = WLHistDosZonedInE{2,1};
+const WLHistDosZonedInE2dDos = WLHistDosZonedInE{2,2};
+
+function getGrdNum_NumLnkVal( typeHist::Type{<:WLHistDosZonedInE{2}}, divNum::Int64 )
+	nDim = 2;
+	grdNum = divNum ^ nDim;
+	numLnkVal = grdNum;
+	
+	return grdNum, numLnkVal;
+end
+
+# function WLHistDosZonedInE1dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
+	# histType = WLHistDosZonedInE1dDos;
+	# grdNum, numLnkVal = getNumVal( histType, divNum );
+	
+	# histArr = zeros(Int64, idMax - idMin + 1);
+	
+	# histType( idMin, idMax, histArr, numLnkVal );
+# end
+
+# function WLHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# histType = WLHistDosZonedInE1dDos;
+	# _, numLnkVal = getNumVal( histType, divNum );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histType( divNum, idMin, idMax );
+# end
+
+# function WLHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# D_hist = 1;
+	# nDim = 2;
+	# grdNum = divNum ^ nDim;
+	# numLnkVal = grdNum;
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histArr = zeros(Int64, idMax - idMin + 1);
+	
+	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+# end
 
 function getHistUpdateId( wlHistDos::WLHistDosZonedInE{nDim,1}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {nDim,D}
 	dL = calcDL( params, linkLst, dim, pos );
@@ -781,20 +838,42 @@ end
 
 
 
-function WLHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	D_hist = 2;
-	nDim = 2;
-	grdNum = divNum ^ nDim;
-	numLnkVal = grdNum;
-	lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+# function WLHistDosZonedInE2dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
+	# histType = WLHistDosZonedInE2dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
 	
-	histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
+	# histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
 	
-	WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-end
+	# histType( idMin, idMax, histArr, numLnkVal );
+# end
+
+# function WLHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# D_hist = 2;
+	# histType = WLHistDosZonedInE2dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histType( divNum, idMin, idMax );
+# end
+
+# function WLHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# D_hist = 2;
+	# nDim = 2;
+	# grdNum = divNum ^ nDim;
+	# numLnkVal = grdNum;
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
+	
+	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+# end
 
 function getHistUpdateId( wlHistDos::WLHistDosZonedInE{nDim,2}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D,nDim}
 	dL = calcDL( params, linkLst, dim, pos );
@@ -870,37 +949,86 @@ const WL3dHistDosZonedInE2dDos = WLHistDosZonedInE{3,2};
 
 
 
-function WL3dHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	D_hist = 1;
-	nDim = 3;
+function getGrdNum_NumLnkVal( histType::Type{<:WLHistDosZonedInE{3}}, divNum::Int64 )
 	grdNum = nDim * divNum ^ nDim;
 	numLnkVal = Int64( floor( grdNum/2 ) );
 	
-	lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	histArr = zeros(Int64, idMax - idMin + 1);
-	
-	WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+	return grdNum, numLnkVal;
 end
 
-function WL3dHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	D_hist = 2;
-	nDim = 3;
-	grdNum = nDim * divNum ^ nDim;
-	numLnkVal = Int64( floor( grdNum/2 ) );
+# function WL3dHistDosZonedInE1dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
+	# histType = WL3dHistDosZonedInE1dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
 	
-	lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	# histArr = zeros(Int64, idMax - idMin + 1);
 	
-	histArr = zeros(Int64, grdNum + 1, idMax - idMin + 1);
+	# histType( idMin, idMax, histArr, numLnkVal );
+# end
+
+# function WL3dHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# histType = WL3dHistDosZonedInE1dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
 	
-	WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-end
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histType( divNum, idMin, idMax );
+# end
+
+# function WL3dHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# D_hist = 1;
+	# nDim = 3;
+	# grdNum = nDim * divNum ^ nDim;
+	# numLnkVal = Int64( floor( grdNum/2 ) );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histArr = zeros(Int64, idMax - idMin + 1);
+	
+	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+# end
+
+# function WL3dHistDosZonedInE2dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
+	# histType = WL3dHistDosZonedInE2dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
+	# histArr = zeros(Int64, grdNum + 1, idMax - idMin + 1);
+	
+	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+# end
+
+# function WL3dHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# histType = WL3dHistDosZonedInE2dDos;
+	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histType( divNum, idMin, idMax );
+# end
+
+# function WL3dHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
+	# D_hist = 2;
+	# nDim = 3;
+	# grdNum = nDim * divNum ^ nDim;
+	# numLnkVal = Int64( floor( grdNum/2 ) );
+	
+	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
+	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
+	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
+	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
+	
+	# histArr = zeros(Int64, grdNum + 1, idMax - idMin + 1);
+	
+	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
+# end
 
 # function getHistUpdateId( wlHistDos::WLHistDosZonedInE1dDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
 	# dL = calcDL( params, linkLst, dim, pos );

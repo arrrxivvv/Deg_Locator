@@ -4,14 +4,14 @@ using Utils
 using DelimitedFiles
 
 
-isFileNameOnly = false;
-# isFileNameOnly = true;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
 
 divNum = 8;
 itNum = 640000;
-nDim = 3;
-D_hist = 1;
+nDim = 2;
+D_hist = 2;
 
 dosIncrMin = 0.1;
 wlResetInterval = 1000;
