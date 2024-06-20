@@ -701,12 +701,6 @@ end
 
 function WLHistDosZonedInE{nDim,D_hist}( divNum::Int64, EMinRatio::Real, EMaxRatio::Real ) where {nDim, D_hist}
 	histType = WLHistDosZonedInE{nDim,D_hist};
-	# _, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
 	
 	idMin, idMax = getIdMinMaxWLHist( histType, divNum, EMinRatio, EMaxRatio );
 	
@@ -749,43 +743,6 @@ function getGrdNum_NumLnkVal( typeHist::Type{<:WLHistDosZonedInE{2}}, divNum::In
 	
 	return grdNum, numLnkVal;
 end
-
-# function WLHistDosZonedInE1dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
-	# histType = WLHistDosZonedInE1dDos;
-	# grdNum, numLnkVal = getNumVal( histType, divNum );
-	
-	# histArr = zeros(Int64, idMax - idMin + 1);
-	
-	# histType( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function WLHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# histType = WLHistDosZonedInE1dDos;
-	# _, numLnkVal = getNumVal( histType, divNum );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histType( divNum, idMin, idMax );
-# end
-
-# function WLHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# D_hist = 1;
-	# nDim = 2;
-	# grdNum = divNum ^ nDim;
-	# numLnkVal = grdNum;
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histArr = zeros(Int64, idMax - idMin + 1);
-	
-	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-# end
 
 function getHistUpdateId( wlHistDos::WLHistDosZonedInE{nDim,1}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {nDim,D}
 	dL = calcDL( params, linkLst, dim, pos );
@@ -851,43 +808,6 @@ end
 
 
 
-# function WLHistDosZonedInE2dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
-	# histType = WLHistDosZonedInE2dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
-	
-	# histType( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function WLHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# D_hist = 2;
-	# histType = WLHistDosZonedInE2dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histType( divNum, idMin, idMax );
-# end
-
-# function WLHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# D_hist = 2;
-	# nDim = 2;
-	# grdNum = divNum ^ nDim;
-	# numLnkVal = grdNum;
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histArr = zeros(Int64, grdNum+1, idMax - idMin + 1);
-	
-	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-# end
-
 function getHistUpdateId( wlHistDos::WLHistDosZonedInE{nDim,2}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D,nDim}
 	dL = calcDL( params, linkLst, dim, pos );
 	
@@ -940,19 +860,6 @@ function getAndTestHistThisId( wlHistDos::WLHistDosZonedInE{nDim,2}, params::Par
 	return wlHistDos.posLst[sId,lIdZoned], isOutBnd;
 end
 
-# function testHistIdOutBnd( wlHistDos::WLHistDosZonedInE2dDos, lId::Int64 )
-	# if lId < wlHistDos.idMin || lId > wlHistDos.idMax
-		# return true;
-	# else
-		# return false;
-	# end
-# end
-
-# function getZonedIdFromFull( wlHistDos::WLHistDosZonedInE2dDos, lIdFull::Int64 )
-	# idZoned = lIdFull - wlHistDos.idMin + 1;
-	
-	# return idZoned;
-# end
 
 
 
@@ -968,135 +875,6 @@ function getGrdNum_NumLnkVal( histType::Type{<:WLHistDosZonedInE{3}}, divNum::In
 	
 	return grdNum, numLnkVal;
 end
-
-# function WL3dHistDosZonedInE1dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
-	# histType = WL3dHistDosZonedInE1dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# histArr = zeros(Int64, idMax - idMin + 1);
-	
-	# histType( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function WL3dHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# histType = WL3dHistDosZonedInE1dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histType( divNum, idMin, idMax );
-# end
-
-# function WL3dHistDosZonedInE1dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# D_hist = 1;
-	# nDim = 3;
-	# grdNum = nDim * divNum ^ nDim;
-	# numLnkVal = Int64( floor( grdNum/2 ) );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histArr = zeros(Int64, idMax - idMin + 1);
-	
-	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function WL3dHistDosZonedInE2dDos( divNum::Int64, idMin::Int64, idMax::Int64 )
-	# histType = WL3dHistDosZonedInE2dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# histArr = zeros(Int64, grdNum + 1, idMax - idMin + 1);
-	
-	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function WL3dHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# histType = WL3dHistDosZonedInE2dDos;
-	# grdNum, numLnkVal = getGrdNum_NumLnkVal( histType, divNum );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histType( divNum, idMin, idMax );
-# end
-
-# function WL3dHistDosZonedInE2dDos( divNum::Int64, EMinRatio::Real, EMaxRatio::Real )
-	# D_hist = 2;
-	# nDim = 3;
-	# grdNum = nDim * divNum ^ nDim;
-	# numLnkVal = Int64( floor( grdNum/2 ) );
-	
-	# lnkValMin = eRatioToLnk01ValRnd( EMinRatio, numLnkVal, floor );
-	# lnkValMax = eRatioToLnk01ValRnd( EMaxRatio, numLnkVal, ceil );
-	# idMin = getLinkHistIdFull( numLnkVal, lnkValMin );
-	# idMax = getLinkHistIdFull( numLnkVal, lnkValMax );
-	
-	# histArr = zeros(Int64, grdNum + 1, idMax - idMin + 1);
-	
-	# WLHistDosZonedInE{nDim,D_hist}( idMin, idMax, histArr, numLnkVal );
-# end
-
-# function getHistUpdateId( wlHistDos::WLHistDosZonedInE1dDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D}
-	# dL = calcDL( params, linkLst, dim, pos );
-	
-	# lTotal = sum( sum.(linkLst) );
-	# lNxt = lTotal + dL;
-	
-	# lId = getLinkHistIdFull( wlHistDos.grdNum, lTotal );
-	# lIdNxt = getLinkHistIdFull( wlHistDos.grdNum, lNxt );
-	
-	# if testHistIdOutBnd( wlHistDos, lId ) 
-		# error( "Loops_MC.WLHistDos2DZoned: id out of bound" )
-	# end
-	
-	# isInBnd = true;
-	# if testHistIdOutBnd( wlHistDos, lIdNxt )
-		# lIdNxt = lId;
-		# isInBnd = false;
-	# end
-	
-	# lIdZoned = getZonedIdFromFull( wlHistDos, lId );
-	# lIdNxtZoned = getZonedIdFromFull( wlHistDos, lIdNxt );
-	
-	# return wlHistDos.posLst[lIdZoned], wlHistDos.posLst[lIdNxtZoned], isInBnd;
-# end
-
-# function getAndTestHistThisId( wlHistDos::WLHistDosZonedInE1dDos, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}} ) where {D}
-	# lTotal = sum( sum.(linkLst) );
-	
-	# lId = getLinkHistIdFull( wlHistDos.grdNum, lTotal );
-	
-	# isOutBnd = testHistIdOutBnd( wlHistDos, lId );
-	# if isOutBnd
-		# # error( "Loops_MC.WLHistDos2DZoned: id out of bound" )
-		# lIdZoned = 1;
-	# else
-		# lIdZoned = getZonedIdFromFull( wlHistDos, lId );
-	# end
-	
-	# return wlHistDos.posLst[lIdZoned], isOutBnd;
-# end
-
-# function testHistIdOutBnd( wlHistDos::WLHistDosZonedInE1dDos, id::Int64 )
-	# if id < wlHistDos.idMin || id > wlHistDos.idMax
-		# return true;
-	# else
-		# return false;
-	# end
-# end
-
-# function getZonedIdFromFull( wlHistDos::WLHistDosZonedInE1dDos, idFull::Int64 )
-	# idZoned = idFull - wlHistDos.idMin + 1;
-	
-	# return idZoned;
-# end
 
 
 
@@ -2829,6 +2607,22 @@ function loops_MC_methods_WL2dZoned( divNum = 64; dosIncrInit = 1, dosIncrMin = 
 	end
 end
 
+function genWLZone_idMinMaxLst( histType::Type{<:WLHistDosZonedInE}, divNum::Int64, EMinRatio::Real, EMaxRatio::Real, EOverlapRatio::Real, numZones::Int64 )
+	EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
+	EOverlap = EWidth * EOverlapRatio;
+	
+	EIntervalLst = [ Tuple( min.( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1), 2 ) ) for iE = 1 : numZones ];
+	
+	idMinLst = ones(Int64, numZones);
+	idMaxLst = similar(idMinLst);
+	
+	for iZone = 1 : numZones
+		idMinLst[iZone], idMaxLst[iZone] = getIdMinMaxWLHist( histType, divNum, EIntervalLst[iZone]... );
+	end
+	
+	return idMinLst, idMaxLst;
+end
+
 function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", EMinRatio = -2.0, EMaxRatio = 2.0, EOverlapRatio = 0.7, numZones = 8, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1 )
 	updaterType = SingleUpdater;
 	auxDataType = WangLandauAuxData;
@@ -2836,22 +2630,22 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	
 	params = ParamsLoops( divNum, nDim );
 	
-	# histDosType = WLHistDos2DZoned;
-	# histDosType = WLHistDosZonedInE1dDos;
 	histDosType = WLHistDosZonedInE{nDim,D_hist};
 	histDosFullType = WLHistDosFull{nDim,D_hist};
 	flipCheckerType = WL2dHistStructFlipChecker{histDosType};
 	
 	if !isFileNameOnly
-		EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
-		EOverlap = EWidth * EOverlapRatio;
+		# EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
+		# EOverlap = EWidth * EOverlapRatio;
 		
-		EIntervalLst = [ Tuple( min.( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1), 2 ) ) for iE = 1 : numZones ];
-		EMidLst = [ ( EIntervalLst[iE][1] + EIntervalLst[iE][2] ) / 2 for iE = 1 : numZones ];
-		probLst = EMidLst ./ 4 .+ 1/2;
+		# EIntervalLst = [ Tuple( min.( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1), 2 ) ) for iE = 1 : numZones ];
+		# EMidLst = [ ( EIntervalLst[iE][1] + EIntervalLst[iE][2] ) / 2 for iE = 1 : numZones ];
+		# probLst = EMidLst ./ 4 .+ 1/2;
+		idMinLst, idMaxLst = genWLZone_idMinMaxLst( histDosType, divNum, EMinRatio, EMaxRatio, EOverlapRatio, numZones );
 		
-		updaterLst = [ updaterType(params) for iE = 1 : numZones, iW = 1 : numWalksEach ]
-		flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = EIntervalLst[iE] ) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+		updaterLst = [ updaterType(params) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+		# flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = EIntervalLst[iE] ) for iE = 1 : numZones, iW = 1 : numWalksEach ];		
+		flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = ( idMinLst[iE], idMaxLst[iE] ) ) for iE = 1 : numZones, iW = 1 : numWalksEach ];
 		
 		histDosFinalLst = getHistDos.( @views( flipCheckerLst[:,1] ) );
 				
@@ -3247,7 +3041,6 @@ function loops_MC_NoPrefabHelper_Replica_MPI( numZones, numWalksEach; params::Pa
 		advanceItControl( itController );
 		@infiltrate mod( it, 50000 ) == 0
 		# end
-		# @infiltrate
 	end
 	
 	# if testItDoSample( itController )

@@ -4,8 +4,8 @@ using Utils
 using DelimitedFiles
 
 
-# isFileNameOnly = false;
-isFileNameOnly = true;
+isFileNameOnly = false;
+# isFileNameOnly = true;
 
 
 divNum = 8;
@@ -13,7 +13,7 @@ itNum = 640000;
 nDim = 2;
 D_hist = 2;
 
-dosIncrMin = 0.1001;
+dosIncrMin = 0.1002;
 wlResetInterval = 1000;
 itExchange = 100;
 
