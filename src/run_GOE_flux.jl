@@ -29,6 +29,8 @@ for n in nlst
 		# @time divB_profile_GOE_layered( n, divLst, itNum, 1000; fMod = "" )
 		
 		# @time zakArr_corr_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
-		@time deg_GOE3_zak_resave( n, divLst, itNum, seed; fMod = fMod );
+		# @time DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
+		@time DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim );
+		# @time deg_GOE3_zak_resave( n, divLst, itNum, seed; fMod = fMod );
 	end
 end

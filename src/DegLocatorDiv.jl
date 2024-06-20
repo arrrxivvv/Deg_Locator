@@ -5,6 +5,7 @@ module DegLocatorDiv
 using MKL
 using UMat
 using Utils
+using FilenameManip
 using DivB
 using EigCustom
 using ThreadedArrays

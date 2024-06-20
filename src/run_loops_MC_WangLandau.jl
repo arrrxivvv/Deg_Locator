@@ -4,14 +4,14 @@ using Utils
 using DelimitedFiles
 
 
-# isFileNameOnly = false;
-isFileNameOnly = true;
+isFileNameOnly = false;
+# isFileNameOnly = true;
 
 
-divNum = 4;
+divNum = 8;
 itNum = 640000;
 nDim = 3;
-D_hist = 2;
+D_hist = 1;
 
 dosIncrMin = 0.1;
 wlResetInterval = 1000;
@@ -28,7 +28,7 @@ wlHistDosType = Loops_MC.WLHistDosFull{nDim,D_hist};
 # wlHistDosArgs = (-1, 0.2);
 wlHistDosArgs = ();
 histCutoffThres = 0.5;
-numZones = 8;
+numZones = 16;
 numWalksEach = 3;
 EMinRatio = -2.0;
 EMaxRatio = 2.0;
@@ -75,5 +75,9 @@ writedlm( fLstName, fNameLst );
 # writedlm( fLstName2d, fNameLst );
 
 open(Loops_MC.dirLog * Loops_MC.fNameFileLstWL, "w") do io
+	println(io, fNameGotten);
+end
+
+open(Loops_MC.dirLog * Loops_MC.fNameFileLstLst, "w") do io
 	println(io, fNameGotten);
 end
