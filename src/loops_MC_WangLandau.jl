@@ -870,6 +870,7 @@ const WL3dHistDosZonedInE2dDos = WLHistDosZonedInE{3,2};
 
 
 function getGrdNum_NumLnkVal( histType::Type{<:WLHistDosZonedInE{3}}, divNum::Int64 )
+	nDim = 3;
 	grdNum = nDim * divNum ^ nDim;
 	numLnkVal = Int64( floor( grdNum/2 ) );
 	
@@ -2307,7 +2308,8 @@ end
 
 function calcAuxData!( wlAuxData::BConfigOfLnkValZonedAuxData{D}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, linkFerroLst::Matrix{Array{Bool,D}} ) where {D}
 	lnkVal = sum( sum.(linkLst) );
-	lId = getLinkHistIdFull( params.grdNum, lnkVal );
+	_, numLnkVal = getGrdNum_NumLnkVal( WLHistDosZonedInE{params.nDim,1}, params.divNum );
+	lId = getLinkHistIdFull( numLnkVal, lnkVal );
 	idHistHigh = searchsortedlast( wlAuxData.idMinLst, lId );
 	idHistLow = searchsortedfirst( wlAuxData.idMaxLst, lId );
 	for idHist = idHistLow : idHistHigh
@@ -2628,48 +2630,19 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	auxDataType = WangLandauAuxData;
 	flipProposer = OneFlipProposer();	
 	
-	params = ParamsLoops( divNum, nDim );
+	# params = ParamsLoops( divNum, nDim );
 	
 	histDosType = WLHistDosZonedInE{nDim,D_hist};
 	histDosFullType = WLHistDosFull{nDim,D_hist};
 	flipCheckerType = WL2dHistStructFlipChecker{histDosType};
 	
 	if !isFileNameOnly
-		# EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
-		# EOverlap = EWidth * EOverlapRatio;
-		
-		# EIntervalLst = [ Tuple( min.( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1), 2 ) ) for iE = 1 : numZones ];
-		# EMidLst = [ ( EIntervalLst[iE][1] + EIntervalLst[iE][2] ) / 2 for iE = 1 : numZones ];
-		# probLst = EMidLst ./ 4 .+ 1/2;
 		idMinLst, idMaxLst = genWLZone_idMinMaxLst( histDosType, divNum, EMinRatio, EMaxRatio, EOverlapRatio, numZones );
 		
-		updaterLst = [ updaterType(params) for iE = 1 : numZones, iW = 1 : numWalksEach ];
-		# flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = EIntervalLst[iE] ) for iE = 1 : numZones, iW = 1 : numWalksEach ];		
-		flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = ( idMinLst[iE], idMaxLst[iE] ) ) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+		configLst = loops_MC_WL_ScanConfig( divNum, idMinLst, idMaxLst; nDim = nDim );
 		
-		histDosFinalLst = getHistDos.( @views( flipCheckerLst[:,1] ) );
-				
-		configLst = loops_MC_WL_ScanConfig( divNum, histDosFinalLst; nDim = nDim );		
+		fName, histDosFinalLst, fLast = loops_MC_methods_WL2dReplicaBase( divNum; dosIncrInit = dosIncrInit, dosIncrMin = dosIncrMin, cAreaInit = cAreaInit, nDim = nDim, idMinLst = idMinLst, idMaxLst = idMaxLst, configZoneLst = configLst, numWalksEach = numWalksEach, itExchange = itExchange, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, D_hist = D_hist );
 		
-		# initializerLst = [ PresetInitializer( configLst[ getHistDos( flipCheckerLst[iE,1] ).idMin ] ) for iE = 1 : numZones ];
-		initializerLst = [ PresetInitializer( configLst[ iE ] ) for iE = 1 : numZones ];
-		auxDataLst = [ auxDataType( flipCheckerLst[iZ,iW] ) for iZ = 1 : numZones, iW = 1 : numWalksEach ];
-		
-		@views for iE = 1 : numZones, iW = 1 : numWalksEach
-			setFriendCheckerLst!( flipCheckerLst[iE, iW], flipCheckerLst[iE,:]... );
-		end
-		
-		itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
-		fMainLst = Vector{String}(undef,numZones);
-		
-		println("Loops_MC zoning starts:")
-		fName = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
-		
-		# histDosFinalLst = getHistDos.( @views( flipCheckerLst[:,1] ) );
-		dosArrLst = [ (auxDataLst[iE,1].dataSampleLst)[2][end] for iE = 1 : numZones ];
-		
-		idMinLst = [ getHistDos( flipCheckerLst[iE,1] ).idMin for iE = 1 : numZones ];
-		idMaxLst = [ getHistDos( flipCheckerLst[iE,1] ).idMax for iE = 1 : numZones ];
 		histDosFull = genWLHistDos2DZonedFull( divNum );
 		dosArrFull = histDosFull.dosArr;
 		
@@ -2678,7 +2651,7 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 		iMatchLst, dosShLst = findGluePtsDosArrReplica(histDosFinalLst);
 		dosArrFull = glueDosArrReplicaFromGluePts( histDosFinalLst, iMatchLst, dosShLst );
 		
-		itNum = itController.itRef[];
+		# itNum = itController.itRef[];
 	end
 	
 	fMainGlued = "loops_WL2dZonesGluedReplica";
@@ -2693,7 +2666,8 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	
 	if !isFileNameOnly
 		save( fNameGlued, "dosArrGlued", dosArrFull );
-		println( "f = ", getDosIncr( flipCheckerLst[end] ) );
+		# println( "f = ", getDosIncr( flipCheckerLst[end] ) );
+		println( "f = ", fLast );
 	end
 	
 	if isFileNameOnly
@@ -2701,6 +2675,46 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	else
 		return fName;
 	end
+end
+
+function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}, configZoneLst, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1 )
+	numZones = length(idMinLst);
+	if numZones != length(idMaxLst) || numZones != length(configZoneLst)
+		error( "idMin, idMax, or configZoneLst length mismatched" );
+	end
+	updaterType = SingleUpdater;
+	auxDataType = WangLandauAuxData;
+	flipProposer = OneFlipProposer();	
+	
+	params = ParamsLoops( divNum, nDim );
+	
+	histDosType = WLHistDosZonedInE{nDim,D_hist};
+	histDosFullType = WLHistDosFull{nDim,D_hist};
+	flipCheckerType = WL2dHistStructFlipChecker{histDosType};
+
+	updaterLst = [ updaterType(params) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+	flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = ( idMinLst[iE], idMaxLst[iE] ) ) for iE = 1 : numZones, iW = 1 : numWalksEach ];
+	
+	histDosFinalLst = getHistDos.( @views( flipCheckerLst[:,1] ) );	
+	
+	initializerLst = [ PresetInitializer( configZoneLst[ iE ] ) for iE = 1 : numZones ];
+	auxDataLst = [ auxDataType( flipCheckerLst[iZ,iW] ) for iZ = 1 : numZones, iW = 1 : numWalksEach ];
+	
+	@views for iE = 1 : numZones, iW = 1 : numWalksEach
+		setFriendCheckerLst!( flipCheckerLst[iE, iW], flipCheckerLst[iE,:]... );
+	end
+	
+	itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
+	fMainLst = Vector{String}(undef,numZones);
+	
+	println("Loops_MC zoning starts:")
+	fName = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController );
+	
+	itNum = itController.itRef[];
+	
+	fLast = getDosIncr( flipCheckerLst[end] );
+	
+	return fName, histDosFinalLst, fLast;
 end
 
 function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::WangLandauReplicaItController, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )

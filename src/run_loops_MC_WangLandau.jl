@@ -10,10 +10,10 @@ isFileNameOnly = false;
 
 divNum = 8;
 itNum = 640000;
-nDim = 2;
+nDim = 3;
 D_hist = 2;
 
-dosIncrMin = 0.1002;
+dosIncrMin = 0.1003;
 wlResetInterval = 1000;
 itExchange = 100;
 
@@ -28,7 +28,7 @@ wlHistDosType = Loops_MC.WLHistDosFull{nDim,D_hist};
 # wlHistDosArgs = (-1, 0.2);
 wlHistDosArgs = ();
 histCutoffThres = 0.5;
-numZones = 16;
+numZones = 32;
 numWalksEach = 3;
 EMinRatio = -2.0;
 EMaxRatio = 2.0;
