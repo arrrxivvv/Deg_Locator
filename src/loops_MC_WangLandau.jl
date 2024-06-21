@@ -1066,6 +1066,10 @@ end
 
 getItControllerName( itControllerType::Type{WangLandauReplicaItController} ) = "WLReplicaItCtrl";
 
+function getItExchange( itController::WangLandauReplicaItController )
+	return itController.itExchange;
+end
+
 function getAttrLstItController( itControllerType::Type{WangLandauReplicaItController} )
 	return [getItControllerName(itControllerType) * "dosIncrMin"];
 end
@@ -2328,6 +2332,11 @@ function renewAuxDataOutLst!( wlAuxData::BConfigOfLnkValZonedAuxData )
 	nothing;
 end
 
+storeAuxDataSampleNoBndCheck( auxData::BConfigOfLnkValZonedAuxData, itSample::Int64 ) = nothing;
+storeAuxDataStartSampleNoBndCheck( auxData::BConfigOfLnkValZonedAuxData, itStartSample::Int64 ) = nothing;
+storeAuxDataNumNoBndCheck( auxData::BConfigOfLnkValZonedAuxData, it::Int64 ) = nothing;
+
+
 
 
 
@@ -2365,6 +2374,53 @@ testItDoSample( wlItController::FindConfigItController ) = false;
 
 testItDoStartSample( wlItController::FindConfigItController ) = false;
 
+
+
+
+struct FindConfigReplicaItController <: ItController
+	findConfigItController::FindConfigItController;
+	wlReplicaItController::WangLandauReplicaItController;
+	
+	itRef::Ref{Int64};
+	
+	function FindConfigReplicaItController( configAuxData::AbstractConfigAuxData, flipCheckerLst::Array{<:AbstractWangLandauFlipChecker}, itExchange::Int64 )
+		findConfigItCtrl = FindConfigItController( configAuxData );
+		dosIncrMin = 0.1;
+		wlReplicaItCtrl = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
+		
+		itVal = 1;
+		
+		new( findConfigItCtrl, wlReplicaItCtrl, Ref(itVal) );
+	end
+end
+
+getItControllerName( itControllerType::Type{FindConfigReplicaItController} ) = "FindConfigREplicaController";
+
+function getAttrLstItController( itControllerType::Type{FindConfigReplicaItController} )
+	return append!( getAttrLstItController( FindConfigItController ), getAttrLstItController( WangLandauReplicaItController ) );
+end
+
+function getValLstItController( itController::FindConfigReplicaItController )
+	return append!( Vector{Any}( getValLstItController( itController.findConfigItController ) ), getValLstItController( itController.wlReplicaItController ) );
+end
+
+function testItNotDone( wlItController::FindConfigReplicaItController )
+	return testItNotDone( wlItController.findConfigItController );
+end
+
+function getItNumLst( wlItController::FindConfigReplicaItController )
+	return zeros(Int64, 3);
+end
+
+function getItExchange( wlItController::FindConfigReplicaItController )
+	return getItExchange( wlItController.wlReplicaItController );
+end
+
+testItDoSample( wlItController::FindConfigReplicaItController ) = false;
+
+testItDoStartSample( wlItController::FindConfigReplicaItController ) = false;
+
+testItDoExchange( wlItController::FindConfigReplicaItController ) = testItDoExchange( wlItController.wlReplicaItController );
 
 
 
@@ -2639,7 +2695,8 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	if !isFileNameOnly
 		idMinLst, idMaxLst = genWLZone_idMinMaxLst( histDosType, divNum, EMinRatio, EMaxRatio, EOverlapRatio, numZones );
 		
-		configLst = loops_MC_WL_ScanConfig( divNum, idMinLst, idMaxLst; nDim = nDim );
+		# configLst = loops_MC_WL_ScanConfig( divNum, idMinLst, idMaxLst; nDim = nDim );
+		configLst = loops_MC_WL_ScanConfig_Zoned( divNum, idMinLst, idMaxLst; nDim = nDim );
 		
 		fName, histDosFinalLst, fLast = loops_MC_methods_WL2dReplicaBase( divNum; dosIncrInit = dosIncrInit, dosIncrMin = dosIncrMin, cAreaInit = cAreaInit, nDim = nDim, idMinLst = idMinLst, idMaxLst = idMaxLst, configZoneLst = configLst, numWalksEach = numWalksEach, itExchange = itExchange, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, D_hist = D_hist );
 		
@@ -2717,7 +2774,7 @@ function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncr
 	return fName, histDosFinalLst, fLast;
 end
 
-function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::WangLandauReplicaItController, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::Union{WangLandauReplicaItController,FindConfigReplicaItController}, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	fNameLst = similar( flipCheckerLst, String );
 	fModOutLst = similar( fNameLst );
 	attrLstLst = similar(fNameLst, Vector{String});
@@ -2764,7 +2821,8 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 	
 	itNum, itNumSample, itNumStartSample = getItNumLst( itController );
 	
-	itExchange = itController.itExchange;
+	# itExchange = itController.itExchange;
+	itExchange = getItExchange( itController );
 	
 	itSample = 1;
 	@time while( testItNotDone( itController ) )
@@ -3296,18 +3354,72 @@ function loops_MC_WL_ScanConfig( divNum::Int64, idMinLst::Vector{Int64}, idMaxLs
 	return configAuxData.configArr;
 end
 
-function loops_MC_WL_ScanConfig_Zoned( divNum::Int64, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}; isFileNameOnly = false, fMainOutside = "", nDim = 2, numWalksEachDefault = 3, numZonesDefault = 4 )
+function loops_MC_WL_ScanConfig_Zoned( divNum::Int64, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}; isFileNameOnly = false, fMainOutside = "", nDim = 2, numWalksEach = 3, numZonesPre = 4, overlapRatioPre = 0.5 )
 	flipChecker = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = 1000, wlHistDosType = WLHistDosFull{nDim,1} );
 	params = ParamsLoops( divNum, nDim );
 	
 	flipProposer = OneFlipProposer();
 	initializer = ConstantInitializer();
 	updater = SingleUpdater(params);
-	configAuxData = BConfigOfLnkValZonedAuxData{params.nDim}( idMinLst, idMaxLst, 0, 0, 0 );
 	
-	itController = FindConfigItController( configAuxData );
+	idMinBnd = idMinLst[1];
+	idMaxBnd = idMaxLst[end];
+	idWidth = (idMaxBnd - idMinBnd) / ( numZonesPre - (numZonesPre-1) * overlapRatioPre );
+	idOverlap = idWidth * overlapRatioPre;
+	
+	idIntervalLst = [ Int64( floor( min( idMinBnd + ( iZ + iZSh ) * idWidth - idOverlap * (iZ-1), idMaxBnd ) ) ) for iZ = 1 : numZonesPre, iZSh = -1 : 0 ];
+	
+	idMinLstPre = idIntervalLst[:,1];
+	idMaxLstPre = idIntervalLst[:,2];
+	idMinLstPre[1] = idMinLst[1];
+	idMaxLstPre[end] = idMaxLst[end];
+	
+	# EWidth = (EMaxRatio - EMinRatio) / ( numZones - (numZones-1) * EOverlapRatio );
+	# EOverlap = EWidth * EOverlapRatio;
+	
+	# EIntervalLst = [ Tuple( min.( EMinRatio .+ [ (iE-1)*EWidth, iE * EWidth ] .- EOverlap .* (iE-1), 2 ) ) for iE = 1 : numZones ];
+	
+	preConfigZoneLst = loops_MC_WL_ScanConfig( divNum, idMinLstPre, idMaxLstPre; nDim = nDim );
 		
-	fName = loops_MC_NoPrefabHelper_Base( ; params = params, updater = updater, flipChecker = flipChecker, flipProposer = flipProposer, initializer = initializer, auxData = configAuxData, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	configArrFinal = loops_MC_methods_WL2dReplicaScanBase( divNum; nDim = nDim, idMinLstPre = idMinLstPre, idMaxLstPre = idMaxLstPre, preConfigZoneLst = preConfigZoneLst, idMinLst = idMinLst, idMaxLst = idMaxLst, numWalksEach = numWalksEach )
+	
+	return configArrFinal;
+end
+
+function loops_MC_methods_WL2dReplicaScanBase( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, idMinLstPre::Vector{Int64}, idMaxLstPre::Vector{Int64}, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}, preConfigZoneLst, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5 )
+	D_hist = 1;
+	numZonesPre = length(idMinLstPre);
+	if numZonesPre != length(idMaxLstPre) || numZonesPre != length(preConfigZoneLst)
+		error( "idMin, idMax, or configZoneLst length mismatched" );
+	end
+	updaterType = SingleUpdater;
+	configAuxData = BConfigOfLnkValZonedAuxData{nDim}( idMinLst, idMaxLst, 0, 0, 0 );
+	flipProposer = OneFlipProposer();	
+	
+	params = ParamsLoops( divNum, nDim );
+	
+	histDosType = WLHistDosZonedInE{nDim,D_hist};
+	histDosFullType = WLHistDosFull{nDim,D_hist};
+	flipCheckerType = WL2dHistStructFlipChecker{histDosType};
+
+	updaterLst = [ updaterType(params) for iE = 1 : numZonesPre, iW = 1 : numWalksEach ];
+	flipCheckerLst = [ WLFriendsFlipChecker{flipCheckerType}( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, wlHistDosArgs = ( idMinLstPre[iE], idMaxLstPre[iE] ) ) for iE = 1 : numZonesPre, iW = 1 : numWalksEach ];
+	
+	histDosFinalLst = getHistDos.( @views( flipCheckerLst[:,1] ) );	
+	
+	initializerLst = [ PresetInitializer( preConfigZoneLst[ iE ] ) for iE = 1 : numZonesPre ];
+	auxDataLst = [ configAuxData for iZ = 1 : numZonesPre, iW = 1 : numWalksEach ];
+	
+	@views for iE = 1 : numZonesPre, iW = 1 : numWalksEach
+		setFriendCheckerLst!( flipCheckerLst[iE, iW], flipCheckerLst[iE,:]... );
+	end
+	
+	itController = FindConfigReplicaItController( configAuxData, flipCheckerLst, itExchange );
+	fMainLst = Vector{String}(undef,numZonesPre);
+	
+	println("Loops_MC zoning starts:")
+	fName = loops_MC_NoPrefabHelper_Replica( numZonesPre, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController );
+	
 	itNum = itController.itRef[];
 	
 	return configAuxData.configArr;
