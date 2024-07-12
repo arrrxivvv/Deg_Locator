@@ -17,16 +17,16 @@ getItNumLst( itController::ItNumItController ) = (itController.itNum, itControll
 
 
 
-function getItControllerName( itControllerType::Type{JointItController} ) # = "itNumController";
+function getItControllerName( itControllerType::Type{<:JointItController} ) # = "itNumController";
 	return join( ["joint", getItControllerName.(itControllerType.parameters[1].parameters)...], "_" );
 end
 
-function getAttrLstItController( itControllerType::Type{JointItController} )
-	return append!( getAttrLstItController.( itControllerType.parameters[1].parameters ) );
+function getAttrLstItController( itControllerType::Type{<:JointItController} )
+	return append!( getAttrLstItController.( itControllerType.parameters[1].parameters )... );
 end
 
 function getValLstItController( itController::JointItController )
-	return append!( getValLstItController.( itController.itControllerTup ) );
+	return append!( getValLstItController.( itController.itControllerTup )... );
 end
 
 function testItNotDone( itController::JointItController )
@@ -43,4 +43,14 @@ end
 
 function getItNumLst( itController::JointItController )
 	return zeros(Int64, 3);
+end
+
+function resetItControl( itController::JointItController )
+	itController.itRef[] = 1;
+	resetItControl.( itController.itControllerTup );
+end
+
+function advanceItControl( itController::JointItController )
+	itController.itRef[] += 1;
+	advanceItControl.( itController.itControllerTup );
 end

@@ -4,9 +4,11 @@ using Utils
 using DelimitedFiles
 
 
-isFileNameOnly = false;
-# isFileNameOnly = true;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
+# isCheckNan = false;
+isCheckNan = true;
 
 divNum = 8;
 itNum = 640000;
@@ -41,7 +43,8 @@ fLstName2d = "Loops_MC_WL2d.txt";
 # fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
 # fMainToLoad = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.WangLandauAuxData );
 # fMainToLoad = "loops_WL2dZonesGluedThrd";
-fMainToLoad = "loops_WL2dZonesGluedReplica";
+# fMainToLoad = "loops_WL2dZonesGluedReplica";
+fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.BundledArrAuxData{Loops_MC.WangLandauAuxData} );
 
 fNameLst = Vector{String}(undef,0);
 
@@ -61,7 +64,7 @@ fNameLst = Vector{String}(undef,0);
 	# push!(fNameLst, fNameGotten)
 # end
 
-@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio, nDim = nDim );
+@time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio, nDim = nDim, isCheckNan = isCheckNan );
 if !isFileNameOnly
 	push!(fNameLst, fNameGotten)
 else

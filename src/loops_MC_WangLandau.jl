@@ -1106,9 +1106,9 @@ testItDoStartSample( wlItController::WangLandauReplicaItController ) = false;
 
 testItDoExchange( wlItController::WangLandauReplicaItController ) = mod( wlItController.itRef[], wlItController.itExchange ) == 0;
 
-testItDoExchange( jointItController::JointItController{Tuple{ItController,WangLandauReplicaItController}} ) = testItDoExchange( jointItController.itControllerTup[2] );
+testItDoExchange( jointItController::JointItController{<:Tuple{ItController,WangLandauReplicaItController}} ) = testItDoExchange( jointItController.itControllerTup[2] );
 
-getItExchange( jointItController::JointItController{Tuple{ItController,WangLandauReplicaItController}} ) = getItExchange( jointItController.itControllerTup[2] );
+getItExchange( jointItController::JointItController{<:Tuple{ItController,WangLandauReplicaItController}} ) = getItExchange( jointItController.itControllerTup[2] );
 
 
 
@@ -1137,16 +1137,19 @@ struct NanCheckWLItController <: ErrCheckItController
 	# end
 end
 
+getAttrLstItController( itControllerType::Type{NanCheckWLItController} ) = String[];
+getValLstItController( itController::NanCheckWLItController ) = [];
+
 function NanCheckWLItController( flipCheckerLst::Array{<:AbstractWangLandauFlipChecker}; )
 	itVal = 1;
 	histArrArr = getHistArr.( flipCheckerLst );
 	dosArrArr = getDosArr.( flipCheckerLst );
 	histDosJointArrArr = [histArrArr, dosArrArr];
 	arrIdLst = CartesianIndices(histArrArr);
-	isNanHistDosArr = [ [ zeros(Bool, size(histArrArr[1])) for ii in CartesianIndices(arrIdLst) ] for iHistDos = 1 : 2 ];
+	isNanHistDosArr = [ [ zeros(Bool, size(histArrArr[ii])) for ii in CartesianIndices(arrIdLst) ] for iHistDos = 1 : 2 ];
 	isNanReducedHistDosArr = [ zeros(Bool, size(histArrArr)) for iHistDos = 1 : 2 ];
 	
-	NanCheckWLItController( flipCheckerLst, histDosJointArrArr, arrIdLst, isNanHistDosArr, isNanReducedHistDosArr, Ref(itVal) );
+	NanCheckWLItController( flipCheckerLst, histDosJointArrArr, Ref(itVal), arrIdLst, isNanHistDosArr, isNanReducedHistDosArr );
 end
 
 # function NanCheckWLItController( flipCheckerArr::Array{<:AbstractWangLandauFlipChecker} )
@@ -1160,12 +1163,12 @@ end
 function testItNotDone( itController::NanCheckWLItController )
 	for iHistDos = 1 : 2
 		for ii in itController.arrIdLst
-			isNanHistDosArr[iHistDos][ii] .= isnan.( itController.histDosJointArrArr[iHistDos][ii] );
-			isNanReducedHistDosArr[iHistDos][ii] = reduce( |, isNanHistDosArr[iHistDos][ii] );
+			itController.isNanHistDosArr[iHistDos][ii] .= isnan.( itController.histDosJointArrArr[iHistDos][ii] );
+			itController.isNanReducedHistDosArr[iHistDos][ii] = reduce( |, itController.isNanHistDosArr[iHistDos][ii] );
 		end
 	end
 	
-	isNanFound = reduce( |, reduce.(|, isNanReducedHistDosArr) );
+	isNanFound = reduce( |, reduce.(|, itController.isNanReducedHistDosArr) );
 	return !isNanFound;
 end
 
@@ -2785,10 +2788,15 @@ function getAttrValLstLttcWLReplica( divNum::Int64, nDim::Int64; itController::I
 	return attrLst, valLst;
 end
 
-function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", EMinRatio = -2.0, EMaxRatio = 2.0, EOverlapRatio = 0.7, numZones = 8, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1, isCheckNan = false )
+function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, isFileNameOnly = false, fMainOutside = "", EMinRatio = -2.0, EMaxRatio = 2.0, EOverlapRatio = 0.7, numZones = 8, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1, isCheckNan = false, fMod = "" )
 	updaterType = SingleUpdater;
 	auxDataType = WangLandauAuxData;
-	flipProposer = OneFlipProposer();	
+	flipProposer = OneFlipProposer();
+	
+	fModCheckNan = "checkNan";
+	if isCheckNan
+		fMod = strAppendWith_( fMod, fModCheckNan );
+	end	
 	
 	# params = ParamsLoops( divNum, nDim );
 	
@@ -2807,7 +2815,7 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 		configLst = nothing;
 	end
 	
-	fNameOut, histDosFinalLst, fLast = loops_MC_methods_WL2dReplicaBase( divNum; dosIncrInit = dosIncrInit, dosIncrMin = dosIncrMin, cAreaInit = cAreaInit, nDim = nDim, idMinLst = idMinLst, idMaxLst = idMaxLst, configZoneLst = configLst, numWalksEach = numWalksEach, itExchange = itExchange, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, D_hist = D_hist, isCheckNan = isCheckNan, fMainOutside = fMainOutside );
+	fNameOut, histDosFinalLst, fLast = loops_MC_methods_WL2dReplicaBase( divNum; dosIncrInit = dosIncrInit, dosIncrMin = dosIncrMin, cAreaInit = cAreaInit, nDim = nDim, idMinLst = idMinLst, idMaxLst = idMaxLst, configZoneLst = configLst, numWalksEach = numWalksEach, itExchange = itExchange, wlResetInterval = wlResetInterval, histCutoffThres = histCutoffThres, D_hist = D_hist, isCheckNan = isCheckNan, fMainOutside = fMainOutside, isFileNameOnly = isFileNameOnly, fMod = fMod );
 		
 	if !isFileNameOnly
 		histDosFull = genWLHistDos2DZonedFull( divNum );
@@ -2847,9 +2855,9 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 	return fNameOut;
 end
 
-function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}, configZoneLst, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1, isCheckNan = false, isFileNameOnly = false, fMainOutside::String = "" )
+function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001, cAreaInit = 0, nDim = 2, idMinLst::Vector{Int64}, idMaxLst::Vector{Int64}, configZoneLst, numWalksEach = 3, itExchange = 1000, wlResetInterval = 1000, histCutoffThres = 0.5, D_hist = 1, isCheckNan = false, isFileNameOnly = false, fMainOutside::String = "", fMod = "" )
 	numZones = length(idMinLst);
-	if numZones != length(idMaxLst) || numZones != length(configZoneLst)
+	if !isFileNameOnly && ( numZones != length(idMaxLst) || numZones != length(configZoneLst) )
 		error( "idMin, idMax, or configZoneLst length mismatched" );
 	end
 	updaterType = SingleUpdater;
@@ -2881,15 +2889,15 @@ function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncr
 	
 	itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
 	fMainLst = Vector{String}(undef,numZones);
-	# @infiltrate
+	
 	if isCheckNan
-		errCheckItController = NanCheckItController( flipCheckerLst );
+		errCheckItController = NanCheckWLItController( flipCheckerLst );
 		itController = JointItController( [errCheckItController, itController] );
 		# fModOut = join( [fModOut, "nancheck"], "_" );
 	end
 	
 	println("Loops_MC zoning starts:")
-	fName = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
+	fName = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside, fMod = fMod );
 	
 	itNum = itController.itRef[];
 	

@@ -230,13 +230,20 @@ end
 
 
 struct JointItController{T_tuple <: (NTuple{N,ItController} where {N})} <: ItController
-	itControllerTup::NTuple{N,ItController} where {N};	
+	itControllerTup::T_tuple;	
+	itRef::Ref{Int64};
+	
+	function JointItController{T_tuple}( ctrlLst::T_tuple ) where {T_tuple}
+		itVal = 1;
+		
+		new{T_tuple}( ctrlLst, Ref(itVal) );
+	end
 end
 
 function JointItController( ctrlLst::Vector{<:ItController} )
 	ctrlTup = Tuple(ctrlLst);
 	
-	new( ctrlTup );
+	JointItController{typeof(ctrlTup)}( ctrlTup );
 end
 
 
