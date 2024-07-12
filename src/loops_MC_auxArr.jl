@@ -117,7 +117,7 @@ function getAuxDataSummaryName( auxDataType::Type{<:BLinkAuxData} )
 end
 
 function getAuxDataNameLst( auxDataType::Type{<:BLinkAuxData} )
-	return ["Bfield","link","linkFerro"]
+	return ["Bfield","link","linkFerro"];
 end
 
 getBfieldLst( auxData::BLinkAuxData ) = auxData.dataLst[1];
@@ -189,3 +189,16 @@ function storeAuxDataNumNoBndCheck( auxData::BLinkAuxData, it::Int64 )
 		auxData.dataNumLst[3][it][iDimLayer,iDimB] = sum( auxData.dataLst[3][iDimLayer,iDimB] );
 	end
 end
+
+
+
+
+function getAuxDataSummaryName( auxDataType::Type{BundledArrAuxData{T_aux}} ) where {T_aux <: AuxData}
+	return getAuxDataSummaryName(T_aux) * "Replica";
+end
+
+function getAuxDataNameLst( aauxDataType::Type{BundledArrAuxData{T_aux}} ) where {T_aux <: AuxData}
+	return (x -> x * "Replica").( getAuxDataNameLst( T_aux ) );
+end
+
+renewAuxDataOutLst!( auxData::BundledArrAuxData ) = nothing;

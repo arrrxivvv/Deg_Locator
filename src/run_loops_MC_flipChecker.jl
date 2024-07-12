@@ -4,7 +4,7 @@ using DelimitedFiles
 
 @enum RunWhich runFull=1 runFileLst runSaveParam runSaveParamAndFileLst
 
-runChoice = runSaveParamAndFileLst;
+runChoice = runFull;
 
 isRunSim = false;
 isRunFileLst = false;
@@ -37,7 +37,7 @@ fNameLst = Vector{String}(undef,0);
 
 # isInit0Lst = [false,true];
 isInit0Lst = [false];
-divNumLst = [64];
+divNumLst = [4];
 # itNumLst = [10000];
 # itNumLst = [10];
 itNumLst = [1000];
@@ -49,7 +49,8 @@ sgnAreaLst = [1];
 sgnPerimLst = [1];
 # cRadiusLst = [0.2:0.2:3;];
 # cRadiusLst = [0.6:0.2:3;];
-cRadiusLst = [0.4:0.05:1;];
+# cRadiusLst = [0.4:0.05:1;];
+cRadiusLst = [0:0.1:1;];
 # cAngleLst = [0.8:0.2:0.8;].*pi/2;
 cAngleLst = [0.2:0.2:0.8;].*pi/2;
 radiusGrp = Loops_MC.RadiusParamsGroup( cRadiusLst, cAngleLst, cFerroRatioLst, sgnAreaLst, sgnPerimLst );
@@ -79,8 +80,8 @@ paramsGroupLstLst = [radiusGrpLst, cartesianGrpLst];
 # fMainCollect = Loops_MC.oFNameLoopsNumMain;
 # fMainCollect = Loops_MC.oFNameLoopsStartMain;
 # fMainCollect = Loops_MC.oFMainLoopsSample;
-fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
-# fMainCollect = Loops_MC.getAuxDataSummaryNumName( Loops_MC.BLinkAuxData );
+# fMainCollect = Loops_MC.getAuxDataSummarySampleName( Loops_MC.ZakArrAuxData );
+fMainCollect = Loops_MC.getAuxDataSummaryNumName( Loops_MC.BLinkAuxData );
 # fMainCollect = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.ZakArrAuxData );
 
 if isTestingParam

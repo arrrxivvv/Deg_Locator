@@ -594,7 +594,7 @@ function zakArr_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim
 	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd, "zakAvg", zakAvg, "zakStd", zakStd );
 end
 
-function zakArr_corr_FFT_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type, fModOut = "", itNumStop = 0 )
+function zakArr_corr_FFT_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type, fModOut = "", itNumStop = 0, isFileNameOnly = false )
 	if itNumStop == 0
 		itNumStop = itNum;
 	else
@@ -605,67 +605,73 @@ function zakArr_corr_FFT_GOE_from_file( N, param_divide, itNum, seed; fMod = "",
 	end
 	fModOut = fMod * fModOut;
 	divNum = param_divide[1];
-	fMain = "deg_GOE3";
 	attrLst = deepcopy(attrLstBase);
 	valLst = [N, param_divide, itNum, seed];
 	if !isnothing(dim)
 		attrLst = insert!( attrLst, 1, "dim" );
 		valLst = insert!( valLst, 1, dim );
 	end
-	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
-	@info(fName);
-	@info("read file: ");
-	zakArrLst = load( fName, "zakLstLst" ); 
-	zakArrArr = zeros( N, divNum, divNum, itNumStop );
-	itDim = 4;
-	Threads.@threads for it = 1:itNumStop
-		for n = 1:N, x = 1:divNum, y = 1:divNum
-			zakArrArr[n,x,y,it] = zakArrLst[it][x,y][n];
-		end
-	end
-	zakArrAvg = mean( zakArrArr; dims = itDim );
-	zakAvg = mean(zakArrAvg);
-	zakArrStd = std( zakArrArr; dims = itDim );
-	zakStd = std( zakArrArr );
 	
-	zakArrArr .= zakArrArr .- zakAvg;
-	
-	dArea = (1/divNum)^2;
-	dimFftTup = (2,3);
-	zakCorrArrCplx = fft( zakArrArr, dimFftTup );
-	zakCorrArrCplx .= abs.(zakCorrArrCplx) .^ 2;
-	ifft!( zakCorrArrCplx, dimFftTup );
-	zakCorrArrCplx .*= dArea;
-	zakCorrArr = real.(zakCorrArrCplx);
-	
-	# zakCorrArr = zeros( N, divNum, divNum, itNumStop );
-	# zakCorrArrAvg = zeros( N, divNum, divNum );
-	# zakCorrArrStd = zeros( N, divNum, divNum );
-	# zakArrSh = zeros( N, divNum, divNum );
-	# zakArrSh2 = zeros( N, divNum, divNum);
-	# zakArrSh2 = zeros( N, divNum, divNum, itNum);
-	# zakArrTmp = zeros( N, divNum, divNum );
-	
-	# shArr = [ (0,-x+1,-y+1,0) for x=1:divNum, y=1:divNum ];
-	
-	# itNumLess = Int64( floor( itNum / 10 ) );
-	# itDim = 4;
-	# zakArrArr .= zakArrArr .- zakAvg;
-	# @time begin
-	# for x = 1 : divNum
-		# for y = 1 : divNum
-			# zakArrSh2 = ShiftedArrays.circshift( zakArrArr, shArr[x,y] );
-			# Threads.@threads for it = 1 : itNumStop #Less
-				# selectdim( zakCorrArr, itDim, it ) .= selectdim( zakCorrArr, itDim, it ) .+ @view(zakArrArr[:,x,y,it]) .* selectdim(zakArrSh2,itDim,it) .* dArea;
-			# end
-		# end
-	# end
-	# end
-	zakCorrArrAvg = mean( zakCorrArr; dims = itDim );
-	zakCorrArrStd = std( zakCorrArr; dims = itDim );
 	oFmain = "zakCorrStatsFft";
 	oFName = fNameFunc( oFmain, attrLst, valLst, jld2Type; fMod = fModOut );
-	save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd, "zakAvg", zakAvg, "zakStd", zakStd );
+	
+	if !isFileNameOnly
+		fMain = "deg_GOE3";
+		fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod );
+		@info(fName);
+		@info("read file: ");
+		zakArrLst = load( fName, "zakLstLst" ); 
+		zakArrArr = zeros( N, divNum, divNum, itNumStop );
+		itDim = 4;
+		Threads.@threads for it = 1:itNumStop
+			for n = 1:N, x = 1:divNum, y = 1:divNum
+				zakArrArr[n,x,y,it] = zakArrLst[it][x,y][n];
+			end
+		end
+		zakArrAvg = mean( zakArrArr; dims = itDim );
+		zakAvg = mean(zakArrAvg);
+		zakArrStd = std( zakArrArr; dims = itDim );
+		zakStd = std( zakArrArr );
+		
+		zakArrArr .= zakArrArr .- zakAvg;
+		
+		dArea = (1/divNum)^2;
+		dimFftTup = (2,3);
+		zakCorrArrCplx = fft( zakArrArr, dimFftTup );
+		zakCorrArrCplx .= abs.(zakCorrArrCplx) .^ 2;
+		ifft!( zakCorrArrCplx, dimFftTup );
+		zakCorrArrCplx .*= dArea;
+		zakCorrArr = real.(zakCorrArrCplx);
+		
+		# zakCorrArr = zeros( N, divNum, divNum, itNumStop );
+		# zakCorrArrAvg = zeros( N, divNum, divNum );
+		# zakCorrArrStd = zeros( N, divNum, divNum );
+		# zakArrSh = zeros( N, divNum, divNum );
+		# zakArrSh2 = zeros( N, divNum, divNum);
+		# zakArrSh2 = zeros( N, divNum, divNum, itNum);
+		# zakArrTmp = zeros( N, divNum, divNum );
+		
+		# shArr = [ (0,-x+1,-y+1,0) for x=1:divNum, y=1:divNum ];
+		
+		# itNumLess = Int64( floor( itNum / 10 ) );
+		# itDim = 4;
+		# zakArrArr .= zakArrArr .- zakAvg;
+		# @time begin
+		# for x = 1 : divNum
+			# for y = 1 : divNum
+				# zakArrSh2 = ShiftedArrays.circshift( zakArrArr, shArr[x,y] );
+				# Threads.@threads for it = 1 : itNumStop #Less
+					# selectdim( zakCorrArr, itDim, it ) .= selectdim( zakCorrArr, itDim, it ) .+ @view(zakArrArr[:,x,y,it]) .* selectdim(zakArrSh2,itDim,it) .* dArea;
+				# end
+			# end
+		# end
+		# end
+		zakCorrArrAvg = mean( zakCorrArr; dims = itDim );
+		zakCorrArrStd = std( zakCorrArr; dims = itDim );
+		save( oFName, "zakArrAvg", zakArrAvg, "zakArrStd", zakArrStd, "zakCorrArr", zakCorrArr, "zakCorrArrAvg", zakCorrArrAvg, "zakCorrArrStd", zakCorrArrStd, "zakAvg", zakAvg, "zakStd", zakStd );
+	end
+	
+	return oFName;
 end
 
 function zak_corr_GOE_from_file( N, param_divide, itNum, seed; fMod = "", dim = nothing, fExt = jld2Type )

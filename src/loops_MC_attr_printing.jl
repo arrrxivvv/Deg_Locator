@@ -63,3 +63,7 @@ function arrDiffCalc( lst::AbstractVector, id::Int64 )
 		return (lst[id+1] - lst[id-1]) / 2
 	end
 end
+
+function multiplexLstArr( lstArr::Array{<:Vector} )
+	[ (x->x[ii]).(lstArr) for ii = 1 : length(lstArr[1]) ];
+end

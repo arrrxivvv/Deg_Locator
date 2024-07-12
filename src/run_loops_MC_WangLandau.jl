@@ -10,10 +10,10 @@ isFileNameOnly = false;
 
 divNum = 8;
 itNum = 640000;
-nDim = 3;
+nDim = 2;
 D_hist = 2;
 
-dosIncrMin = 0.1003;
+dosIncrMin = 0.1;
 wlResetInterval = 1000;
 itExchange = 100;
 
@@ -28,7 +28,7 @@ wlHistDosType = Loops_MC.WLHistDosFull{nDim,D_hist};
 # wlHistDosArgs = (-1, 0.2);
 wlHistDosArgs = ();
 histCutoffThres = 0.5;
-numZones = 32;
+numZones = 8;
 numWalksEach = 3;
 EMinRatio = -2.0;
 EMaxRatio = 2.0;
@@ -63,7 +63,7 @@ fNameLst = Vector{String}(undef,0);
 
 @time fNameGotten = Loops_MC.loops_MC_methods_WL2dReplica( divNum; dosIncrInit = 1.0, dosIncrMin = dosIncrMin, isFileNameOnly = isFileNameOnly, fMainOutside = fMainToLoad, itExchange = itExchange, D_hist = D_hist, histCutoffThres = histCutoffThres, numZones = numZones, numWalksEach = numWalksEach, EMinRatio = EMinRatio, EMaxRatio = EMaxRatio, nDim = nDim );
 if !isFileNameOnly
-	push!(fNameLst, fNameGotten...)
+	push!(fNameLst, fNameGotten)
 else
 	push!(fNameLst, fNameGotten)
 end
@@ -74,10 +74,18 @@ end
 writedlm( fLstName, fNameLst );
 # writedlm( fLstName2d, fNameLst );
 
-open(Loops_MC.dirLog * Loops_MC.fNameFileLstWL, "w") do io
+# open(Loops_MC.dirLog * Loops_MC.fNameFileLstWL, "w") do io
+	# println(io, fNameGotten);
+# end
+
+# open(Loops_MC.dirLog * Loops_MC.fNameFileLstLst, "w") do io
+	# println(io, fNameGotten);
+# end
+
+open(Loops_MC.fNameFileLstWL, "w") do io
 	println(io, fNameGotten);
 end
 
 open(Loops_MC.dirLog * Loops_MC.fNameFileLstLst, "w") do io
-	println(io, fNameGotten);
+	println(io, Loops_MC.fNameFileLstWL);
 end

@@ -229,6 +229,18 @@ end
 
 
 
+struct JointItController{T_tuple <: (NTuple{N,ItController} where {N})} <: ItController
+	itControllerTup::NTuple{N,ItController} where {N};	
+end
+
+function JointItController( ctrlLst::Vector{<:ItController} )
+	ctrlTup = Tuple(ctrlLst);
+	
+	new( ctrlTup );
+end
+
+
+
 
 abstract type BLinkInitializer end
 
@@ -520,7 +532,10 @@ function renewAuxJldVarLst!( auxData::AuxData )
 	renewAuxDataOutLst!(auxData);
 	lstSplicing!( auxData.jldVarSampleLst, getAuxDataSampleNameLst( auxData ), auxData.dataSampleOutLst );
 	lstSplicing!( auxData.jldVarStartSampleLst, getAuxDataStartSampleNameLst( auxData ), auxData.dataStartSampleOutLst );
-	lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumOutLst );
+	# @infiltrate length( getAuxDataNumNameLst( auxData ) ) != length( auxData.dataNumOutLst );
+	numNameLst = isempty(auxData.dataNumOutLst) ? String[] : getAuxDataNumNameLst( auxData );
+	# lstSplicing!( auxData.jldVarNumLst, getAuxDataNumNameLst( auxData ), auxData.dataNumOutLst );
+	lstSplicing!( auxData.jldVarNumLst, numNameLst, auxData.dataNumOutLst );
 	lstSplicing!( auxData.jldVarItSampleLst, ["itSampleLst"], [auxData.itSampleLst] )
 end
 
@@ -757,6 +772,55 @@ struct BLinkAuxData{D} <: AuxData
 		jldVarItSampleLst = similar(jldVarSampleLst);
 		
 		new{params.nDim}( itSampleLst, dataLst, dataNumSnapLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, params.nDim, params.nDimB, params.nDimLayer, params );
+	end
+end
+
+
+
+struct BundledArrAuxData{T<:AuxData} <: AuxData
+	auxDataArr::Array{T};
+	
+	dataLst::Vector;
+	# dataNumSnapLst::Vector{};
+	dataSampleLst::Vector{<:Array{<:Vector}};
+	dataStartSampleLst::Vector{<:Array{<:Vector}};
+	# dataNumLst::Vector{<:Array{<:Vector}};
+	dataNumLst::Vector;
+	
+	dataSampleOutLst::Vector{<:Array};
+	dataStartSampleOutLst::Vector{<:Array};
+	dataNumOutLst::Vector;
+	
+	jldVarSampleLst::Vector{Any};
+	jldVarStartSampleLst::Vector{Any};
+	jldVarNumLst::Vector{Any};
+	jldVarItSampleLst::Vector{Any};
+	
+	itSampleLst::Vector{Int64};
+	
+	function BundledArrAuxData( auxDataArr::Array{<:AuxData} )
+		dataLstLst = (x -> x.dataLst).(auxDataArr);
+		dataSampleLstLst = (x -> x.dataSampleLst).(auxDataArr);
+		dataStartSampleLstLst = (x -> x.dataStartSampleLst).(auxDataArr);
+		dataNumLstLst = (x -> x.dataNumLst).(auxDataArr);
+		dataLst, dataSampleLst, dataStartSampleLst, dataNumLst = multiplexLstArr.( [dataLstLst, dataSampleLstLst, dataStartSampleLstLst, dataNumLstLst] );
+		# dataNumLst = multiplexLstArr[dataNumLstLst];
+		
+		renewAuxDataOutLst!.( auxDataArr );
+		dataSampleOutLstLst = (x -> x.dataSampleOutLst).(auxDataArr);
+		dataStartSampleOutLstLst = (x -> x.dataStartSampleOutLst).(auxDataArr);
+		dataNumOutLstLst = (x -> x.dataNumOutLst).(auxDataArr);
+		dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst = multiplexLstArr.( [dataSampleOutLstLst, dataStartSampleOutLstLst, dataNumOutLstLst] );
+		# dataNumOutLst = multiplexLstArr( dataNumOutLst );
+		
+		jldVarSampleLst = Vector{Any}(undef,0);
+		jldVarStartSampleLst = similar(jldVarSampleLst);
+		jldVarNumLst = similar(jldVarSampleLst);
+		jldVarItSampleLst = similar(jldVarSampleLst);
+		
+		itSampleLst = auxDataArr[1].itSampleLst;
+		
+		new{eltype(auxDataArr)}( auxDataArr, dataLst, dataSampleLst, dataStartSampleLst, dataNumLst, dataSampleOutLst, dataStartSampleOutLst, dataNumOutLst, jldVarSampleLst, jldVarStartSampleLst, jldVarNumLst, jldVarItSampleLst, itSampleLst );
 	end
 end
 
@@ -1160,51 +1224,6 @@ function loops_MC_methods_Base_detailed_output( divNum = 64; updaterType::Type{<
 	
 	auxData = genAuxData( auxDataType, params, flipChecker, itController );
 	
-	# itSample = 1;
-	# while( testItNotDone( itController ) )
-		# it = itController.itRef[];
-		# print( "it = ", it, "         \r" )
-		
-		# if testItDoSample( itController )
-			# storeAuxDataSample( bLinkData, itSample, it );
-			# storeAuxDataSample( auxData, itSample, it );
-			# itSample += 1;
-		# end
-		
-		# if testItDoStartSample( itController )
-			# storeAuxDataStartSample( bLinkData, it );
-			# storeAuxDataStartSample( auxData, it );
-		# end
-		
-		# storeAuxDataNum( bLinkData, it );
-		# storeAuxDataNum( auxData, it );
-		
-		# if isnothing(flipProposer)
-			# updateLoops( updater, flipChecker, BfieldLst, linkLst, linkFerroLst, params );
-		# else
-			# updateLoops( updater, flipChecker, flipProposer, auxData, BfieldLst, linkLst, linkFerroLst, params );
-		# end
-		
-		# advanceItControl( itController );
-	# end
-	
-	# if testItDoSample( itController )
-		# it = itController.itRef[];
-		# storeAuxDataSample( bLinkData, itSample, it );
-		# storeAuxDataSample( auxData, itSample, it );
-		# itSample += 1;
-	# end
-	
-	# save( fName, "divNum", divNum, "itNum", itNum );
-	
-	# saveAuxDataAll( bLinkData, attrLst, valLst; fMod = fModOut );
-	# saveAuxDataAll( auxData, attrLst, valLst; fMod = fModOut );
-	
-	# if isFileNameOnly
-		# return fNameOutside;
-	# end
-	
-	# return fName, auxData;
 	fName = loops_MC_NoPrefabHelper_Base( params = params, updater = updater, flipChecker = flipChecker, flipProposer = flipProposer, auxData = auxData, initializer = initializer, itController = itController, fMod = fMod, isFileNameOnly = isFileNameOnly, fMainOutside = fMainOutside );
 	
 	return fName, auxData;
