@@ -1045,7 +1045,34 @@ testItDoStartSample( wlItController::WangLandauItController ) = false;
 
 
 
-struct WangLandauReplicaItController <: ItController
+abstract type AbstractWLReplicaItController <: ItController end
+
+function getItExchange( itController::AbstractWLReplicaItController )
+	return itController.itExchange;
+end
+
+function getValLstItController( itController::AbstractWLReplicaItController )
+	return [itController.dosIncrMin];
+end
+
+function getAttrLstItController( itControllerType::Type{<:AbstractWLReplicaItController} )
+	return [getItControllerName(itControllerType) * "dosIncrMin"];
+end
+
+function testItNotDone( wlItController::AbstractWLReplicaItController )
+	wlItController.dosIncrLst .= getDosIncr.( wlItController.flipCheckerLst );
+	return maximum( wlItController.dosIncrLst ) > wlItController.dosIncrMin;
+end
+
+testItDoStartSample( wlItController::AbstractWLReplicaItController ) = false;
+
+testItDoExchange( wlItController::AbstractWLReplicaItController ) = mod( wlItController.itRef[], wlItController.itExchange ) == 0;
+
+testItDoExchange( jointItController::JointItController{<:Tuple{ItController,AbstractWLReplicaItController}} ) = testItDoExchange( jointItController.itControllerTup[2] );
+
+getItExchange( jointItController::JointItController{<:Tuple{ItController,AbstractWLReplicaItController}} ) = getItExchange( jointItController.itControllerTup[2] );
+
+struct WangLandauReplicaItController <: AbstractWLReplicaItController
 	dosIncrMin::Float64;
 	itExchange::Int64;
 	flipCheckerLst::Array{<:AbstractWangLandauFlipChecker};
@@ -1066,25 +1093,8 @@ end
 
 getItControllerName( itControllerType::Type{WangLandauReplicaItController} ) = "WLReplicaItCtrl";
 
-function getItExchange( itController::WangLandauReplicaItController )
-	return itController.itExchange;
-end
-
-function getAttrLstItController( itControllerType::Type{WangLandauReplicaItController} )
-	return [getItControllerName(itControllerType) * "dosIncrMin"];
-end
-
-function getValLstItController( itController::WangLandauReplicaItController )
-	return [itController.dosIncrMin];
-end
-
 function getItNumLst( itController::WangLandauReplicaItController )
 	return zeros(Int64, 3);
-end
-
-function testItNotDone( wlItController::WangLandauReplicaItController )
-	wlItController.dosIncrLst .= getDosIncr.( wlItController.flipCheckerLst );
-	return maximum( wlItController.dosIncrLst ) > wlItController.dosIncrMin;
 end
 
 function testItDoSample( wlItController::WangLandauReplicaItController )
@@ -1102,14 +1112,48 @@ function testItDoSample( wlItController::WangLandauReplicaItController )
 	return false;
 end
 
-testItDoStartSample( wlItController::WangLandauReplicaItController ) = false;
 
-testItDoExchange( wlItController::WangLandauReplicaItController ) = mod( wlItController.itRef[], wlItController.itExchange ) == 0;
 
-testItDoExchange( jointItController::JointItController{<:Tuple{ItController,WangLandauReplicaItController}} ) = testItDoExchange( jointItController.itControllerTup[2] );
 
-getItExchange( jointItController::JointItController{<:Tuple{ItController,WangLandauReplicaItController}} ) = getItExchange( jointItController.itControllerTup[2] );
+struct WangLandauReplicaFineSampleItController <: AbstractWLReplicaItController
+	dosIncrMin::Float64;
+	itExchange::Int64;
+	flipCheckerLst::Array{<:AbstractWangLandauFlipChecker};
+	
+	dosIncrLst::Array{Float64};
+	dosIncrPrevLst::Array{Float64};
+	isDosIncrUpdatedLst::Array{Bool};
+	dosIncrMaxRef::Ref{Float64};
+	
+	itRef::Ref{Int64};
+	
+	function WangLandauReplicaFineSampleItController( flipCheckerLst::Array{<:AbstractWangLandauFlipChecker}, dosIncrMin::Float64, itExchange::Int64 )
+		itVal = 1;
+		dosIncrLst = similar(flipCheckerLst, Float64)
+		dosIncrPrevLst = similar(dosIncrLst);
+		isDosIncrUpdatedLst = similar(dosIncrLst, Bool);
+		dosIncrMax = 1.0;
+		dosIncrPrevLst .= dosIncrMax;
+		
+		new( dosIncrMin, itExchange, flipCheckerLst, dosIncrLst, dosIncrPrevLst, isDosIncrUpdatedLst, Ref(dosIncrMax), Ref(itVal) );
+	end
+end
 
+getItControllerName( itControllerType::Type{WangLandauReplicaFineSampleItController} ) = "WLReplicaItCtrlFineSample";
+
+function testItDoSample( wlItController::WangLandauReplicaFineSampleItController )
+	# return reduce( |, getIsHistFlat.( wlItController.flipCheckerLst ) );
+	wlItController.dosIncrLst .= getDosIncr.( wlItController.flipCheckerLst );
+	wlItController.isDosIncrUpdatedLst .= wlItController.dosIncrLst .< wlItController.dosIncrPrevLst;
+	
+	isAnyUpdated = reduce(|, wlItController.isDosIncrUpdatedLst);
+	
+	if isAnyUpdated
+		wlItController.dosIncrPrevLst .= wlItController.dosIncrLst;
+	end
+	
+	return isAnyUpdated;
+end
 
 
 
@@ -2887,13 +2931,15 @@ function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncr
 		setFriendCheckerLst!( flipCheckerLst[iE, iW], flipCheckerLst[iE,:]... );
 	end
 	
-	itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
 	fMainLst = Vector{String}(undef,numZones);
 	
 	if isCheckNan
 		errCheckItController = NanCheckWLItController( flipCheckerLst );
-		itController = JointItController( [errCheckItController, itController] );
+		itControllerWL = WangLandauReplicaFineSampleItController( flipCheckerLst, dosIncrMin, itExchange );
+		itController = JointItController( [errCheckItController, itControllerWL] );
 		# fModOut = join( [fModOut, "nancheck"], "_" );
+	else
+		itController = WangLandauReplicaItController( flipCheckerLst, dosIncrMin, itExchange );
 	end
 	
 	println("Loops_MC zoning starts:")
@@ -2901,12 +2947,26 @@ function loops_MC_methods_WL2dReplicaBase( divNum = 64; dosIncrInit = 1, dosIncr
 	
 	itNum = itController.itRef[];
 	
-	fLast = getDosIncr( flipCheckerLst[end] );
+	dosIncrLast = getDosIncr( flipCheckerLst[end] );
+	dosIncrLst = getDosIncr.( flipCheckerLst );
 	
-	return fName, histDosFinalLst, fLast;
+	paramsToSaveLst = [itNum, dosIncrLast, dosIncrLst];
+	paramsToSaveNameLst = ["itNumFinal","dosIncrLast" ,"dosIncrLst"];
+	
+	if isCheckNan
+		isNanChecked = !testItNotDone( errCheckItController );
+		push!(paramsToSaveLst, isNanChecked);
+		push!( paramsToSaveNameLst, "isNanDetected" );
+	end
+	
+	fMainMiscDataWL = "loops_WL2dReplica_MiscData";
+	fNameMiscDataWL = loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params = params, updaterLst = updaterLst, flipCheckerLst = flipCheckerLst, flipProposer = flipProposer, initializerLst = initializerLst, auxDataLst = auxDataLst, itController = itController, isFileNameOnly = true, fMainOutside = fMainMiscDataWL, fMod = fMod );
+	Utils.saveJld2Lst( fNameMiscDataWL, paramsToSaveNameLst, paramsToSaveLst );
+	
+	return fName, histDosFinalLst, dosIncrLast;
 end
 
-function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::Union{WangLandauReplicaItController,FindConfigReplicaItController,JointItController{<:Tuple{ErrCheckItController,WangLandauReplicaItController}}}, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
+function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::ParamsLoops, updaterLst::Array{<:LoopsUpdater}, flipCheckerLst::Array{<:FlipChecker}, flipProposer::FlipProposer = OneFlipProposer, auxDataLst::Array{<:AuxData}, initializerLst::Vector{<:BLinkInitializer}, itController::Union{WangLandauReplicaItController,FindConfigReplicaItController,JointItController{<:Tuple{ErrCheckItController,AbstractWLReplicaItController}}}, fMod = "", isFileNameOnly::Bool = false, fMainOutside::Union{String, Nothing}= "" )
 	# fModOut = copy( fMod );
 	# if !isnothing(errCheckItController)
 		# itController = JointItController( [errCheckItController, itController] );
