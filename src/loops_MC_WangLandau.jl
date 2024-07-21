@@ -2875,27 +2875,6 @@ function loops_MC_methods_WL2dReplica( divNum = 64; dosIncrInit = 1, dosIncrMin 
 		println( "f = ", fLast );
 	end
 	
-	
-	# flipCheckerGluedDummy = WL2dHistStructFlipChecker( divNum, nDim; histStdRatioThres = 0.15, wlResetInterval = wlResetInterval, wlHistDosType = histDosFullType );
-	# initializerDummy = PresetInitializer( [zeros(Bool,divNum, divNum)] );
-	# attrLstMod = ["numZones", "numWalks"];
-	# valLstMod = [numZones, numWalksEach];
-	# itController = WangLandauItController( dosIncrMin, flipCheckerGluedDummy );
-	
-	# fNameGlued = loops_MC_methods_Base( divNum; updaterType = updaterType, flipChecker = flipCheckerGluedDummy, flipProposer = flipProposer, initializer = initializerDummy, auxDataType = auxDataType, itController = itController, nDim = nDim, isFileNameOnly = true, fMainOutside = fMainGlued, attrLstMod = attrLstMod, valLstMod = valLstMod );
-	
-	# if !isFileNameOnly
-		# # save( fNameGlued, "dosArrGlued", dosArrFull );
-		# save( fNameGlued, "dosArrGlued", dosArrFull, "dosArrZonedLst", getDosArr.(histDosFinalLst) );
-		# # println( "f = ", getDosIncr( flipCheckerLst[end] ) );
-		# println( "f = ", fLast );
-	# end
-	
-	# if isFileNameOnly
-		# return fNameGlued
-	# else
-		# return fName;
-	# end
 	return fNameOut;
 end
 
@@ -3388,7 +3367,6 @@ end
 function findGluePtsDosArrReplica( histDosLst::AbstractVector{<:WLHistDosZonedInE{nDim,2} where{nDim}} )
 	dosArr2dLst = getDosArr.( histDosLst );
 	dosMinLst = minimum.(a -> a !=0 ? a : Inf, dosArr2dLst);
-	( (x,y)->((a,b)->(a != 0 ? a -= b - log(2) : nothing)).(x,y) ).(dosArr2dLst, dosMinLst);
 	for iHist = 1 : length( dosArr2dLst )
 		for i2d = 1 : length( dosArr2dLst[iHist] )
 			if dosArr2dLst[iHist][i2d] != 0
@@ -3397,11 +3375,41 @@ function findGluePtsDosArrReplica( histDosLst::AbstractVector{<:WLHistDosZonedIn
 			end
 		end
 	end
-	# (a,b)->(a .-= b).( dosArr2dLst, minimum.(dosArr2dLst) );
-	# dosArr2dLst .-= minimum.(dosArr2dLst);
-	dosArr1dLst = ( d -> dropdims( log.( sum( exp.( d ); dims = 1 ) ); dims = 1 ) ).(dosArr2dLst);
+	
+	dosMaxLst = maximum.(dosArr2dLst);
+
+	dosArrExpShMaxLst = [ similar( dosArr2dLst[ii] ) for ii = 1 : length(histDosLst) ];
+	for iHist = 1 : length( dosArr2dLst )
+		for i2d = 1 : length( dosArr2dLst[iHist] )
+			if dosArr2dLst[iHist][i2d] == 0
+				dosArrExpShMaxLst[iHist][i2d] = 0;
+			else
+				dosArrExpShMaxLst[iHist][i2d] = exp(dosArr2dLst[iHist][i2d] - dosMaxLst[iHist]);
+			end
+		end
+	end
+
+	# dosArr1dLst = ( d -> dropdims( log.( sum( exp.( d ); dims = 1 ) ); dims = 1 ) ).(dosArr2dLst);
+	dosArr1dLst = ( (d,mx) -> dropdims( log.( sum( d; dims = 1 ) ); dims = 1 ) .+ mx ).(dosArrExpShMaxLst, dosMaxLst);
 	return findGluePtsDosArrReplica( dosArr1dLst, (h->h.idMin).(histDosLst), (h->h.idMax).(histDosLst) )
 end
+
+# function findGluePtsDosArrReplica( histDosLst::AbstractVector{<:WLHistDosZonedInE{nDim,2} where{nDim}} )
+	# dosArr2dLst = getDosArr.( histDosLst );
+	# dosMinLst = minimum.(a -> a !=0 ? a : Inf, dosArr2dLst);
+	# # dosArr2dLst = ( (x,y)->((a,b)->(a != 0 ? a -= b - log(2) : nothing)).(x,y) ).(dosArr2dLst, dosMinLst);
+	# for iHist = 1 : length( dosArr2dLst )
+		# for i2d = 1 : length( dosArr2dLst[iHist] )
+			# if dosArr2dLst[iHist][i2d] != 0
+				# dosArr2dLst[iHist][i2d] -= dosMinLst[iHist];
+				# dosArr2dLst[iHist][i2d] += log(2);
+			# end
+		# end
+	# end
+	
+	# dosArr1dLst = ( d -> dropdims( log.( sum( exp.( d ); dims = 1 ) ); dims = 1 ) ).(dosArr2dLst);
+	# return findGluePtsDosArrReplica( dosArr1dLst, (h->h.idMin).(histDosLst), (h->h.idMax).(histDosLst) )
+# end
 
 function findGluePtsDosArrReplica( dosArrLst, idMinLst, idMaxLst )
 	diffLst1 = zeros(0);
