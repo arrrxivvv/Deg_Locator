@@ -244,7 +244,8 @@ struct DegObj
 end
 
 include("divBIOFuncs.jl")
-export fileNameAttrFunc, fNameAttrLstFunc, fNameFunc, fAttrOptLstFunc
+export fileNameAttrFunc, fNameAttrLstFunc, fAttrOptLstFunc
+# fNameFunc, 
 
 include("degLocator_funcs.jl")
 export locator_div, locator_div_GUE, locator_div_sin3, locLstDistill, locator_div_GUE_scale, locator_div_GUE_ratio, locator_div_GOE_ratio

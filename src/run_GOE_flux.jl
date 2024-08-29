@@ -43,6 +43,9 @@ valLstJldArr = [nlst[1,end],divLstBase[1]];
 fNameJldArrName = fNameFunc( fNameJldArrMain, attrLstJldArr, valLstJldArr, jld2Type );
 fNameParam = fNameFunc( fMainParam, attrLstJldArr, valLstJldArr, jld2Type );
 
+attrLstZak = ["dim","N","param_divide","instanceNum","seed"];
+valLstZak = [nDim, nBase, divLstBase, itNum, seed];
+
 # for n in nlst
 for ii = 1 : length(nlst)
 	n = nlst[ii];
@@ -56,8 +59,20 @@ for ii = 1 : length(nlst)
 		
 		# @time zakArr_corr_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
 		# @time DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
-		@time fNameArr[ii] = DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, isFileNameOnly = isFileNameOnly );
+		# @time fNameArr[ii] = DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, isFileNameOnly = isFileNameOnly );
 		# @time deg_GOE3_zak_resave( n, divLst, itNum, seed; fMod = fMod );
+		DegLocatorDiv.deg_GOE3_zak_lstToArr_resave( n, divLst, itNum, seed; fMod = fMod );
+		# valLstZak[3] = divLstLst[:,ii];
+		# valLstZak[2] = n;
+		# fName = fNameFunc(fMainBase,attrLstZak,valLstZak,jld2Type; fMod = fMod);
+		# zakLstTmp = load( fName, "zakLstLst" );
+		# zakArrTmp = zeros( itNum, divLst[:,ii]..., n );
+		# idCartLst = CartesianIndices(zakLstTmp[1]);
+		# for it = 1 : itNum
+			# for ii in idCartLst
+				# ;
+			# end
+		# end
 	end
 end
 

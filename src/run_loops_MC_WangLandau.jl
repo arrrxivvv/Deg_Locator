@@ -7,10 +7,10 @@ using DelimitedFiles
 # isFileNameOnly = false;
 isFileNameOnly = true;
 
-# isCheckNan = false;
-isCheckNan = true;
+isCheckNan = false;
+# isCheckNan = true;
 
-divNum = 6;
+divNum = 8;
 itNum = 640000;
 nDim = 3;
 D_hist = 2;
@@ -43,8 +43,8 @@ fLstName2d = "Loops_MC_WL2d.txt";
 # fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.WangLandauAuxData );
 # fMainToLoad = Loops_MC.getAuxDataSummaryItSampleLstName( Loops_MC.WangLandauAuxData );
 # fMainToLoad = "loops_WL2dZonesGluedThrd";
-# fMainToLoad = "loops_WL2dZonesGluedReplica";
-fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.BundledArrAuxData{Loops_MC.WangLandauAuxData} );
+fMainToLoad = "loops_WL2dZonesGluedReplica";
+# fMainToLoad = Loops_MC.getAuxDataSummarySampleName( Loops_MC.BundledArrAuxData{Loops_MC.WangLandauAuxData} );
 
 fNameLst = Vector{String}(undef,0);
 

@@ -345,6 +345,29 @@ function deg_GOE3_zak_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", 
 	save( fNameOut, "zakLstLst", zakLstLst );
 end
 
+function deg_GOE3_zak_lstToArr_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type )
+	fMain = "deg_GOE3";
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
+	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	zakLstLst = load( fName, "zakLstLst" );
+	
+	zakArr = zeros( mSz, size(zakLstLst[1])..., itNum );
+	
+	idLst = CartesianIndices( zakLstLst[1] );
+	
+	for it = 1 : itNum
+		for idCart in idLst
+			zakArr[:,idCart,it] .= zakLstLst[it][idCart];
+		end
+	end
+	
+	fMainOut = "deg_GOE3_zakArr";
+	fNameOut = fNameFunc( fMainOut, attrLst, valLst, fExt; fMod = fMod );
+	
+	save( fNameOut, "zakArr", zakArr );
+end
+
 # function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt = jld2Type )
 	# nDim = 3;
 	# nDimLayer = nDim-1;
