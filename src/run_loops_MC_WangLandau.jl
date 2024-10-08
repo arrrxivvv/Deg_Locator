@@ -12,12 +12,12 @@ isCheckNan = false;
 
 divNum = 8;
 itNum = 640000;
-nDim = 3;
+nDim = 2;
 D_hist = 2;
 
-dosIncrMin = 0.1;
-wlResetInterval = 2000;
-itExchange = 200;
+dosIncrMin = 1e-8;
+wlResetInterval = 1000;
+itExchange = 100;
 
 cAreaInit = 0;
 # wlHistDosType = Loops_MC.WLHistDos2DZoned;

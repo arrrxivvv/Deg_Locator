@@ -626,6 +626,7 @@ function eRatioToLnk01ValRnd( eRatio::Real, numLnkVal::Int64, funRnd::Union{type
 end
 
 function histUpdateNoBackupSet( histDos::AbstractWLHistDosZoned, params::ParamsLoops, flipProposer::FlipProposer, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D}, dosIncr::Float64 ) where {D}
+	# @infiltrate
 	id, idNxt, isInBnd = getHistUpdateId( histDos, params, BfieldLst, linkLst, dim, pos );
 	if isInBnd
 		isFlip = histUpdateWithId( histDos, dosIncr, id, idNxt );
@@ -659,6 +660,15 @@ struct WLHistDosZonedInE{nDim,D_hist} <: AbstractWLHistDosZonedInE
 	
 	posLst::CartesianIndices{D_hist,Tuple{Vararg{Base.OneTo{Int64},D_hist}}};
 	
+	sSumDimLst::Vector{Int64};
+	lSumDimLst::Vector{Int64};
+	
+	sTotalArr::Array{Int64};
+	lTotalArr::Array{Int64};
+	
+	
+	tmpArr::Matrix{Int64};
+	
 	function WLHistDosZonedInE{nDim,D_hist}( idMin::Int64, idMax::Int64, histArr::Array{Int64,D_hist}, numLnkVal::Int64 ) where {nDim,D_hist}
 		histArrFlatBackup = similar(histArr);
 		dosArr = similar(histArr, Float64);
@@ -668,7 +678,17 @@ struct WLHistDosZonedInE{nDim,D_hist} <: AbstractWLHistDosZonedInE
 		
 		isHistFlatVal = false;
 		
-		new{nDim,D_hist}( histArr, histArrFlatBackup, dosArr, Ref(isHistFlatVal), numLnkVal, idMin, idMax, posLst );
+		nDimB = Int64( nDim * (nDim-1) / 2 );
+		
+		lSumDimLst = zeros(Int64, nDim);
+		sSumDimLst = zeros(Int64, nDimB);
+		
+		sTotalArr = zeros(Int64,1);
+		lTotalArr = zeros(Int64,1);
+		
+		tmpArr = zeros(Int64, 1, 1);
+		
+		new{nDim,D_hist}( histArr, histArrFlatBackup, dosArr, Ref(isHistFlatVal), numLnkVal, idMin, idMax, posLst, sSumDimLst, lSumDimLst, sTotalArr, lTotalArr, tmpArr );
 	end
 end
 
@@ -811,23 +831,40 @@ end
 function getHistUpdateId( wlHistDos::WLHistDosZonedInE{nDim,2}, params::ParamsLoops, BfieldLst::Vector{Array{Bool,D}}, linkLst::Vector{Array{Bool,D}}, dim::Int64, pos::CartesianIndex{D} ) where {D,nDim}
 	dL = calcDL( params, linkLst, dim, pos );
 	
-	lTotal = sum( sum.(linkLst) );
-	lNxt = lTotal + dL;
+	# for iDim = 1 : nDim
+		# sum!( wlHistDos.tmpArr, linkLst[iDim] );
+		# wlHistDos.lSumDimLst[iDim] = wlHistDos.tmpArr[1];
+	# end
+	wlHistDos.lSumDimLst .= sum.(linkLst);
+	# lTotal = sum( wlHistDos.lSumDimLst );
+	sum!( wlHistDos.lTotalArr, wlHistDos.lSumDimLst );
+	# lTotal = sum( sum.(linkLst) );
+	# lTotal = sum( sum.(linkLst) );
+	# wlHistDos.lTotalArr[1] = lTotal;
+	# lNxt = lTotal + dL;
+	lNxt = wlHistDos.lTotalArr[1] + dL;
 	
 	# lId = getLinkHistIdFull( wlHistDos.grdNum, lTotal );
 	# lIdNxt = getLinkHistIdFull( wlHistDos.grdNum, lNxt );
-	lId = getLinkHistIdFull( wlHistDos, lTotal );
+	lId = getLinkHistIdFull( wlHistDos, wlHistDos.lTotalArr[1] );
 	lIdNxt = getLinkHistIdFull( wlHistDos, lNxt );
 	
 	if testHistIdOutBnd( wlHistDos, lId ) 
 		error( "Loops_MC.WLHistDos2DZoned: id out of bound" )
 	end
 	
-	sTotal = sum( sum.(BfieldLst) );
+	# for iDim = 1 : params.nDimB
+		# sum!( wlHistDos.tmpArr, BfieldLst[iDim] );
+		# wlHistDos.sSumDimLst[iDim] = wlHistDos.tmpArr[1];
+	# end
+	wlHistDos.sSumDimLst .= sum.(BfieldLst);
+	sum!( wlHistDos.sTotalArr, wlHistDos.sSumDimLst );
+	# sTotal = sum( wlHistDos.sSumDimLst );
+	# sTotal = sum( sum.(BfieldLst) );
 	dS = boolToFlipChange( BfieldLst[dim][pos] );
-	sTotalNxt = sTotal + dS;
+	sTotalNxt = wlHistDos.sTotalArr[1] + dS;
 	
-	sId = sTotal + 1;
+	sId = wlHistDos.sTotalArr[1] + 1;
 	sIdNxt = sTotalNxt + 1;
 	
 	isInBnd = true;
@@ -1431,8 +1468,12 @@ end
 
 function wangLandauHistResetSynchronized( flipCheckerLst::AbstractVector{<:WLFriendsFlipChecker} )
 	if wangLandauHistResetCheck( flipCheckerLst )
+		# @time begin
 		wangLandauHistResetNoCheck.( flipCheckerLst );
 		avgDosAllFriends!( flipCheckerLst );
+		# end
+		
+		# @infiltrate
 	end
 end
 
@@ -1527,6 +1568,7 @@ struct WL2dHistStructFlipChecker{T_histDos} <: AbstractWLHistStructFlipChecker
 	histIsOverArr::Array{Bool};
 	histIsOverArrPrev::Array{Bool};
 	histMaskedArr::Array{Int64};
+	histStdMaskedArr::Array{Float64};
 	
 	wlCounter::Ref{Int64};
 	wlResetInterval::Int64;
@@ -1540,9 +1582,10 @@ struct WL2dHistStructFlipChecker{T_histDos} <: AbstractWLHistStructFlipChecker
 		histIsOverArr .= false;
 		histIsOverArrPrev .= false;
 		histMaskedArr = similar( getHistArr(histDos) );
+		histStdMaskedArr = similar( histMaskedArr, Float64 );
 		wlCounterVal = 1;
 		
-		new{T_histDos}( divNum, grdNum, histDos, Ref(dosIncrVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, Ref(wlCounterVal), wlResetInterval );
+		new{T_histDos}( divNum, grdNum, histDos, Ref(dosIncrVal), histCutoffThres, histStdRatioThres, histIsOverArr, histIsOverArrPrev, histMaskedArr, histStdMaskedArr, Ref(wlCounterVal), wlResetInterval );
 	end
 end
 
@@ -1569,19 +1612,25 @@ function wangLandauHistResetCheck( flipChecker::WL2dHistStructFlipChecker )
 	flipChecker.wlCounter[] += 1;
 	# @infiltrate typeof( getHistDos( flipChecker ) ) <: AbstractWLHistDosZoned
 	if mod( flipChecker.wlCounter[], flipChecker.wlResetInterval ) == 0
+		# @time begin
 		maxCnt, cntId = findmax( getHistArr( flipChecker.histDos ) );
 		cntCutoff = maxCnt * flipChecker.histCutoffThres;
-		flipChecker.histIsOverArr .= getHistArr( flipChecker.histDos ) .>= cntCutoff .|| flipChecker.histIsOverArrPrev;
-		flipChecker.histMaskedArr .= getHistArr( flipChecker.histDos ) .* flipChecker.histIsOverArr;
+		@strided flipChecker.histIsOverArr .= getHistArr( flipChecker.histDos ) .>= cntCutoff .|| flipChecker.histIsOverArrPrev;
+		@strided flipChecker.histMaskedArr .= getHistArr( flipChecker.histDos ) .* flipChecker.histIsOverArr;
 		
-		cntOver = sum(flipChecker.histIsOverArr);
-		meanHistOver = sum( flipChecker.histMaskedArr ) / cntOver;
-		stdHistOver = sqrt.( sum( ( flipChecker.histMaskedArr .- meanHistOver ).^2 .* flipChecker.histIsOverArr ) / (cntOver - 1) );
+		cntOver = ThreadsX.sum(flipChecker.histIsOverArr);
+		meanHistOver = ThreadsX.sum( flipChecker.histMaskedArr ) / cntOver;
+		# stdHistOver = sqrt( sum( ( flipChecker.histMaskedArr .- meanHistOver ).^2 .* flipChecker.histIsOverArr ) / (cntOver - 1) );
+		@strided flipChecker.histStdMaskedArr .= ( flipChecker.histMaskedArr .- meanHistOver ).^2 .* flipChecker.histIsOverArr;
+		stdHistOver = sqrt( ThreadsX.sum( flipChecker.histStdMaskedArr ) / (cntOver - 1) );
+		# stdHistOver = sqrt( sum( ( flipChecker.histMaskedArr .- meanHistOver ).^2 .* flipChecker.histIsOverArr ) / (cntOver - 1) );
 		
 		if stdHistOver < meanHistOver * flipChecker.histStdRatioThres
 			isHistReset = true;
 			flipChecker.histIsOverArrPrev .= flipChecker.histIsOverArr;
 		end
+		# end
+		# @infiltrate typeof( getHistDos( flipChecker ) ).parameters[1] == 3 && typeof( getHistDos( flipChecker ) ).parameters[2] == 2
 	end
 	
 	return isHistReset
@@ -2720,7 +2769,8 @@ function loops_MC_methods_WL2d( divNum = 64; dosIncrInit = 1, dosIncrMin = 0.001
 	
 	println( "f = ", flipChecker.dosIncrRef[] );
 	
-	# save( fNameWL, "histArr", flipChecker.histArr, "dosArr", flipChecker.dosArr );
+	# save( fName, "histArr", flipChecker.histArr, "dosArr", flipChecker.dosArr );
+	save( fName, "histArr", getHistArr( flipChecker ), "dosArr", getDosArr( flipChecker ) );
 	
 	# open( dirLog * fNameFileLstWL, "w" ) do io
 		# println( io, fNameWL );
@@ -3009,10 +3059,12 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 		itExchange = getItExchange( itController );
 		
 		itSample = 1;
+		itStepOutput = 10000;
+		itStepGC = 10000 * itExchange;
 		@time while( testItNotDone( itController ) )
 			# @time begin
 			it = itController.itRef[];
-			if mod(it,10000) == 0 || mod(it,10000) == 1
+			if mod(it,itStepOutput) == 0 || mod(it,itStepOutput) == 1
 				# print( "it = ", it, ", fmax = ", maximum( getDosIncr.( flipCheckerLst ) ), ", fmin = ", minimum( getDosIncr.( flipCheckerLst ) ), ", ", roundKeepInt.( getDosIncr.( flipCheckerMasterLst ); digits=5 ), " \r" )
 				print( "it = ", it, ", fmax = ", maximum( getDosIncr.( flipCheckerLst ) ), ", fmin = ", minimum( getDosIncr.( flipCheckerLst ) ) );
 				print(", ", roundKeepInt.( getDosIncr.( flipCheckerMasterLst[idDisplayMasterLst] ); digits=5 ) );
@@ -3020,6 +3072,7 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 				# ", itWL = " , flipCheckerLst[1,1].selfChecker.wlCounter[]
 			end
 			
+			# @timeit tmr "sample" 
 			if testItDoSample( itController )
 				for iZ = 1 : numZones, iW = 1 : numWalksEach
 					storeAuxDataSample( bLinkDataLst[iZ,iW], itSample, it );
@@ -3028,6 +3081,7 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 				itSample += 1;
 			end
 			
+			# @timeit tmr "startSample" 
 			if testItDoStartSample( itController )
 				for iZ = 1 : numZones, iW = 1 : numWalksEach
 					storeAuxDataStartSample( bLinkDataLst[iZ,iW], it );
@@ -3035,6 +3089,7 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 				end
 			end
 			
+			# @timeit tmr "exchange" 
 			if testItDoExchange( itController )
 				for iZ = 1 : numZones - 1
 					shuffle!( walksIdLst );
@@ -3055,8 +3110,12 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 			# println("updateLoops")
 			# @time begin
 			# Threads.@threads 
+			
 			# @time 
+			GC.enable(false)
+			# @timeit tmr "updateLoop" 
 			Threads.@threads for iSeg = 1 : length( bLinkDataLst )
+				# GC.enable(false)
 				BfieldLst, linkLst, linkFerroLst = bLinkDataLst[iSeg].dataLst;
 				# println("old wlCunter = ", flipCheckerLst[iSeg].selfChecker.wlCounter[])
 				for itInt = 1 : itExchange
@@ -3068,20 +3127,41 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 				else
 					flipCheckerLst[iSeg].selfChecker.wlCounter[] += itExchange;
 				end
+				# GC.enable(true)
 			end
+			# Threads.@threads for iSeg = 1 : length( bLinkDataLst )
+				GC.enable(true)
+			# end
+			# GC.gc()
 			
 			# @time Threads.@threads 
 			# @time 
-			for iZ = 1 : numZones
+			# @timeit tmr "wlSynchronize" 
+			Threads.@threads for iZ = 1 : numZones
 				wangLandauHistResetSynchronized( flipCheckerFriendsLst[iZ] );
 			end
+			if flipCheckerLst[1].selfChecker.wlCounter[] % flipCheckerLst[1].selfChecker.wlResetInterval == 0			
+				# @infiltrate
+			end
 			
+			# @timeit tmr "advanceIt" 
 			for itInt = 1 : itExchange
 				advanceItControl( itController );
+			end
+			
+			if mod( it, itStepGC ) == 0 || mod( it, itStepGC ) == 1
+				# Threads.@threads for iSeg = 1 : length( bLinkDataLst )
+					# GC.enable(true)
+					GC.gc();
+					# GC.enable(false)
+				# end
 			end
 			# @infiltrate mod( it, 50000 ) == 0
 			# end
 			# @infiltrate
+			# if it > 1e6
+				# break;
+			# end
 		end
 		
 		# if testItDoSample( itController )
@@ -3101,6 +3181,8 @@ function loops_MC_NoPrefabHelper_Replica( numZones, numWalksEach; params::Params
 		
 		saveAuxDataAll( wlBundledAuxData, attrLstReplica, valLstReplica; fMod = fMod );
 		saveAuxDataAll( bLinkBundledAuxData, attrLstReplica, valLstReplica; fMod = fMod );
+		
+		println("it total: ", itController.itRef[]);
 	
 		# end
 	end

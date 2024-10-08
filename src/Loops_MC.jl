@@ -4,9 +4,15 @@ using ShiftedArrays
 using FilenameManip
 using Random
 using JLD2
+using LoopVectorization
+using Strided
+using ThreadsX
 using Statistics
 using Distributions
 using Utils
+using TimerOutputs
+tmr = TimerOutput();
+# tmr2 = TimerOutput();
 
 export loops_MC_methods, loops_MC, loops_MC_smart, loops_MC_staggeredCube
 
@@ -1568,5 +1574,7 @@ include("loops_MC_old_funcs.jl")
 include("loops_MC_attr_printing.jl");
 
 include("loops_MC_2d.jl");
+
+include("loops_MC_profilingFuncs.jl");
 
 end #endmodule

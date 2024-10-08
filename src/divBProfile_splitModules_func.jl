@@ -332,6 +332,93 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	save( fName, "N", mSz, "seed", seedFed, "NLst", NLst, "locLst", locLst, "HLstLst", HLstLst, "zakLstLst", zakLstLst );
 end
 
+function divB_profile_GOE_layered_base( HLstLst::Array{Matrix{Float64}}, mSz::Int64, divLst::Vector{Int64} )
+	nDim = 3;
+	nDimLayer = nDim - 1;
+	divLstLayer = divLst[1:nDim-1];
+	div3 = divLst[nDim];
+	iPol2d = 1;
+	
+	minNum = 0;
+	maxNum = 2*pi;
+	
+	paramsFull = degParamsPeriodic( mSz, divLst, minNum, maxNum, nDim );
+	paramsLayer = degParamsPeriodic( mSz, divLstLayer, minNum, maxNum, nDim-1 );
+	
+	degBerrysLayer, non0Lst = degTmpArrs( paramsLayer, memNone );
+	vLstPrev = deepcopy( degBerrysLayer.degMats.vLst );
+	vLstFirst = deepcopy( vLstPrev );
+	linkLst3 = deepcopy( degBerrysLayer.linkLst[1] );
+	linkLstThrough = deepcopy(linkLst3);
+	assignArrOfArrs!( linkLstThrough, 1 );
+	zakLstLst = [ zeros(mSz) for pos in paramsLayer.posLst ];
+	
+	assignArrOfArrs!(linkLstThrough,1);
+	
+	H3sum = zeros( Float64, mSz, mSz );
+	x3LstLst = [ [ paramsFull.gridLst[nDim][i3] ] for i3 = 1:div3 ];
+	
+	NLstPolLayer = [zeros(Int64, mSz) for iPol = 1:2];
+	locLstPolLayer = [ Vector{Matrix{Int64}}(undef,0) for iPol = 1:2 ];
+	
+	NLst = zeros(Int64, mSz, div3);
+	locLst = [ [ zeros(Int64, 0, nDim) for iM = 1:mSz ] for i3 = 1 : div3 ];	
+	
+	for i3 = 1 : div3
+		Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim]) );
+		HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer]), H3sum );
+		NLst[:,i3], NLstPolLayer[2], locLstPolLayer[1], locLstPolLayer[2] = locateDiv( degBerrysLayer, non0Lst; HmatFun = HmatFunLayer, yesGC = false );
+		for iM = 1 : mSz
+			locLst[i3][iM] = hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3]) );
+		end
+		
+		if i3 == 1
+			assignArrOfArrs!( vLstFirst, degBerrysLayer.degMats.vLst );
+		else
+			Threads.@threads for pos in paramsLayer.posLst
+				dotEachCol!( linkLst3[pos], degBerrysLayer.degMats.vLst[pos], vLstPrev[pos] );
+				linkLst3[pos] .= linkLst3[pos] ./ abs.(linkLst3[pos]);
+				
+				linkLstThrough[pos] .*= linkLst3[pos];
+			end
+		end
+		if i3 == div3
+			Threads.@threads for pos in paramsLayer.posLst
+				dotEachCol!( linkLst3[pos], vLstFirst[pos], degBerrysLayer.degMats.vLst[pos] );
+				linkLst3[pos] .= linkLst3[pos] ./ abs.(linkLst3[pos]);
+				
+				linkLstThrough[pos] .*= linkLst3[pos];
+				zakLstLst[pos] .= real.( log.(linkLstThrough[pos]) ./ (pi*1im) );
+			end
+		else
+			assignArrOfArrs!( vLstPrev, degBerrysLayer.degMats.vLst );
+		end
+	end	
+	
+	return zakLstLst;
+end
+
+function divB_profile_GOE_layered_div3Lst( mSz::Int64, divNum::Int64, div3Lst::Vector{Int64}, seedFed; fMod = "" )
+	itNumDummy = 1;
+	nDim = 3;
+	HLstLst = HLstRandomGen( mSz, itNumDummy, nDim, seedFed; HRandFun = H_GOE )[:,:,1];
+	divLst = fill(divNum, nDim);
+	
+	zakLstLst = [ [ zeros(mSz) for i1 = 1 : divNum, i2 = 1 : divNum ] for i3 = 1 : length(divLst) ];
+	
+	for iDiv3 = 1 : length(div3Lst)
+		divLst[nDim] = div3Lst[iDiv3];
+		
+		zakLstLst[iDiv3] = divB_profile_GOE_layered_base( HLstLst, mSz, divLst );
+	end
+	
+	fMain = "deg_GOE3_div3Test";
+	attrLst, valLst = fAttrOptLstFunc( mSz, divLst[1:2], itNumDummy, seedFed; dim = nDim );
+	fName = fNameFunc( fMain, attrLst, valLst, jld2Type; fMod = fMod );
+	
+	save( fName, "zakLstLst", zakLstLst, "div3Lst", div3Lst );
+end
+
 function deg_GOE3_zak_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type )
 	fMain = "deg_GOE3";
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
@@ -345,18 +432,23 @@ function deg_GOE3_zak_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", 
 	save( fNameOut, "zakLstLst", zakLstLst );
 end
 
-function deg_GOE3_zak_lstToArr_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type )
-	fMain = "deg_GOE3";
+function deg_GOE3_zak_lstToArr_resave( mSz, divLst, itNum, seedFed; nDim = 3, fMod = "", fExt = jld2Type, fMain = "deg_GOE3", itNumAlt = 0 )
+	# fMain = "deg_GOE3";
+	if itNumAlt != 0
+		itNumTrue = itNumAlt;
+	else
+		itNumTrue = itNum;
+	end
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
 	
 	zakLstLst = load( fName, "zakLstLst" );
 	
-	zakArr = zeros( mSz, size(zakLstLst[1])..., itNum );
+	zakArr = zeros( mSz, size(zakLstLst[1])..., itNumTrue );
 	
 	idLst = CartesianIndices( zakLstLst[1] );
 	
-	for it = 1 : itNum
+	for it = 1 : itNumTrue
 		for idCart in idLst
 			zakArr[:,idCart,it] .= zakLstLst[it][idCart];
 		end

@@ -1,4 +1,4 @@
-# using Infiltrator
+
 @enum HgridStoreOpt HgridFull=1 Hlayered HthreadedOnly
 
 struct DegMatsOnGrid{Telm<:Number}

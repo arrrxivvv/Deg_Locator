@@ -2,7 +2,7 @@ module DegLocatorDiv
 
 # using Infiltrator
 
-using MKL
+# using MKL
 using UMat
 using Utils
 using FilenameManip
