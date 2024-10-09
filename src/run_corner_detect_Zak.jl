@@ -2,47 +2,85 @@ using CornerDetector
 using ImgProcessing
 using DataStructures
 using JLD2
+using SharedFNames
+using Utils
+using FilenameManip
+using DelimitedFiles
 
-fName = "deg_GOE3_zakArr_dim_3_N_10_param_divide_[512, 512, 64]_instanceNum_10_seed_1000.jld2";
-
-zakLstLst = load( fName, "zakArr" );
+using Infiltrator
 
 lnFiltHarris = 2;
 lnFiltSteer = 2;
 lnConnected = 1;
 wdHarrisNearWind = 4;
 
-itNum = 10;
-mSz = 10;
-
-mLev = 4;
-it = 1;
-zakLstTest = @view( zakLstLst[mLev,:,:,it] );
-
-szZak = size( zakLstTest, 1 );
-
-steerData = CornerDetector.SteerFiltHelperData( szZak );
-harrisFiltData = CornerDetector.HarrisFiltHelperData( szZak);
-
 thresHarris = 0.3;
 thresSteer = 0.04;
 
-CornerDetector.genCovMat!( harrisFiltData, zakLstTest );
-CornerDetector.genHarrisCornerFiltFromCovMatBox!( harrisFiltData; filtLen = lnFiltHarris );
-CornerDetector.genSteerCornerFilt!( steerData, zakLstTest, lnFiltSteer );
+dirLog = SharedFNames.dirLog;
+fNameFileLstJld2Lst = SharedFNames.fNameFileLstJld2Lst;
+fNameSaveParamsLst = SharedFNames.fNameSaveParamsLst;
 
-CornerDetector.nonMaxSuppress!( harrisFiltData );
-CornerDetector.nonMaxSuppress!( steerData );
+fNameFNameLstJld2 = Utils.strReadLastLine( dirLog * fNameFileLstJld2Lst );
+fNameSaveParams = Utils.strReadLastLine( dirLog * fNameSaveParamsLst );
 
-idCornerHarrisMergedLst = CornerDetector.extractMaxIdWithConnectedComp!( harrisFiltData, thresHarris, lnConnected );
+fNameArr = load( fNameFNameLstJld2, "fNameArr" );
 
-idCornerSteerMergedLst = CornerDetector.extractMaxIdWithConnectedComp!( steerData, thresSteer, lnConnected );
+nLst = load( fNameSaveParams, "nLst" );
+itNum = load( fNameSaveParams, "itNum" );
+divLstLst = load( fNameSaveParams, "divLstLst" );
 
-idSteerHarrisMergedLst = CornerDetector.genCornerIdSteerHarrisMerged( idCornerSteerMergedLst, CornerDetector.getIsMaxedArr( harrisFiltData ), wdHarrisNearWind );
+lnNLst = length( nLst );
 
-idSteerHarrisMergedLstStacked = zeros( Float64, 2, length(idSteerHarrisMergedLst) );
-for ii = 1 : length(idSteerHarrisMergedLst)
-	idSteerHarrisMergedLstStacked[:,ii] .= idSteerHarrisMergedLst[ii];
+itNumTmp = 1
+lnNLstTmp = 1;
+
+lnNLst = lnNLstTmp;
+itNum = itNumTmp;
+
+idCornerSteerHarrisMergedLstNLst = [ Matrix{Matrix{Float64}}(undef,nLst[iN],itNum) for iN = 1 : lnNLst ];
+
+# error("stopping")
+
+for iN = 1 : lnNLst
+	mSz = nLst[iN];
+	
+	zakLstLst = load( fNameArr[iN], "zakArr" );
+	divNum = divLstLst[1,iN];
+	
+	steerFiltData = CornerDetector.SteerFiltHelperData( divNum );
+	harrisFiltData = CornerDetector.HarrisFiltHelperData( divNum );
+	
+	for it = 1 : itNum, iM = 1 : mSz
+		zakLstCurrent = @view( zakLstLst[iM,:,:,it] );
+		
+		CornerDetector.genSteerCornerFilt!( steerFiltData, zakLstCurrent, lnFiltSteer );
+		
+		CornerDetector.genCovMat!( harrisFiltData, zakLstCurrent );
+		CornerDetector.genHarrisCornerFiltFromCovMatBox!( harrisFiltData; filtLen = lnFiltHarris );
+		
+		CornerDetector.nonMaxSuppress!( steerFiltData );
+		CornerDetector.nonMaxSuppress!( harrisFiltData );
+		
+		idCornerSteerMergedLst = CornerDetector.extractMaxIdWithConnectedComp!( steerFiltData, thresSteer, lnConnected );
+		idCornerHarrisMergedLst = CornerDetector.extractMaxIdWithConnectedComp!( harrisFiltData, thresHarris, lnConnected );
+		
+		idCornerSteerHarrisMergedLstCurrent = CornerDetector.genCornerIdSteerHarrisMerged( idCornerSteerMergedLst, CornerDetector.getIsMaxedArr( harrisFiltData ), wdHarrisNearWind );
+		
+		idCornerSteerHarrisMergedLstNLst[iN][iM,it] = zeros( Float64, 2, length(idCornerSteerHarrisMergedLstCurrent) );
+		for ii = 1 : length(idCornerSteerHarrisMergedLstCurrent)
+			idCornerSteerHarrisMergedLstNLst[iN][iM,it][:,ii] .= idCornerSteerHarrisMergedLstCurrent[ii];
+		end
+	end
 end
 
-save( "idSteerHarrisMergedTest.jld2", "idSteerHarrisMergedLstTest", idSteerHarrisMergedLstStacked );
+fMainOut = "idCornerZakLst";
+attrLst = ["mSzLst", "divNumBase"];
+valLst = [nLst[[1,end]], divLstLst[1,1]];
+fNameIdLstOut = fNameFunc( fMainOut, attrLst, valLst, jld2Type );
+
+save( fNameIdLstOut, "idCornerZakLst", idCornerSteerHarrisMergedLstNLst, "mLst", nLst, "itNum", itNum, "divLstLst", divLstLst );
+
+open( dirLog * SharedFNames.fNameTmpNameFileLst, "w" ) do io
+	println( io, fNameIdLstOut );
+end
