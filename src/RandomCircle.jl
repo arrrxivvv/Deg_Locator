@@ -69,7 +69,7 @@ struct RandCircData{N_circ}
 	xLst::Vector{Float64};
 	xMidLst::Vector{Float64};
 	
-	zakArr::RefValue{Matrix{Bool}};
+	zakArr::Matrix{Bool};
 	zakXLst::Vector{Bool};
 	
 	bndXOnY0Lst::Vector{Float64};
