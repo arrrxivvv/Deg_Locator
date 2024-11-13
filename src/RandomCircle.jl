@@ -1,4 +1,4 @@
- module RandomCircle
+module RandomCircle
 
 using StaticArrays
 using OffsetArrays
@@ -6,6 +6,7 @@ using Random
 using Utils
 using LinearAlgebra
 using DataStructures
+using FFTW
 
 using Infiltrator
 
@@ -14,6 +15,10 @@ const nDimQuat = nDim3 + 1;
 
 const uVecLst3 = Utils.genStaticIdentityMat( nDim3 );
 const idQuatRng = 0:nDim3;
+
+function boolToIntPosNeg( valBool::Bool )
+	return valBool ? 1 : -1;
+end
 
 struct QuartSolHelper
 	solLst::MVector{2,Float64};
@@ -69,17 +74,17 @@ struct RandCircData{N_circ}
 	xLst::Vector{Float64};
 	xMidLst::Vector{Float64};
 	
-	zakArr::Matrix{Bool};
+	zakArrRef::Base.RefValue{Matrix{Bool}};
 	zakXLst::Vector{Bool};
 	
 	bndXOnY0Lst::Vector{Float64};
 	bndYOnXValLst::Vector{Float64};
 	
-	zakArrFloat::Matrix{Float64};
-	zakCorrArrCmplx::Matrix{ComplexF64};
-	zakCorrArr::Matrix{Float64};
+	zakArrFloatRef::Base.RefValue{Matrix{Float64}};
+	zakCorrArrCmplxRef::Base.RefValue{Matrix{ComplexF64}};
+	zakCorrArrRef::Base.RefValue{Matrix{Float64}};
 	
-	function RandCircData( nCirc::Int64, rCirc::Float64; nSample = 1000, divNum = 128 )
+	function RandCircData( nCirc::Int64, rCirc::Real; nSample = 1000, divNum = 128 )
 		ptLst = Utils.@MVectorCompr [ @MVector( zeros(3) ) for ii = 1 : nCirc ];
 		pt2dLst = Utils.@MVectorCompr [ @MVector zeros(2) for ii = 1 : nCirc ];
 		quatLst = Utils.@MVectorCompr [ OffsetArray( @MVector( zeros(4) ), idQuatRng ) for ii = 1 : nCirc ];
@@ -121,18 +126,20 @@ struct RandCircData{N_circ}
 		xMidLst = copy(xLst);
 		xMidLst .+= 0.5/divNum;
 		
-		zakArr =  zeros(Bool, divNum, divNum);
+		zakArrRef = Ref( zeros(Bool, divNum, divNum) );
 		zakXLst = zeros(Bool, divNum);
 		
 		bndXOnY0Lst = zeros(0);
 		bndYOnXValLst = zeros(0);
 		
-		zakArrFloat = similar( zakArr, Float64 );
-		zakCorrArr = zeros( divNum, divNum );
-		zakCorrArrCmplx = zeros( ComplexF64, divNum, divNum );
+		zakArrFloatRef = Ref( similar( zakArrRef[], Float64 ) );
+		zakCorrArrRef = Ref( zeros( divNum, divNum ) );
+		zakCorrArrCmplxRef = Ref( zeros( ComplexF64, divNum, divNum ) );
 		
-		data = new{nCirc}( Ref(rCirc), nCirc, ptLst, pt2dLst, quatLst, quatNormLst, quatNormSqLst, rotMatLst, rotMat2dLst, rotMat2dInvLst, sampleThetaLst, sampleCosSinLst, sampleCircLst, eqCoeffLst, solHelper, areaLst, widthXYLst, bndLst, bndModLst, bndExtendedLst, pt2dModLst, pt2dExtendedLst, bndExtendedXLst, idExtendedLst, idSortedBndModLst, idSortedBndExtendedLst, idSortedBndExtendedXLst, circHeap, xLst, xMidLst, zakArr, zakXLst, bndXOnY0Lst, bndYOnXValLst, zakArrFloat, zakCorrArrCmplx, zakCorrArr );
+		data = new{nCirc}( Ref(Float64(rCirc)), nCirc, ptLst, pt2dLst, quatLst, quatNormLst, quatNormSqLst, rotMatLst, rotMat2dLst, rotMat2dInvLst, sampleThetaLst, sampleCosSinLst, sampleCircLst, eqCoeffLst, solHelper, areaLst, widthXYLst, bndLst, bndModLst, bndExtendedLst, pt2dModLst, pt2dExtendedLst, bndExtendedXLst, idExtendedLst, idSortedBndModLst, idSortedBndExtendedLst, idSortedBndExtendedXLst, circHeap, xLst, xMidLst, zakArrRef, zakXLst, bndXOnY0Lst, bndYOnXValLst, zakArrFloatRef, zakCorrArrCmplxRef, zakCorrArrRef );
+		
 		refreshSampleBaseLst!( data );
+		
 		
 		return data;
 	end
@@ -146,7 +153,6 @@ function setRCirc!( data::RandCircData, rCirc::Float64 )
 	if rCirc != data.rCirc[]
 		
 		scaleRotMat!( data, rCirc / data.rCirc[] );
-		# data.rCirc[] = rCirc;
 		setRCircNoRotUpdate( data, rCirc );
 		refreshRotMat2dInv!( data );
 	end
@@ -158,15 +164,33 @@ end
 
 function setDivNum!( data::RandCircData, divNum::Int64 )
 	resize!( data.zakXLst, divNum );
+	data.zakArrRef[] = zeros( Bool, divNum, divNum );
+	data.zakCorrArrRef[] = similar( data.zakArrRef[], Float64 );
+	data.zakCorrArrCmplxRef[] = similar( data.zakArrRef[], ComplexF64 );
 	
+	
+	
+	GC.gc()
 end
 
 function getZakArr( data::RandCircData )
-	return data.;
+	return data.zakArrRef[];
+end
+
+function setZakArr!( data::RandCircData, zakArr::AbstractMatrix )
+	data.zakArrRef[] .= zakArr;
 end
 
 function getZakCorr( data::RandCircData )
-	return data.;
+	return data.zakCorrArrRef[];
+end
+
+function getZakCorrCmplx( data::RandCircData )
+	return data.zakCorrArrCmplxRef[];
+end
+
+function refreshXLst!( data )
+	;
 end
 
 function refreshPtLst!( randCircData::RandCircData )
@@ -288,12 +312,19 @@ function backupRotMat!( rotMatLst, rotMat2dLst, rotMat2dInvLst, data::RandCircDa
 	end
 end
 
-function restoreRotMat!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst )
+function restoreRotMatOnly!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst )
 	for iCirc = 1 : data.nCirc
 		data.rotMatLst[iCirc] .= rotMatLst[iCirc];
 		data.rotMat2dLst[iCirc] .= rotMat2dLst[iCirc];
 		data.rotMat2dInvLst[iCirc] .= rotMat2dInvLst[iCirc];
 	end
+end
+
+function restoreRotMat!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst )
+	restoreRotMatOnly!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst );
+	
+	refreshEqCoeff!( data );
+	refreshBndLstFull!( data );
 end
 
 function refreshSortBndLst!( data::RandCircData )
@@ -339,6 +370,10 @@ function calcSampleLst!( data::RandCircData )
 	end
 end
 
+function backupSampleLst!( sampleCircLst, data::RandCircData )
+	( (x, y) -> x .= y ).( sampleCircLst, data.sampleCircLst );
+end
+
 function solveQuartEqXY!( solHelper::QuartSolHelper, coeffs::AbstractVector{Float64}, xyVal::Real; xySolved = 'X' )
 	coeffs1Var = solHelper.coeffs1Var;
 	coeffs1Var .= coeffs;
@@ -382,6 +417,8 @@ function xValToId( data::RandCircData, xVal::Float64 )
 end
 
 function calcZakArr!( data::RandCircData )
+	zakArr = getZakArr( data );
+
 	divNum = length(data.zakXLst);
 	yVal = 0;
 	iYUpTo0 = Utils.searchSortedFirstByVal( data.idSortedBndModLst[2,2], yVal; by = id -> data.bndModLst[2,2][id][1] ) - 1;
@@ -455,29 +492,51 @@ function calcZakArr!( data::RandCircData )
 		for iBnd = 1 : length(data.bndYOnXValLst)
 			iYEnd = xValToId( data, data.bndYOnXValLst[iBnd] );
 			for iY = iYStart : iYEnd
-				data.zakArr[iX,iY] = xor( zakVal, data.zakXLst[iX] );
+				zakArr[iX,iY] = xor( zakVal, data.zakXLst[iX] );
 			end
 			iYStart = iYEnd + 1;
 			zakVal = !zakVal;
 		end
 		for iY = iYStart : divNum
-			data.zakArr[iX,iY] = xor( zakVal, data.zakXLst[iX] );
+			zakArr[iX,iY] = xor( zakVal, data.zakXLst[iX] );
 		end
 	end
 end
 
 function calcZakCorr!( data::RandCircData )
-	dArea = 1 / length(data.zakXLst)^2;
-	data.zakCorrArrCmplx .= (x -> x ? 1 : 0).( data.zakArr );
-	fft!( data.zakCorrArrCmplx );
-	data.zakCorrArrCmplx .= abs.( data.zakCorrArrCmplx ).^2 .* dArea;
-	ifft!( data.zakCorrArrCmplx );
-	data.zakCorrArr .= real.( data.zakCorrArrCmplx );
+	zakCorrArrCmplx = getZakCorrCmplx( data );
+	zakCorrArr = getZakCorr( data );
+	zakArr = getZakArr( data );
+	
+	# dArea = 1 / length(data.zakXLst)^2;
+	# zakCorrArrCmplx .= (x -> x ? 1 : 0).( zakArr );
+	# zakCorrArrCmplx .= boolToIntPosNeg.( zakArr );
+	# fft!( zakCorrArrCmplx );
+	# zakCorrArrCmplx .= abs.( zakCorrArrCmplx ).^2 .* dArea;
+	# ifft!( zakCorrArrCmplx );
+	# calcCorrCmplx!( zakCorrArrCmplx );
+	# zakCorrArr .= real.( zakCorrArrCmplx );
+	
+	calcZakCorr!( zakCorrArr, zakCorrArrCmplx, zakArr );
 end
 
-function backupZakArrCorr!( zakArr, zakCorrArr, data:RandCircData )
-	zakArr .= data.zakArr;
-	zakCorrArr .= data.zakCorrArr;
+function calcZakCorr!( corrArr::AbstractArray, corrArrCmplx::AbstractArray, zakArr::AbstractArray )
+	corrArrCmplx .= boolToIntPosNeg.(zakArr);
+	calcCorrCmplx!( corrArrCmplx );
+	corrArr .= real.( corrArrCmplx );
+end
+
+function calcCorrCmplx!( arrCmplx )
+	# zakCorrArrCmplx .= boolToIntPosNeg.( zakArr );
+	dArea = 1 / size(arrCmplx,1)^2;
+	fft!( arrCmplx );
+	arrCmplx .= abs.( arrCmplx ).^2 .* dArea;
+	ifft!( arrCmplx );
+end
+
+function backupZakArrCorr!( zakArr, zakCorrArr, data::RandCircData )
+	zakArr .= getZakArr( data );
+	zakCorrArr .= getZakCorr( data );
 end
 
 include("randomCircleFunc_nonStruct.jl");
