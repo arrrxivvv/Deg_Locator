@@ -16,7 +16,6 @@ function genSteerFilts( sz::Int64 )
 	steerFiltLstRaw = [ xLst .* yLst, ( xLst.^2 .- (yLst.^2) ) ./ 2 ];
 	
 	filtFact = ImgProcessing.gaussFiltLstNoOffset[sz+1];
-	@infiltrate
 	println(size(steerFiltLstRaw[1]));
 	println(size(filtFact));
 	
@@ -34,7 +33,6 @@ struct PrefabSteerFilts
 	function PrefabSteerFilts( lnMax::Int64 = 3 )
 		steerFiltLstLstRaw = genSteerFilts.( [1:lnMax;] );
 		steerFiltLstLst = (x->centered.(x)).( steerFiltLstLstRaw );
-		@infiltrate
 		println( typeof(steerFiltLstLstRaw) )
 		println( typeof(steerFiltLstLst) )
 		
@@ -244,11 +242,9 @@ function extractMaxIdWithConnectedComp!( isMaxArr, isVisitedArr, maxedArr::Abstr
 			for ii = 1 : length(idThis)
 				idThis[ii] = idCart[ii];
 			end
-			# @infiltrate
 			enqueue!( idSearchQueue, copy(idThis) );
 			push!( idSearchLst, last(idSearchQueue) );
 			isVisitedArr[idThis...] = true;
-			# @time begin
 			while !isempty( idSearchQueue )
 				id = dequeue!( idSearchQueue );
 				for iSh in rngWind
@@ -264,10 +260,7 @@ function extractMaxIdWithConnectedComp!( isMaxArr, isVisitedArr, maxedArr::Abstr
 						isVisitedArr[idTmp...] = true;
 					end
 				end
-				# @infiltrate
 			end
-			# end
-			# @infiltrate
 			
 			if length( idSearchQueue ) == 1
 				idMerged .= idSearchLst[1];
@@ -394,9 +387,7 @@ function genCornerIdSteerHarrisMerged( idSteerMergedLst, isHarrisMaxArr::Array{B
 				push!(idSteerHarrisMergedLst,id);
 				break;
 			end
-		end
-		# @infiltrate
-		# if isNearHarris		
+		end		
 	end
 	
 	return idSteerHarrisMergedLst;

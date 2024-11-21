@@ -7,7 +7,7 @@ using Utils
 using LsqFit
 using Statistics
 
-# using Infiltrator
+using Infiltrator
 
 isRenewRand = false;
 
@@ -16,8 +16,8 @@ nDim3 = 3;
 
 itNum = 10;
 
-nCircLst = [5:5:50;];
-rCircLst = [0.1:0.1:0.5;];
+nCircLst = [5:1:50;];
+rCircLst = [0.1:0.05:0.5;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
 
@@ -89,6 +89,17 @@ divNumNxt = ( x -> x < corrLenLst[1,1] ? Int64( floor( divNum1Pass * corrLenLst[
 zakArrLst = [ zeros( Bool, divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
+fMainRandCircZak = "randCircZak";
+attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
+valLstBase = Any[nCircLst[[1,end]], rCircLst[[1,end]], itNum];
+fNameRandCircZak = fNameFunc( fMainRandCircZak, attrLstBase, valLstBase, jld2Type );
+# save( fNameRandCircZak, "sampleLstLst", sampleLstLst, "zakArrLst", zakArrLst, "divNumNxt", divNumNxt, "zakArrLst1Pass", zakArrLst1Pass );
+jldsave( fNameRandCircZak; sampleLstLst, zakArrLst, divNumNxt, zakArrLst1Pass, nCircLst, rCircLst );
+
+fMainRandCircCorr = "randCircCorr";
+fNameRandCircCorr = fNameFunc( fMainRandCircCorr, attrLstBase, valLstBase, jld2Type );
+jldsave( fNameRandCircCorr; corrLenLst, expScaleLst, expShLst, zakCorrAvg1d = zakCorrAvg1d1PassSave );
+
 for iR = 1 : lnRCirc, iN = 1 : lnNCirc
 	data = randCircDataLst[iN];
 	RandomCircle.setDivNum!( data, divNumNxt[iR, iN] );
@@ -104,39 +115,29 @@ for iR = 1 : lnRCirc, iN = 1 : lnNCirc
 		end
 		RandomCircle.calcZakCorr!( data );
 		
-		# try
-			RandomCircle.backupZakArrCorr!( @view( zakArrLst[iR, iN][:,:,it] ), @view( zakCorrLst[iR, iN][:,:,it] ), data );
-		# catch err
-			# if isa( err, Exception )
-				# @infiltrate
-			# end
-		# end
+		RandomCircle.backupZakArrCorr!( @view( zakArrLst[iR, iN][:,:,it] ), @view( zakCorrLst[iR, iN][:,:,it] ), data );
 	end
 end
 
-fMainRandCircZak = "randCircZak";
-attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
-valLstBase = Any[nCircLst[[1,end]], rCircLst[[1,end]], itNum];
-fNameRandCircZak = fNameFunc( fMainRandCircZak, attrLstBase, valLstBase, jld2Type );
-save( fNameRandCircZak, "sampleLstLst", sampleLstLst, "zakArrLst", zakArrLst, "divNumNxt", divNumNxt, "zakArrLst1Pass", zakArrLst1Pass );
-
-fMainRandCircCorr = "randCircCorr";
-fNameRandCircCorr = fNameFunc( fMainRandCircCorr, attrLstBase, valLstBase, jld2Type );
-jldsave( fNameRandCircCorr; corrLenLst, expScaleLst, expShLst, zakCorrAvg1d = zakCorrAvg1d1PassSave );
+dAvg = 3;
+zakCorrAvgFineLst = [ dropdims( mean( zakCorrLst[iR,iN]; dims = dAvg ); dims = dAvg ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+zakCorrAvg1dFineLst = [ @view( zakCorrAvgFineLst[iR,iN][:,1] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
 xLstZakLst = [ [0:divNumNxt[iR,iN]-1;] ./ divNumNxt[iR,iN] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 divNumNxtHalf = div.( divNumNxt, 2 );
 xLstZakHalfLst = ( ( a, i ) -> a[1:i] ).(xLstZakLst, divNumNxtHalf);
+zakCorrAvg1dHalfFineLst = [ @view( zakCorrAvg1dFineLst[iR,iN][1:divNumNxtHalf[iR,iN]] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
-fittedModelFineLst = [ curve_fit( modelExp, xLstZakLst[iR,iN], zakCorrLst[iR,iN], p0Fit ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+fittedModelFineLst = [ curve_fit( modelExp, xLstZakHalfLst[iR,iN], zakCorrAvg1dHalfFineLst[iR,iN], p0Fit ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
 expScaleFineLst = ( m -> m.param[1] ).( fittedModelFineLst );
 expShFineLst = ( m -> m.param[3] ).( fittedModelFineLst );
-corrLenFineLst = ( m -> m.param[2] ).( fittedModelFineLst );
+corrLenInvFineLst = ( m -> m.param[2] ).( fittedModelFineLst );
+corrLenFineLst = 1 ./ corrLenInvFineLst;
 
 fMainRandCircFine = "randCircFine";
 fNameRandCircFine = fNameFunc( fMainRandCircFine, attrLstBase, valLstBase, jld2Type );
-jldsave( fNameRandCircFine; zakArrLst, zakCorrLst, expScaleFineLst, expShFineLst, corrLenFineLst );
+jldsave( fNameRandCircFine; zakArrLst, zakCorrLst, expScaleFineLst, expShFineLst, corrLenFineLst, xLstZakLst, zakCorrAvgFineLst );
 
 
 

@@ -20,6 +20,10 @@ function boolToIntPosNeg( valBool::Bool )
 	return valBool ? 1 : -1;
 end
 
+function boolToInt01( valBool::Bool )
+	return valBool ? 1 : 0;
+end
+
 struct QuartSolHelper
 	solLst::MVector{2,Float64};
 	coeffs1Var::MVector{3,Float64};
@@ -35,6 +39,7 @@ end
 struct RandCircData{N_circ}
 	rCirc::Base.RefValue{Float64};
 	nCirc::Int64;
+	divNumRef::Base.RefValue{Int64};
 
 	ptLst::MVector{N_circ,<:AbstractVector{Float64}};
 	pt2dLst::MVector{N_circ,<:AbstractVector{Float64}};
@@ -71,8 +76,8 @@ struct RandCircData{N_circ}
 	
 	circHeap::BinaryHeap{Int64};
 	
-	xLst::Vector{Float64};
-	xMidLst::Vector{Float64};
+	xLstRef::Base.RefValue{Vector{Float64}};
+	xMidLstRef::Base.RefValue{Vector{Float64}};
 	
 	zakArrRef::Base.RefValue{Matrix{Bool}};
 	zakXLst::Vector{Bool};
@@ -121,10 +126,12 @@ struct RandCircData{N_circ}
 		
 		circHeap = BinaryHeap{Int64}( Base.By( ii -> bndExtendedLst[1][ii][2] ) );
 		
-		xLst = [0.0:divNum-1;];
-		xLst .= xLst ./ divNum;
-		xMidLst = copy(xLst);
-		xMidLst .+= 0.5/divNum;
+		# xLst = [0.0:divNum-1;];
+		# xLst .= xLst ./ divNum;
+		# xMidLst = copy(xLst);
+		# xMidLst .+= 0.5/divNum;
+		xLstRef = Base.RefValue{Vector{Float64}}();
+		xMidLstRef = Base.RefValue{Vector{Float64}}();
 		
 		zakArrRef = Ref( zeros(Bool, divNum, divNum) );
 		zakXLst = zeros(Bool, divNum);
@@ -136,9 +143,10 @@ struct RandCircData{N_circ}
 		zakCorrArrRef = Ref( zeros( divNum, divNum ) );
 		zakCorrArrCmplxRef = Ref( zeros( ComplexF64, divNum, divNum ) );
 		
-		data = new{nCirc}( Ref(Float64(rCirc)), nCirc, ptLst, pt2dLst, quatLst, quatNormLst, quatNormSqLst, rotMatLst, rotMat2dLst, rotMat2dInvLst, sampleThetaLst, sampleCosSinLst, sampleCircLst, eqCoeffLst, solHelper, areaLst, widthXYLst, bndLst, bndModLst, bndExtendedLst, pt2dModLst, pt2dExtendedLst, bndExtendedXLst, idExtendedLst, idSortedBndModLst, idSortedBndExtendedLst, idSortedBndExtendedXLst, circHeap, xLst, xMidLst, zakArrRef, zakXLst, bndXOnY0Lst, bndYOnXValLst, zakArrFloatRef, zakCorrArrCmplxRef, zakCorrArrRef );
+		data = new{nCirc}( Ref(Float64(rCirc)), nCirc, Ref(divNum), ptLst, pt2dLst, quatLst, quatNormLst, quatNormSqLst, rotMatLst, rotMat2dLst, rotMat2dInvLst, sampleThetaLst, sampleCosSinLst, sampleCircLst, eqCoeffLst, solHelper, areaLst, widthXYLst, bndLst, bndModLst, bndExtendedLst, pt2dModLst, pt2dExtendedLst, bndExtendedXLst, idExtendedLst, idSortedBndModLst, idSortedBndExtendedLst, idSortedBndExtendedXLst, circHeap, xLstRef, xMidLstRef, zakArrRef, zakXLst, bndXOnY0Lst, bndYOnXValLst, zakArrFloatRef, zakCorrArrCmplxRef, zakCorrArrRef );
 		
 		refreshSampleBaseLst!( data );
+		refreshXLst!( data );
 		
 		
 		return data;
@@ -158,12 +166,22 @@ function setRCirc!( data::RandCircData, rCirc::Float64 )
 	end
 end
 
+function getDivNum( data::RandCircData )
+	return data.divNumRef[];
+end
+
+function getXLst( data::RandCircData )
+	return data.xLstRef[];
+end
+
 function setRCircNoRotUpdate!( data::RandCircData, rCirc::Float64 )
 	data.rCirc[] = rCirc;
 end
 
 function setDivNum!( data::RandCircData, divNum::Int64 )
+	data.divNumRef[] = divNum;
 	resize!( data.zakXLst, divNum );
+	refreshXLst!( data );
 	data.zakArrRef[] = zeros( Bool, divNum, divNum );
 	data.zakCorrArrRef[] = similar( data.zakArrRef[], Float64 );
 	data.zakCorrArrCmplxRef[] = similar( data.zakArrRef[], ComplexF64 );
@@ -190,7 +208,10 @@ function getZakCorrCmplx( data::RandCircData )
 end
 
 function refreshXLst!( data )
-	;
+	data.xLstRef[] = [0:data.divNumRef[]-1;];
+	data.xLstRef[] ./= data.divNumRef[];
+	data.xMidLstRef[] = copy( data.xLstRef[] );
+	data.xMidLstRef[] .+= 0.5 / data.divNumRef[];
 end
 
 function refreshPtLst!( randCircData::RandCircData )
@@ -410,7 +431,8 @@ function solveQuartEqXYSh!( solHelper::QuartSolHelper, coeffs::AbstractVector{Fl
 end
 
 function xValToId( data::RandCircData, xVal::Float64 )
-	divNum = length( data.xLst );
+	# divNum = length( data.xLst );
+	divNum = getDivNum( data );
 	id = Int64( floor( xVal * divNum ) ) + 1;
 	
 	return id;
@@ -418,6 +440,7 @@ end
 
 function calcZakArr!( data::RandCircData )
 	zakArr = getZakArr( data );
+	xLst = getXLst( data );
 
 	divNum = length(data.zakXLst);
 	yVal = 0;
@@ -460,7 +483,7 @@ function calcZakArr!( data::RandCircData )
 	
 	iSorted = 1;
 	for iX = 1 : divNum
-		xVal = data.xLst[iX];
+		xVal = xLst[iX];
 		while iSorted <= length(data.bndExtendedXLst) && data.bndExtendedXLst[data.idSortedBndExtendedXLst[iSorted]][1] < xVal
 			iCirc = data.idSortedBndExtendedXLst[iSorted];
 			push!( data.circHeap, iCirc );
