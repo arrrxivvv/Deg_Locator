@@ -7,6 +7,7 @@ using Utils
 using LinearAlgebra
 using DataStructures
 using FFTW
+using Statistics
 
 using Infiltrator
 
@@ -526,19 +527,14 @@ function calcZakArr!( data::RandCircData )
 	end
 end
 
+function calcZakAvg( zakArr::AbstractMatrix{Bool} )
+	return mean( boolToIntPosNeg, zakArr );
+end
+
 function calcZakCorr!( data::RandCircData )
 	zakCorrArrCmplx = getZakCorrCmplx( data );
 	zakCorrArr = getZakCorr( data );
 	zakArr = getZakArr( data );
-	
-	# dArea = 1 / length(data.zakXLst)^2;
-	# zakCorrArrCmplx .= (x -> x ? 1 : 0).( zakArr );
-	# zakCorrArrCmplx .= boolToIntPosNeg.( zakArr );
-	# fft!( zakCorrArrCmplx );
-	# zakCorrArrCmplx .= abs.( zakCorrArrCmplx ).^2 .* dArea;
-	# ifft!( zakCorrArrCmplx );
-	# calcCorrCmplx!( zakCorrArrCmplx );
-	# zakCorrArr .= real.( zakCorrArrCmplx );
 	
 	calcZakCorr!( zakCorrArr, zakCorrArrCmplx, zakArr );
 end

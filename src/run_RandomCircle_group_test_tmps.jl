@@ -1,39 +1,45 @@
+using Statistics
 
-# zakCorrLstCmplx = similar( zakCorrLst1Pass, ComplexF64 );
+using RandomCircle
+using Utils
+using SharedFNames
+using JLD2
+using FilenameManip	
 
-# for iN = 1 : lnNCirc, iR = 1 : lnRCirc, it = 1 : itNum
-	# RandomCircle.calcZakCorr!( @view( zakCorrLst1Pass[:,:,it,iR,iN] ), @view( zakCorrLstCmplx[:,:,it,iR,iN] ), @view( zakArrLst1Pass[:,:,it,iR,iN] ) );
-# end
+fNameFNameArr = Utils.strReadLastLine( SharedFNames.dirLog * SharedFNames.fNameTmpNameFileLst );
 
-# divNum1PassHalf = div( divNum1Pass, 2 );
-# xLstZakHalf = xLstZak[1:divNum1PassHalf];
+fNameArr = load( fNameFNameArr, "fNameArr" );
 
-# zakCorrLstAvg1Pass = mean( zakCorrLst1Pass; dims = 3 );
-# zakCorrLstAvg1d1Pass = zakCorrLstAvg1Pass[:,1,1,:,:];
-# zakCorrLstAvg1d1PassArrLst = [ @view( zakCorrLstAvg1d1Pass[1:divNum1PassHalf,iR,iN] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+fNameRandCircZak, fNameRandCircCorr, fNameRandCircFine, fNameRandCircCorners = @view fNameArr[1:4];
 
-# fittedModelLst = [ curve_fit( modelExp, xLstZakHalf, zakCorrLstAvg1d1PassArrLst[iR,iN], p0Fit ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+zakArrLst = load( fNameArr[3], "zakArrLst" );
+zakCorrLst = load( fNameArr[3], "zakCorrLst" );
 
-# expScaleLst = (x->x.param[1]).( fittedModelLst );
-# expShLst = (x->x.param[3]).( fittedModelLst );
-# corrLenLst = (x->x.param[2]).( fittedModelLst );
+nCircLst = load( fNameArr[1], "nCircLst" );
+rCircLst = load( fNameArr[1], "rCircLst" );
 
-# jldsave( "zakCorrTest"; zakCorrAvg1d = zakCorrLstAvg1d1Pass, expScaleLst, expShLst, corrLenLst );
+lnNCirc, lnRCirc = length.( (nCircLst, rCircLst) );
+itNum = 10;
 
-dataTest = randCircDataLst[3];
+zakAvgLst = [ [ RandomCircle.calcZakAvg( @view( zakArrLst[iR,iN][:,:,it] ) ) for it = 1 : itNum ] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
-RandomCircle.setZakArr!( dataTest, @view zakArrLst1Pass[:,:,1,1,3] );
+zakAbsAvgLst = mean.( abs, zakAvgLst );
 
-RandomCircle.calcZakCorr!( dataTest );
+zakCorrShAvgLst = deepcopy( zakCorrLst );
+( ( corr, avg )-> corr .= corr .-= reshape(avg, 1, 1, length(avg)).^2 ).( zakCorrShAvgLst, zakAvgLst );
 
-zakCorrTest = RandomCircle.getZakCorr( dataTest );
+zakCorrAvgShAvgLst = mean.( zakCorrShAvgLst; dims = 3 );
+zakCorrAvgShAvg1dLst = (arr -> arr[:,1]).( zakCorrAvgShAvgLst );
+zakCorrAvgShAvg1dHalfFineLst = [ @view( zakCorrAvgShAvg1dLst[iR,iN][1:divNumNxtHalf[iR,iN]] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
-zakCorr1dTest = zakCorrTest[:,1];
+fittedModelFineAvgShLst = [ curve_fit( modelExp, xLstZakHalfLst[iR,iN], zakCorrAvgShAvg1dHalfFineLst[iR,iN], p0Fit ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+expShFineAvgShLst = ( m -> m.param[3] ).( fittedModelFineAvgShLst );
 
-fittedModelTest = curve_fit( modelExp, xLstZakHalf, @view( zakCorr1dTest[1:divNum1PassHalf] ), p0Fit );
+fMainTmp = fMainRandCircZak * "_tmp";
+fNameTmp = fNameFunc( fMainTmp, attrLstBase, valLstBase, jld2Type );
 
-epSc = fittedModelTest.param[1];
-corrLen = fittedModelTest.param[2];
-epSh = fittedModelTest.param[3];
+jldsave( fNameTmp; zakAvgLst, zakAbsAvgLst, zakCorrShAvgLst, zakCorrAvgShAvgLst, zakCorrAvgShAvg1dLst, expShFineAvgShLst );
 
-jldsave( "zakCorrTest.jld2"; zakArr = RandomCircle.getZakArr( dataTest ), zakCorr = RandomCircle.getZakCorr( dataTest ), epSc, corrLen, epSh );
+fNameArr = [ fNameRandCircZak, fNameRandCircCorr, fNameRandCircFine, fNameRandCircCorners, fNameTmp ];
+
+jldsave( fNameFNameArr; fNameArr );

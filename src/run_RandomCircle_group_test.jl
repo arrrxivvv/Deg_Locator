@@ -16,8 +16,12 @@ nDim3 = 3;
 
 itNum = 10;
 
-nCircLst = [5:1:50;];
-rCircLst = [0.1:0.05:0.5;];
+# nCircLst = [5:1:50;];
+# rCircLst = [0.1:0.05:0.5;];
+nCircStep = 5;
+rCircStep = 0.1;
+nCircLst = [5:nCircStep:50;];
+rCircLst = [0.1:rCircStep:0.5;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
 
@@ -91,10 +95,11 @@ zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : l
 
 fMainRandCircZak = "randCircZak";
 attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
-valLstBase = Any[nCircLst[[1,end]], rCircLst[[1,end]], itNum];
+# valLstBase = Any[push!(nCircLst[[1,end]],), rCircLst[[1,end]], itNum];
+valLstBase = Any[FilenameManip.fAttr_arrSummary.( (nCircLst, rCircLst), (nCircStep, rCircStep) )..., itNum];
 fNameRandCircZak = fNameFunc( fMainRandCircZak, attrLstBase, valLstBase, jld2Type );
 # save( fNameRandCircZak, "sampleLstLst", sampleLstLst, "zakArrLst", zakArrLst, "divNumNxt", divNumNxt, "zakArrLst1Pass", zakArrLst1Pass );
-jldsave( fNameRandCircZak; sampleLstLst, zakArrLst, divNumNxt, zakArrLst1Pass, nCircLst, rCircLst );
+jldsave( fNameRandCircZak; sampleLstLst, zakArrLst, divNumNxt, zakArrLst1Pass, nCircLst, rCircLst, itNum );
 
 fMainRandCircCorr = "randCircCorr";
 fNameRandCircCorr = fNameFunc( fMainRandCircCorr, attrLstBase, valLstBase, jld2Type );
@@ -106,13 +111,7 @@ for iR = 1 : lnRCirc, iN = 1 : lnNCirc
 	for it = 1 : itNum
 		RandomCircle.restoreRotMat!( data, rotMatBackupLst[iR,iN][it], rotMat2dBackupLst[iR,iN][it], rotMat2dInvBackupLst[iR,iN][it] );
 		
-		try
-			RandomCircle.calcZakArr!( data );
-		catch err
-			if isa( err, Exception )
-				@infiltrate;
-			end
-		end
+		RandomCircle.calcZakArr!( data );
 		RandomCircle.calcZakCorr!( data );
 		
 		RandomCircle.backupZakArrCorr!( @view( zakArrLst[iR, iN][:,:,it] ), @view( zakCorrLst[iR, iN][:,:,it] ), data );

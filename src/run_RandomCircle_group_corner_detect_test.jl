@@ -67,10 +67,10 @@ for iN = 1 : lnNCirc, iR = 1 : lnRCirc
 	end
 end
 
-jldsave( "randCircCorners.jld2"; idSteerHarrisMergedLst, zakArrTest, numCorner );
+# jldsave( "randCircCorners.jld2"; idSteerHarrisMergedLst, zakArrTest, numCorner );
 
-attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
-valLstBase = Any[nCircLst[[1,end]], rCircLst[[1,end]], itNum];
+# attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
+# valLstBase = Any[nCircLst[[1,end]], rCircLst[[1,end]], itNum];
 
 fMainRandCircCorners = "randCircCorners";
 fNameRandCircCorners = fNameFunc( fMainRandCircCorners, attrLstBase, valLstBase, jld2Type );
