@@ -7,14 +7,14 @@ using Utils
 using LsqFit
 using Statistics
 
-using Infiltrator
+# using Infiltrator
 
 isRenewRand = false;
 
 nCirc = 10;
 nDim3 = 3;
 
-itNum = 10;
+itNum = 100;
 
 nCircStep = 5;
 rCircStep = 0.1;
@@ -88,8 +88,10 @@ expShLst = ( x -> x.param[3] ).( fittedModelLst );
 
 divNumNxt = ( x -> x < corrLenLst[1,1] ? Int64( floor( divNum1Pass * corrLenLst[1,1] / x ) ) : divNum1Pass ).(corrLenLst);
 
-zakArrLst = [ zeros( Bool, divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+# zakArrLst = [ zeros( Bool, divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+# zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+zakArrLst = Array{Bool,3}(undef,0,0,0);
+zakCorrLst = Array{Float64,3}(undef,0,0,0);
 
 fMainRandCircZak = "randCircZak";
 attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
@@ -101,22 +103,46 @@ fMainRandCircCorr = "randCircCorr";
 fNameRandCircCorr = fNameFunc( fMainRandCircCorr, attrLstBase, valLstBase, jld2Type );
 jldsave( fNameRandCircCorr; corrLenLst, expScaleLst, expShLst, zakCorrAvg1d = zakCorrAvg1d1PassSave );
 
+fMainRandCircZakSingle = fMainRandCircZak * "single";
+fNameRandCircSingleLst = Array{String}(undef, lnRCirc, lnNCirc);
+attrLstSingle = ["nCirc", "rCirc", "itNum"];
+valLstSingle = Any[nCircLst[1], rCircLst[1], itNum];
+
+for iN = 1 : lnNCirc, iR = 1 : lnRCirc
+	valLstSingle[1] = nCircLst[iN];
+	valLstSingle[2] = rCircLst[iR];
+	fNameRandCircSingleLst[iR, iN] = fNameFunc( fMainRandCircZakSingle, attrLstSingle, valLstSingle, jld2Type );
+end
+
+zakCorrAvgFine = Matrix{Float64}(undef, 0, 0);
+zakCorrAvg1dFineLst = Matrix{Vector{Float64}}(undef, lnRCirc, lnNCirc);
+
+dAvg = 3;
 for iR = 1 : lnRCirc, iN = 1 : lnNCirc
 	data = randCircDataLst[iN];
+	divNum = divNumNxt[iR, iN];
 	RandomCircle.setDivNum!( data, divNumNxt[iR, iN] );
+	zakArrLst = zeros( Bool, divNum, divNum, itNum );
+	zakCorrLst = similar( zakArrLst, Float64 );
+	GC.gc();
 	for it = 1 : itNum
 		RandomCircle.restoreRotMat!( data, rotMatBackupLst[iR,iN][it], rotMat2dBackupLst[iR,iN][it], rotMat2dInvBackupLst[iR,iN][it] );
 		
 		RandomCircle.calcZakArr!( data );
 		RandomCircle.calcZakCorr!( data );
 		
-		RandomCircle.backupZakArrCorr!( @view( zakArrLst[iR, iN][:,:,it] ), @view( zakCorrLst[iR, iN][:,:,it] ), data );
+		RandomCircle.backupZakArrCorr!( @view( zakArrLst[:,:,it] ), @view( zakCorrLst[:,:,it] ), data );
 	end
+	
+	zakCorrAvgFine = dropdims( mean( zakCorrLst; dims = dAvg ); dims = dAvg );
+	zakCorrAvg1dFineLst[iR, iN] = zakCorrAvgFine[:,1];
+	# @infiltrate
+	
+	jldsave( fNameRandCircSingleLst[iR,iN]; zakArrLst, zakCorrLst, zakCorrAvgFine );
 end
 
 dAvg = 3;
-zakCorrAvgFineLst = [ dropdims( mean( zakCorrLst[iR,iN]; dims = dAvg ); dims = dAvg ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-zakCorrAvg1dFineLst = [ @view( zakCorrAvgFineLst[iR,iN][:,1] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+
 
 xLstZakLst = [ [0:divNumNxt[iR,iN]-1;] ./ divNumNxt[iR,iN] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 divNumNxtHalf = div.( divNumNxt, 2 );
@@ -132,7 +158,7 @@ corrLenFineLst = 1 ./ corrLenInvFineLst;
 
 fMainRandCircFine = "randCircFine";
 fNameRandCircFine = fNameFunc( fMainRandCircFine, attrLstBase, valLstBase, jld2Type );
-jldsave( fNameRandCircFine; zakArrLst, zakCorrLst, expScaleFineLst, expShFineLst, corrLenFineLst, xLstZakLst, zakCorrAvgFineLst );
+jldsave( fNameRandCircFine; fNameRandCircSingleLst, expScaleFineLst, expShFineLst, corrLenFineLst, xLstZakLst, zakCorrAvg1dFineLst );
 
 
 
@@ -142,7 +168,8 @@ jldsave( fNameRandCircFine; zakArrLst, zakCorrLst, expScaleFineLst, expShFineLst
 fNameArr = [ fNameRandCircZak, fNameRandCircCorr, fNameRandCircFine ];
 
 
-fNameFNameArr = "fNameArr" * fNameRandCircZak;
+fMainFNameArr = "fNameArr" * fNameRandCircZak * "_filed";
+fNameFNameArr = fNameFunc( fMainFNameArr, attrLstBase, valLstBase, jld2Type );
 save( fNameFNameArr, "fNameArr", fNameArr );
 
 open( SharedFNames.dirLog * SharedFNames.fNameTmpNameFileLst, "w" ) do io

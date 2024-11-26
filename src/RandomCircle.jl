@@ -8,6 +8,8 @@ using LinearAlgebra
 using DataStructures
 using FFTW
 using Statistics
+using LsqFit
+using CornerDetector
 
 using Infiltrator
 
@@ -90,7 +92,7 @@ struct RandCircData{N_circ}
 	zakCorrArrCmplxRef::Base.RefValue{Matrix{ComplexF64}};
 	zakCorrArrRef::Base.RefValue{Matrix{Float64}};
 	
-	function RandCircData( nCirc::Int64, rCirc::Real; nSample = 1000, divNum = 128 )
+	function RandCircData( nCirc::Int64, rCirc::Real = 1; nSample = 1000, divNum = 128 )
 		ptLst = Utils.@MVectorCompr [ @MVector( zeros(3) ) for ii = 1 : nCirc ];
 		pt2dLst = Utils.@MVectorCompr [ @MVector zeros(2) for ii = 1 : nCirc ];
 		quatLst = Utils.@MVectorCompr [ OffsetArray( @MVector( zeros(4) ), idQuatRng ) for ii = 1 : nCirc ];
@@ -342,7 +344,7 @@ function restoreRotMatOnly!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst )
 	end
 end
 
-function restoreRotMat!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst )
+function restoreRotMat!( data::RandCircData, rotMatLst, rotMat2dLst, rotMat2dInvLst )
 	restoreRotMatOnly!( data, rotMatLst, rotMat2dLst, rotMat2dInvLst );
 	
 	refreshEqCoeff!( data );
@@ -559,5 +561,7 @@ function backupZakArrCorr!( zakArr, zakCorrArr, data::RandCircData )
 end
 
 include("randomCircleFunc_nonStruct.jl");
+
+include("randomCircle_func_runFuncs.jl");
 
 end # endmodule

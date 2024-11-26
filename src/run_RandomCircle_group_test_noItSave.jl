@@ -16,6 +16,8 @@ nDim3 = 3;
 
 itNum = 10;
 
+itNum1Pass = 20;
+
 nCircStep = 5;
 rCircStep = 0.1;
 nCircLst = [5:nCircStep:50;];
@@ -29,23 +31,23 @@ nSample = 1000;
 
 divNum1Pass = 128;
 
-zakArrLst1Pass = zeros( Bool, divNum1Pass, divNum1Pass, itNum, lnRCirc, lnNCirc );
+zakArrLst1Pass = zeros( Bool, divNum1Pass, divNum1Pass, itNum1Pass, lnRCirc, lnNCirc );
 zakCorrLst1Pass = similar( zakArrLst1Pass, Float64 );
 zakCorrAvg1Pass = zeros( divNum1Pass, divNum1Pass, 1, lnRCirc, lnNCirc );
 
 randCircDataLst = [ RandomCircle.RandCircData( nCircLst[iN], rRaw; divNum = divNum1Pass, nSample = nSample ) for iN = 1 : lnNCirc ];
 
-rotMatBackupLst = [ [ [ zeros(3,3) for iCirc = 1 : nCircLst[iN] ] for it = 1 : itNum ] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-rotMat2dBackupLst = [ [ [ zeros(2,2) for iCirc = 1 : nCircLst[iN] ] for it = 1 : itNum ] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+rotMatBackupLst = [ [ [ zeros(3,3) for iCirc = 1 : nCircLst[iN] ] for it = 1 : itNum1Pass ] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+rotMat2dBackupLst = [ [ [ zeros(2,2) for iCirc = 1 : nCircLst[iN] ] for it = 1 : itNum1Pass ] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 rotMat2dInvBackupLst = deepcopy( rotMat2dBackupLst );
 
-sampleLstLst = [ [ [ zeros(2, nSample) for iCirc = 1 : nCircLst[iNCirc] ] for it = 1 : itNum ] for iRCirc = 1 : lnRCirc, iNCirc = 1 : lnNCirc ];
+sampleLstLst = [ [ [ zeros(2, nSample) for iCirc = 1 : nCircLst[iNCirc] ] for it = 1 : itNum1Pass ] for iRCirc = 1 : lnRCirc, iNCirc = 1 : lnNCirc ];
 
 for iN = 1 : lnNCirc
 	data = randCircDataLst[iN];
 	for iR = 1 : lnRCirc
 		RandomCircle.setRCircNoRotUpdate!( data, rCircLst[iR] );
-		for it = 1 : itNum
+		for it = 1 : itNum1Pass
 			RandomCircle.refreshPtLst!( data );
 			RandomCircle.refreshQuatLst!( data );
 			RandomCircle.refreshRotMatFull!( data );
@@ -88,8 +90,8 @@ expShLst = ( x -> x.param[3] ).( fittedModelLst );
 
 divNumNxt = ( x -> x < corrLenLst[1,1] ? Int64( floor( divNum1Pass * corrLenLst[1,1] / x ) ) : divNum1Pass ).(corrLenLst);
 
-zakArrLst = [ zeros( Bool, divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+# zakArrLst = [ zeros( Bool, divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+# zakCorrLst = [ zeros( divNumNxt[iR,iN], divNumNxt[iR,iN], itNum ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 
 fMainRandCircZak = "randCircZak";
 attrLstBase = [ "nCircLst", "rCircLst", "itNum" ];
@@ -134,11 +136,6 @@ fMainRandCircFine = "randCircFine";
 fNameRandCircFine = fNameFunc( fMainRandCircFine, attrLstBase, valLstBase, jld2Type );
 jldsave( fNameRandCircFine; zakArrLst, zakCorrLst, expScaleFineLst, expShFineLst, corrLenFineLst, xLstZakLst, zakCorrAvgFineLst );
 
-
-
-
-
- 
 fNameArr = [ fNameRandCircZak, fNameRandCircCorr, fNameRandCircFine ];
 
 

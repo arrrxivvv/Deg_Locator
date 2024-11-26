@@ -132,6 +132,41 @@ function getIsVisitedArr( harrisFiltData::HarrisFiltHelperData )
 end
 
 
+struct JointFiltHelper <: AbstractFiltHelperData
+	steerHelper::SteerFiltHelperData;
+	harrisHelper::HarrisFiltHelperData;
+end
+
+function JointFiltHelper( divNum::Int64 )
+	steerHelper = SteerFiltHelperData( divNum );
+	harrisHelper = HarrisFiltHelperData( divNum );
+	
+	return JointFiltHelper( steerHelper, harrisHelper );
+end
+
+
+
+function genCornerIdNumFromJoint!( jointHelper::JointFiltHelper, imgArr::AbstractMatrix{Bool}; lnFiltHarris = 2, lnFiltSteer = 2, lnConnected = 1, thresHarris = 0.3, thresSteer = 0.04, wdHarrisNearWind = 4 )
+	steerHelper = jointHelper.steerHelper;
+	harrisHelper = jointHelper.harrisHelper;
+	
+	genCovMat!( harrisHelper, imgArr );
+	genHarrisCornerFiltFromCovMatBox!( harrisHelper; filtLen = lnFiltHarris );
+	genSteerCornerFilt!( steerHelper, imgArr, lnFiltSteer );
+	
+	nonMaxSuppress!( harrisHelper );
+	nonMaxSuppress!( steerHelper );
+	
+	idHarris = extractMaxIdWithConnectedComp!( harrisHelper, thresHarris, lnConnected );
+	idSteer = extractMaxIdWithConnectedComp!( steerHelper, thresSteer, lnConnected );
+	
+	idSteerHarrisMergedLst = genCornerIdSteerHarrisMerged( idSteer, getIsMaxedArr( harrisHelper ), wdHarrisNearWind );
+	
+	numCorner = length(idSteerHarrisMergedLst);
+	
+	return idSteerHarrisMergedLst, numCorner;
+end
+
 
 
 function genCovMat!( harrisFiltData::HarrisFiltHelperData, imgArr::AbstractArray{<:Number} )
