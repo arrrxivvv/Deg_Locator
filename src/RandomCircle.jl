@@ -533,6 +533,10 @@ function calcZakAvg( zakArr::AbstractMatrix{Bool} )
 	return mean( boolToIntPosNeg, zakArr );
 end
 
+function calcZakAvg( data::RandCircData )
+	return calcZakAvg( getZakArr( data ) );
+end
+
 function calcZakCorr!( data::RandCircData )
 	zakCorrArrCmplx = getZakCorrCmplx( data );
 	zakCorrArr = getZakCorr( data );

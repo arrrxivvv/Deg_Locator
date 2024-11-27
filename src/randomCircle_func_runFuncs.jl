@@ -11,6 +11,8 @@ struct RunRandCircData
 	itNumFineRef::Base.RefValue{Int64};
 	divNum1Pass::Int64;
 	
+	isStoreCorrFull::Bool
+	
 	randCircDataLst::Vector{RandCircData};
 	
 	rotMatBackupLst::Array{Vector{Vector{Matrix{Float64}}},2};
@@ -19,11 +21,11 @@ struct RunRandCircData
 	
 	sampleLstLst::Array{Vector{Vector{Matrix{Float64}}},2};
 	
-	zakArrLst1Pass::Array{Bool};
-	zakCorrLst1Pass::Array{Float64};
+	# zakArrLst1Pass::Array{Bool};
+	zakCorr1dLst1Pass::Array{Float64};
 	
-	zakCorrMeanLst1PassSingleton::Array{Float64};
-	zakCorrMeanLst1Pass::Array{Float64};
+	zakCorr1dMeanLst1PassSingleton::Array{Float64};
+	zakCorr1dMeanLst1Pass::Array{Float64};
 	zakCorrMean1dHalf1Pass::Array{<:AbstractVector{Float64}};
 	
 	fitModel1PassLst::Array{LsqFit.LsqFitResult};
@@ -36,8 +38,12 @@ struct RunRandCircData
 	zakCorrMeanArrRef::Base.RefValue{<:Array{Float64}};
 	zakCorrMean1dRef::Base.RefValue{<:AbstractVector{Float64}};
 	zakCorrMean1dHalfRef::Base.RefValue{<:AbstractVector{Float64}};
+	zakCorrMeanFullStoreLst::Array{Array{Float64}};
 	zakCorr1dStoreLst::Array{Array{Float64}};
 	zakCorrMean1dStoreLst::Array{Array{Float64}};
+	zakArrAvgLst::Array{Float64};
+	zakArrAvgMeanLstSingleton::Array{Float64};
+	zakArrAvgMeanLst::Array{Float64};
 	xLstFineLst::Array{Vector{Float64}};
 	xHalfLstFineLst::Array{AbstractVector{Float64}};
 	corrLenFineLst::Array{Float64};
@@ -53,7 +59,7 @@ struct RunRandCircData
 	numCornerMeanLst::AbstractArray{Float64};
 end
 
-function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, itNum1Pass::Int64, itNumFine::Int64, nSample::Int64, divNum1Pass::Int64 )
+function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, itNum1Pass::Int64, itNumFine::Int64, nSample::Int64, divNum1Pass::Int64; isStoreCorrFull::Bool = false )
 	divNumHalf1Pass = div( divNum1Pass, 2 );
 	randCircDataLst = RandCircData.(nCircLst);
 	
@@ -65,12 +71,12 @@ function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, it
 	
 	sampleLstLst = [ [ [ zeros(2, nSample) for iCirc = 1 : nCircLst[iNCirc] ] for it = 1 : itNum1Pass ] for iRCirc = 1 : lnRCirc, iNCirc = 1 : lnNCirc ];
 	
-	zakArrLst1Pass = zeros(Bool, divNum1Pass, divNum1Pass, itNum1Pass, lnRCirc, lnNCirc);
-	zakCorrLst1Pass = zeros( Float64, divNum1Pass, divNum1Pass, itNum1Pass, lnRCirc, lnNCirc );
+	# zakArrLst1Pass = zeros(Bool, divNum1Pass, divNum1Pass, itNum1Pass, lnRCirc, lnNCirc);
+	zakCorr1dLst1Pass = zeros( Float64, divNum1Pass, itNum1Pass, lnRCirc, lnNCirc );
 	
-	zakCorrMeanLst1PassSingleton = zeros( Float64, divNum1Pass, divNum1Pass, 1, lnRCirc, lnNCirc );
-	zakCorrMeanLst1Pass = dropdims( zakCorrMeanLst1PassSingleton; dims = 3 );
-	zakCorrMean1dHalf1Pass = [ @view zakCorrMeanLst1Pass[1:divNumHalf1Pass,1,iR,iN] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
+	zakCorr1dMeanLst1PassSingleton = zeros( Float64, divNum1Pass, 1, lnRCirc, lnNCirc );
+	zakCorr1dMeanLst1Pass = dropdims( zakCorr1dMeanLst1PassSingleton; dims = 2 );
+	zakCorrMean1dHalf1Pass = [ @view zakCorr1dMeanLst1Pass[1:divNumHalf1Pass,iR,iN] for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
 	
 	fitModel1PassLst = Array{LsqFit.LsqFitResult}(undef, lnRCirc, lnNCirc);
 	xLst1Pass = [0.0:divNum1Pass-1;];
@@ -84,10 +90,14 @@ function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, it
 	zakCorrMeanArrRef = Ref( Array{Float64}(undef, 0,0) );
 	# zakCorrMean1dRef = Ref( @view( zakCorrMeanArrRef[][:] ) );
 	# zakCorrMean1dHalfRef = Ref( @view( zakCorrMeanArrRef[][:] ) );
+	zakCorrMeanFullStoreLst = Array{Array{Float64}}(undef, lnRCirc, lnNCirc);
 	zakCorrMean1dRef = Base.RefValue{SubArray{Float64,1}}();
 	zakCorrMean1dHalfRef = Base.RefValue{SubArray{Float64,1}}();
 	zakCorr1dStoreLst = [ Array{Float64}(undef,0) for iR = 1 : lnRCirc, iR = 1 : lnNCirc ]
 	zakCorrMean1dStoreLst = similar( zakCorr1dStoreLst );
+	zakArrAvgLst = zeros( itNumFine, lnRCirc, lnNCirc );
+	zakArrAvgMeanLstSingleton = zeros( 1, lnRCirc, lnNCirc );
+	zakArrAvgMeanLst = dropdims( zakArrAvgMeanLstSingleton; dims = 1 );
 	xLstFineLst = Array{Vector{Float64}}(undef, lnRCirc, lnNCirc);
 	xHalfLstFineLst = Array{AbstractVector{Float64}}(undef, lnRCirc, lnNCirc);
 	corrLenFineLst = zeros( lnRCirc, lnNCirc );
@@ -102,7 +112,7 @@ function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, it
 	numCornerMeanSingletonLst = zeros( Float64, 1, lnRCirc, lnNCirc );
 	numCornerMeanLst = dropdims( numCornerMeanSingletonLst; dims = 1 );
 	
-	return RunRandCircData( nCircLst, rCircLst, Ref(itNum1Pass), Ref(itNumFine), divNum1Pass, randCircDataLst, rotMatBackupLst, rotMat2dBackupLst, rotMat2dInvBackupLst, sampleLstLst, zakArrLst1Pass, zakCorrLst1Pass, zakCorrMeanLst1PassSingleton, zakCorrMeanLst1Pass, zakCorrMean1dHalf1Pass, fitModel1PassLst, xLst1Pass, xLstHalf1Pass, corrLenLst1Pass, corrLenInvLst1Pass, zakCorrTmpLstRef, zakCorrMeanArrRef, zakCorrMean1dRef, zakCorrMean1dHalfRef, zakCorr1dStoreLst, zakCorrMean1dStoreLst, xLstFineLst, xHalfLstFineLst, corrLenFineLst, expScaleFineLst, expShFineLst, divNumNxtLst, divNumNxtHalfLst, numCornerLst, idCornerLstLst, numCornerMeanSingletonLst, numCornerMeanLst );
+	return RunRandCircData( nCircLst, rCircLst, Ref(itNum1Pass), Ref(itNumFine), divNum1Pass,  isStoreCorrFull, randCircDataLst, rotMatBackupLst, rotMat2dBackupLst, rotMat2dInvBackupLst, sampleLstLst, zakCorr1dLst1Pass, zakCorr1dMeanLst1PassSingleton, zakCorr1dMeanLst1Pass, zakCorrMean1dHalf1Pass, fitModel1PassLst, xLst1Pass, xLstHalf1Pass, corrLenLst1Pass, corrLenInvLst1Pass, zakCorrTmpLstRef, zakCorrMeanArrRef, zakCorrMean1dRef, zakCorrMean1dHalfRef, zakCorrMeanFullStoreLst, zakCorr1dStoreLst, zakCorrMean1dStoreLst, zakArrAvgLst, zakArrAvgMeanLstSingleton, zakArrAvgMeanLst, xLstFineLst, xHalfLstFineLst, corrLenFineLst, expScaleFineLst, expShFineLst, divNumNxtLst, divNumNxtHalfLst, numCornerLst, idCornerLstLst, numCornerMeanSingletonLst, numCornerMeanLst );
 end
 
 getItNum1Pass( runData::RunRandCircData ) = runData.itNum1PassRef[];
@@ -132,11 +142,15 @@ function meanZakCorr!( runData::RunRandCircData )
 end
 
 function meanZakCorr1Pass!( runData::RunRandCircData )
-	mean!( runData.zakCorrMeanLst1PassSingleton, runData.zakCorrLst1Pass );
+	mean!( runData.zakCorr1dMeanLst1PassSingleton, runData.zakCorr1dLst1Pass );
 end
 
 function meanNumCornerLst!( runData::RunRandCircData )
 	mean!( runData.numCornerMeanSingletonLst, runData.numCornerLst );
+end
+
+function meanZakAvgLst!( runData::RunRandCircData )
+	mean!( runData.zakArrAvgMeanLstSingleton, runData.zakArrAvgLst );
 end
 
 function calcFitExp1Pass!( runData::RunRandCircData )
@@ -185,7 +199,7 @@ function runBaseInfo!( runData::RunRandCircData, rCircLst::Vector{Float64} )
 				calcZakCorr!( data );
 				
 				backupRotMat!( rotMatBackupLst[iR, iN][it], rotMat2dBackupLst[iR, iN][it], rotMat2dInvBackupLst[iR, iN][it], data );
-				backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
+				# backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
 				
 				calcSampleLst!( data );
 				backupSampleLst!( sampleLstLst[iR, iN][it], data );
@@ -205,22 +219,10 @@ function run1Pass!( runData::RunRandCircData )
 			restoreRotMat!( data, rotMatBackupLst[iR,iN][it], rotMat2dBackupLst[iR,iN][it], rotMat2dInvBackupLst[iR,iN][it] );
 			calcZakArr!( data );
 			calcZakCorr!( data );
-			backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
+			# backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
+			runData.zakCorr1dLst1Pass[:,it,iR,iN] .= @view getZakCorr( data )[:,1];
 		end
 	end
-	
-	# divHalf1Pass = div( getDivNum1Pass( runData ), 2 );
-	
-	# dIt = 3;
-	# zakCorrMean1Pass = dropdims( mean( randData.zakCorrLst1Pass; dims = dIt ); dims = dIt );
-	# zakCorrMean1dHalf1Pass = [ @view( zakCorrMean1Pass[ 1:divHalf1Pass, 1, iR, iN ] ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-	
-	# fitModel1PassLst = [ curve_fit( modelExp, zakCorrMean1dHalf1Pass[iR, iN], p0FitModelExp ) for iR = 1 : lnRCirc, iN = 1 : lnNCirc ];
-	
-	# corrLenInvLst1Pass = ( x -> x.param[2] ).(fitModel1PassLst);
-	# corrLenLst1Pass = 1 ./ corrLenInvLst1Pass;
-	
-	# randData.divNumNxtLst .= ( x -> x < corrLenLst1Pass[1] ? Int64( floor( getDivNum1Pass( runData ) * corrLenLst1Pass[1] / x ) ) : corrLenLst1Pass[1] ).( getDivNum1Pass( runData ) );
 	
 	meanZakCorr1Pass!( runData );
 	calcFitExp1Pass!( runData );
@@ -245,13 +247,18 @@ function runFine!( runData::RunRandCircData )
 				idCornerLst, numCorner = CornerDetector.genCornerIdNumFromJoint!( cornerHelper, getZakArr( data ) );
 				runData.numCornerLst[it, iR, iN] = numCorner;
 				runData.idCornerLstLst[it, iR, iN] = idCornerLst;
+				runData.zakArrAvgLst[it, iR, iN] = calcZakAvg( data );
 			end
 			meanZakCorr!( runData );
+			if runData.isStoreCorrFull
+				runData.zakCorrMeanFullStoreLst[iR,iN] = getZakCorrMeanArr( runData );
+			end
 			runData.zakCorrMean1dStoreLst[iR,iN] .= getZakCorrMean1d( runData );
 			calcFitExpFine!( runData, iR, iN );
 		end
 	end
 	meanNumCornerLst!( runData );
+	meanZakAvgLst!( runData );
 end
 
 function exportData( runData::RunRandCircData )
@@ -259,5 +266,17 @@ function exportData( runData::RunRandCircData )
 end
 
 function exportDataDetailed( runData::RunRandCircData )
-	return runData.corrLenFineLst, runData.expScaleFineLst, runData.expShFineLst, runData.zakCorrMean1dStoreLst, runData.zakCorr1dStoreLst, runData.numCornerMeanLst, runData.numCornerLst, runData.idCornerLstLst;
+	dataOutLst = [ runData.corrLenFineLst, runData.expScaleFineLst, runData.expShFineLst, runData.zakCorrMean1dStoreLst, runData.zakCorr1dStoreLst, runData.numCornerMeanLst, runData.numCornerLst, runData.idCornerLstLst, runData.zakArrAvgLst, runData.zakArrAvgMeanLst ];
+	# if runData.isStoreCorrFull
+		# push!( dataOutLst, runData.zakCorrMeanFullStoreLst );
+	# end
+	return dataOutLst;
+end
+
+function exportParams( runData::RunRandCircData )
+	return runData.nCircLst, runData.rCircLst, getItNumFine( runData ), runData.divNum1Pass, runData.divNumNxtLst;
+end
+
+function exportFullCorrMean( runData::RunRandCircData )
+	return runData.zakCorrMeanFullStoreLst;
 end
