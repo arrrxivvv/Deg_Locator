@@ -20,7 +20,7 @@ isStoreCorrFull = true;
 nCirc = 10;
 nDim3 = 3;
 
-itNum = 10;
+itNum = 100;
 
 itNum1Pass = 10;
 
