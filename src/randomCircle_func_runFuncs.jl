@@ -251,7 +251,7 @@ function run1Pass!( runData::RunRandCircData )
 	calcDivNumNxt!( runData );
 end
 
-function runFine!( runData::RunRandCircData; )
+function runFine!( runData::RunRandCircData; isCornerDetect = true )
 	setItNum!( runData, getItNumFine(runData) );
 	for iN = 1 : getLnNCirc( runData )
 		data = runData.randCircDataLst[iN];
@@ -267,10 +267,12 @@ function runFine!( runData::RunRandCircData; )
 				calcZakCorr!( data );
 				storeZakCorrInRun!( runData, data, it );
 				runData.zakCorr1dStoreLst[iR,iN][:,it] .= @view getZakCorrTmpLst( runData )[:,1,it];
-				idCornerLst, numCorner = CornerDetector.genCornerIdNumFromJoint!( cornerHelper, getZakArr( data ) );
-				runData.numCornerLst[it, iR, iN] = numCorner;
-				runData.idCornerLstLst[it, iR, iN] = idCornerLst;
-				runData.zakArrAvgLst[it, iR, iN] = calcZakAvg( data );
+				if isCornerDetect
+					idCornerLst, numCorner = CornerDetector.genCornerIdNumFromJoint!( cornerHelper, getZakArr( data ) );
+					runData.numCornerLst[it, iR, iN] = numCorner;
+					runData.idCornerLstLst[it, iR, iN] = idCornerLst;
+				end
+				runData.zakArrAvgLst[it, iR, iN] = calcZakAvgAbs( data );
 			end
 			meanZakCorr!( runData );
 			if runData.isStoreCorrFull
@@ -289,11 +291,12 @@ function exportData( runData::RunRandCircData )
 end
 
 function exportDataDetailed( runData::RunRandCircData )
-	dataOutLst = [ runData.corrLenFineLst, runData.expScaleFineLst, runData.expShFineLst, runData.zakCorrMean1dStoreLst, runData.zakCorr1dStoreLst, runData.numCornerMeanLst, runData.numCornerLst, runData.idCornerLstLst, runData.zakArrAvgLst, runData.zakArrAvgMeanLst ];
-	# if runData.isStoreCorrFull
-		# push!( dataOutLst, runData.zakCorrMeanFullStoreLst );
-	# end
+	dataOutLst = [ runData.corrLenFineLst, runData.expScaleFineLst, runData.expShFineLst, runData.zakCorrMean1dStoreLst, runData.zakCorr1dStoreLst, runData.zakArrAvgLst, runData.zakArrAvgMeanLst ];
 	return dataOutLst;
+end
+
+function exportDataCorner( runData::RunRandCircData )
+	return runData.numCornerLst, runData.numCornerMeanLst, runData.idCornerLstLst;
 end
 
 function exportParams( runData::RunRandCircData )

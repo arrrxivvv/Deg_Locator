@@ -10,6 +10,7 @@ using FFTW
 using Statistics
 using LsqFit
 using CornerDetector
+using ThreadedArrays
 
 using Infiltrator
 

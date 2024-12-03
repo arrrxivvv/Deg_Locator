@@ -2,12 +2,13 @@ module ThreadedArrays
 
 export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssign!;
 
+struct ThrArray{T,N} # <: AbstractArray{T,N}
+	data::Vector{Array{T,N}};
+end
+
 struct ThrStruct{Tstruct}
 	data::Vector{Tstruct};
 end
-
-ThrArray = ThrStruct{Array{T,N}} where {T,N};
-ThrRef = ThrStruct{Base.RefValue{T}} where {T};
 
 function thrStructFill( T::DataType, args... )
 	ThrStruct{T}( [ T(args...) for ii = 1 : Threads.nthreads() ] );
@@ -64,13 +65,13 @@ function thrArr_empty(T::DataType=Float64)
 	ThrArray{T,1}(Vector{Vector{T}}(undef,0));
 end
 
-# function getThrInst( arrTh::ThrArray{T} ) where{T}
-	# # if isempty(arrTh.data)
-		# # return nothing;
-	# # else
-		# return arrTh.data[Threads.threadid()];
-	# # end
-# end
+function getThrInst( arrTh::ThrArray{T} ) where{T}
+	# if isempty(arrTh.data)
+		# return nothing;
+	# else
+		return arrTh.data[Threads.threadid()];
+	# end
+end
 
 function broadcastAssign!( arrTh::ThrArray{T}, src ) where{T}
 	getThrInst( arrTh ) .= src;
@@ -88,8 +89,5 @@ Base.ndims( arrTh::ThrArray{T} ) where{T} = Base.ndims( arrTh.data[Threads.threa
 Base.size( arrTh::ThrArray{T,N} ) where{T,N} = Base.size( arrTh.data[Threads.threadid()] );
 # Base.BroadcastStyle(::Type{<:ThrArray{T}}) wherer {T} = 
 # Base.broadcast!( f, arrTh::ThrArray{T}, As... ) = Base.broadcast!( f, arrTh.data[Threads.threadid()], As... );
-
-Base.getindex( refTh::ThrRef{T} ) where{T} = Base.getindex( getThrInst(refTh) );
-Base.setindex!( refTh::ThrRef{T}, X ) where{T} = Base.setindex!( getThrInst(refTh), X );
 
 end
