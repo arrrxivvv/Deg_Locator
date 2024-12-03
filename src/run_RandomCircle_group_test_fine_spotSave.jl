@@ -11,8 +11,8 @@ using Infiltrator
 
 isRenewRand = false;
 
-isFileNameOnly = false;
-# isFileNameOnly = true;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
 # isStoreCorrFull = false;
 isStoreCorrFull = true;
@@ -24,8 +24,8 @@ itNum = 100;
 
 itNum1Pass = 10;
 
-nCircStep = 5;
-rCircStep = 0.1;
+nCircStep = 1;
+rCircStep = 0.025;
 nCircLst = [5:nCircStep:50;];
 rCircLst = [0.1:rCircStep:0.5;];
 lnNCirc = length( nCircLst );

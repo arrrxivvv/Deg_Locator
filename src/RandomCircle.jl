@@ -537,6 +537,10 @@ function calcZakAvg( data::RandCircData )
 	return calcZakAvg( getZakArr( data ) );
 end
 
+function calcZakAvgAbs( data::RandCircData )
+	return abs( calcZakAvg(data) );
+end
+
 function calcZakCorr!( data::RandCircData )
 	zakCorrArrCmplx = getZakCorrCmplx( data );
 	zakCorrArr = getZakCorr( data );
