@@ -35,10 +35,10 @@ struct RunRandCircData
 	corrLenLst1Pass::Array{Float64};
 	corrLenInvLst1Pass::Array{Float64};
 	
-	zakCorrTmpLstRef::Base.RefValue{<:Array{Float64}};
-	zakCorrMeanArrRef::Base.RefValue{<:Array{Float64}};
-	zakCorrMean1dRef::Base.RefValue{<:AbstractVector{Float64}};
-	zakCorrMean1dHalfRef::Base.RefValue{<:AbstractVector{Float64}};
+	zakCorrTmpLstRef::ThreadedArrays.ThrRef{<:Array{Float64}};
+	zakCorrMeanArrRef::ThreadedArrays.ThrRef{<:Array{Float64}};
+	zakCorrMean1dRef::ThreadedArrays.ThrRef{<:AbstractVector{Float64}};
+	zakCorrMean1dHalfRef::ThreadedArrays.ThrRef{<:AbstractVector{Float64}};
 	zakCorrMeanFullStoreLst::Array{Array{Float64}};
 	zakCorr1dStoreLst::Array{Array{Float64}};
 	zakCorrMean1dStoreLst::Array{Array{Float64}};
@@ -87,13 +87,13 @@ function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, it
 	corrLenLst1Pass = zeros( lnRCirc, lnNCirc );
 	corrLenInvLst1Pass = similar( corrLenLst1Pass );
 	
-	zakCorrTmpLstRef = Ref( Array{Float64}(undef, 0,0,0) );
-	zakCorrMeanArrRef = Ref( Array{Float64}(undef, 0,0) );
+	zakCorrTmpLstRef = thrStructCpyTheRest( Ref( Array{Float64}(undef, 0,0,0) ) );
+	zakCorrMeanArrRef = thrStructCpyTheRest( Ref( Array{Float64}(undef, 0,0) ) );
 	# zakCorrMean1dRef = Ref( @view( zakCorrMeanArrRef[][:] ) );
 	# zakCorrMean1dHalfRef = Ref( @view( zakCorrMeanArrRef[][:] ) );
 	zakCorrMeanFullStoreLst = Array{Array{Float64}}(undef, lnRCirc, lnNCirc);
-	zakCorrMean1dRef = Base.RefValue{SubArray{Float64,1}}();
-	zakCorrMean1dHalfRef = Base.RefValue{SubArray{Float64,1}}();
+	zakCorrMean1dRef = thrStructCpyTheRest( Base.RefValue{SubArray{Float64,1}}() );
+	zakCorrMean1dHalfRef = thrStructCpyTheRest( Base.RefValue{SubArray{Float64,1}}() );
 	zakCorr1dStoreLst = [ Array{Float64}(undef,0) for iR = 1 : lnRCirc, iR = 1 : lnNCirc ]
 	zakCorrMean1dStoreLst = similar( zakCorr1dStoreLst );
 	zakArrAvgLst = zeros( itNumFine, lnRCirc, lnNCirc );
@@ -253,7 +253,7 @@ end
 
 function runFine!( runData::RunRandCircData; isCornerDetect = true )
 	setItNum!( runData, getItNumFine(runData) );
-	for iN = 1 : getLnNCirc( runData )
+	Threads.@threads for iN = 1 : getLnNCirc( runData )
 		data = runData.randCircDataLst[iN];
 		for iR = 1 : getLnRCirc( runData )
 			GC.gc();
@@ -265,7 +265,13 @@ function runFine!( runData::RunRandCircData; isCornerDetect = true )
 				restoreRotMat!( data, runData.rotMatBackupLst[iR,iN][it], runData.rotMat2dBackupLst[iR,iN][it], runData.rotMat2dInvBackupLst[iR,iN][it] );
 				calcZakArr!( data );
 				calcZakCorr!( data );
-				storeZakCorrInRun!( runData, data, it );
+				try
+					storeZakCorrInRun!( runData, data, it );
+				catch err
+					if isa( err, Exception )
+						@infiltrate
+					end
+				end
 				runData.zakCorr1dStoreLst[iR,iN][:,it] .= @view getZakCorrTmpLst( runData )[:,1,it];
 				if isCornerDetect
 					idCornerLst, numCorner = CornerDetector.genCornerIdNumFromJoint!( cornerHelper, getZakArr( data ) );
