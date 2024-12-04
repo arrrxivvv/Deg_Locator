@@ -23,12 +23,12 @@ isStoreCorrFull = true;
 nCirc = 10;
 nDim3 = 3;
 
-itNum = 20;
+itNum = 100;
 
 itNum1Pass = 10;
 
-nCircStep = 5;
-rCircStep = 0.1;
+nCircStep = 1;
+rCircStep = 0.025;
 nCircLst = [5:nCircStep:50;];
 rCircLst = [0.1:rCircStep:0.5;];
 lnNCirc = length( nCircLst );
