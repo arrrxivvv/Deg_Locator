@@ -23,12 +23,12 @@ isStoreCorrFull = true;
 nCirc = 10;
 nDim3 = 3;
 
-itNum = 10;
+itNum = 100;
 
 itNum1Pass = 10;
 
-nCircStep = 5;
-rCircStep = 0.1;
+nCircStep = 1;
+rCircStep = 0.025;
 nCircLst = [5:nCircStep:50;];
 rCircLst = [0.1:rCircStep:0.5;];
 lnNCirc = length( nCircLst );
@@ -84,9 +84,9 @@ if !isFileNameOnly
 
 	runData = RandomCircle.RunRandCircData( nCircLst, rCircLst, itNum1Pass, itNum, nSample, divNum1Pass; isStoreCorrFull = isStoreCorrFull );
 
-	RandomCircle.runBaseInfo!( runData, rCircLst );
-	RandomCircle.run1Pass!( runData );
-	RandomCircle.runFine!( runData );
+	@time RandomCircle.runBaseInfo!( runData, rCircLst );
+	@time RandomCircle.run1Pass!( runData );
+	@time RandomCircle.runFine!( runData );
 
 
 	corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakCorr1dLst, zakArrAvgLst, zakArrAvgMeanLst = RandomCircle.exportDataDetailed( runData );

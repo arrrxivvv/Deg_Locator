@@ -312,7 +312,7 @@ function runFine!( runData::RunRandCircData; isCornerDetect = true )
 			for iN in iNChunk
 				data = runData.randCircDataLst[iN];
 				for iR = 1 : getLnRCirc( runData )
-					GC.gc();
+					# GC.gc();
 					divNum = runData.divNumNxtLst[iR,iN];
 					setDivNum!( data, divNum );
 					# setDivNum!( runData, divNum, runData.divNumNxtHalfLst[iR,iN] );

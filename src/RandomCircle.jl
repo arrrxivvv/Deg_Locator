@@ -13,7 +13,7 @@ using CornerDetector
 using ThreadedArrays
 using ChunkSplitters
 
-using Infiltrator
+# using Infiltrator
 
 const nDim3 = 3;
 const nDimQuat = nDim3 + 1;
@@ -193,7 +193,7 @@ function setDivNum!( data::RandCircData, divNum::Int64 )
 	
 	
 	
-	GC.gc()
+	# GC.gc()
 end
 
 function getZakArr( data::RandCircData )
