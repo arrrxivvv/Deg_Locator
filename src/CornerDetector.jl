@@ -7,7 +7,7 @@ using DataStructures
 using StaticArrays
 using Utils
 
-using Infiltrator
+# using Infiltrator
 
 function genSteerFilts( sz::Int64 )
 	xLst = [-sz:sz;];

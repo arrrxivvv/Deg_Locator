@@ -193,7 +193,7 @@ function setDivNum!( data::RandCircData, divNum::Int64 )
 	
 	
 	
-	# GC.gc()
+	GC.gc()
 end
 
 function getZakArr( data::RandCircData )
