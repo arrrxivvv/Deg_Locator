@@ -46,15 +46,16 @@ struct RandCircData{N_circ}
 	nCirc::Int64;
 	divNumRef::Base.RefValue{Int64};
 
-	ptLst::MVector{N_circ,<:AbstractVector{Float64}};
-	pt2dLst::MVector{N_circ,<:AbstractVector{Float64}};
-	quatLst::MVector{N_circ,<:AbstractVector{Float64}};
+	ptLst::MVector{N_circ,MVector{3,Float64}};
+	pt2dLst::MVector{N_circ,MVector{2,Float64}};
+	# quatLst::MVector{N_circ,MVector{4,Float64}};
+	quatLst::MVector{N_circ,OffsetVector{Float64,MVector{4,Float64}}};
 	quatNormLst::MVector{N_circ,Float64};
 	quatNormSqLst::MVector{N_circ,Float64};
 	
-	rotMatLst::MVector{N_circ,<:AbstractMatrix{Float64}};
-	rotMat2dLst::MVector{N_circ,<:AbstractMatrix{Float64}};
-	rotMat2dInvLst::MVector{N_circ,<:AbstractMatrix{Float64}};
+	rotMatLst::MVector{N_circ, MMatrix{3,3,Float64,9}};
+	rotMat2dLst::MVector{N_circ, MMatrix{2,2,Float64,4}};
+	rotMat2dInvLst::MVector{N_circ, MMatrix{2,2,Float64,4}};
 	
 	sampleThetaLst::Vector{Float64};
 	sampleCosSinLst::Matrix{Float64};
@@ -67,12 +68,12 @@ struct RandCircData{N_circ}
 	areaLst::MVector{N_circ, Float64};
 	widthXYLst::MVector{N_circ, MVector{2,Float64}};
 	
-	bndLst::MVector{N_circ,<:MVector{2,<:AbstractVector{Float64}}};
-	bndModLst::MMatrix{2,2,<:MVector{N_circ,<:AbstractVector{Float64}},4};
-	bndExtendedLst::MVector{2,<:AbstractVector{<:AbstractVector{Float64}}};	
+	bndLst::MVector{N_circ,MVector{2,MVector{2,Float64}}};
+	bndModLst::MMatrix{2,2,MVector{N_circ,MVector{2,Float64}},4};
+	bndExtendedLst::MVector{2,Vector{MVector{2,Float64}}};	
 	pt2dModLst::MMatrix{2,2,MVector{N_circ,MVector{2,Float64}},4};
 	pt2dExtendedLst::MVector{2,Vector{MVector{2,Float64}}};
-	bndExtendedXLst::AbstractVector{MVector{2,Float64}};
+	bndExtendedXLst::Vector{MVector{2,Float64}};
 	
 	idExtendedLst::MVector{2,Vector{Int64}};
 	idSortedBndModLst::MMatrix{2,2,MVector{N_circ,Int64},4};
@@ -190,10 +191,6 @@ function setDivNum!( data::RandCircData, divNum::Int64 )
 	data.zakArrRef[] = zeros( Bool, divNum, divNum );
 	data.zakCorrArrRef[] = similar( data.zakArrRef[], Float64 );
 	data.zakCorrArrCmplxRef[] = similar( data.zakArrRef[], ComplexF64 );
-	
-	
-	
-	# GC.gc()
 end
 
 function getZakArr( data::RandCircData )
