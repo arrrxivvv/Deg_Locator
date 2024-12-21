@@ -164,10 +164,10 @@ function setDivNum!( runData::RunRandCircData, divNum::Int64, divNumHalf::Int64 
 	runData.zakCorrMeanArrRef[] = zeros( divNum, divNum );
 	runData.zakCorrMean1dRef[] = @view getZakCorrMeanArr( runData )[:,1];
 	runData.zakCorrMean1dHalfRef[] = @view runData.zakCorrMean1dRef[][1:divNumHalf];
-	GC.gc();
+	# GC.gc();
 end
 
-function setItNum!( runData::RunRandCircData, itNum::Int64 );
+function setItNum!( runData::RunRandCircData, itNum::Int64; isFineSample = false );
 	itNumOld = getItNum( runData );
 	runData.itNumNowRef[] = itNum;
 	if itNum != itNumOld
@@ -176,10 +176,12 @@ function setItNum!( runData::RunRandCircData, itNum::Int64 );
 			runData.rotMatBackupLst[iR,iN] = [ [ zeros(3,3) for iCirc = 1 : runData.nCircLst[iN] ] for it = 1 : itNum ];
 			runData.rotMat2dBackupLst[iR,iN] = [ [ zeros(2,2) for iCirc = 1 : runData.nCircLst[iN] ] for it = 1 : itNum ];
 			runData.rotMat2dInvBackupLst[iR,iN] = [ [ zeros(2,2) for iCirc = 1 : runData.nCircLst[iN] ] for it = 1 : itNum ];
-			runData.sampleLstLst[iR,iN] = [ [ zeros(2, nSample) for iCirc = 1 : runData.nCircLst[iN] ] for it = 1 : itNum ];
+			if isFineSample
+				runData.sampleLstLst[iR,iN] = [ [ zeros(2, nSample) for iCirc = 1 : runData.nCircLst[iN] ] for it = 1 : itNum ];
+			end
 		end
 		GC.gc();
-		runBaseInfo!( runData );
+		runBaseInfo!( runData; isSample = isFineSample );
 	end
 end
 
@@ -248,17 +250,17 @@ function calcFitExpFine!( runData::RunRandCircData, corrMean1dHalf::AbstractVect
 	runData.expShFineLst[iR,iN] = fitModelFine.param[3];
 end
 
-function runBaseInfo!( runData::RunRandCircData )
-	runBaseInfo!( runData, runData.rCircLst );
+function runBaseInfo!( runData::RunRandCircData; isSample = true )
+	runBaseInfo!( runData, runData.rCircLst; isSample = isSample );
 end
 
-function runBaseInfo!( runData::RunRandCircData, rCircLst::Vector{Float64} )
+function runBaseInfo!( runData::RunRandCircData, rCircLst::Vector{Float64}; isSample = true )
 	rotMatBackupLst = runData.rotMatBackupLst;
 	rotMat2dBackupLst = runData.rotMat2dBackupLst;
 	rotMat2dInvBackupLst = runData.rotMat2dInvBackupLst;
 	sampleLstLst = runData.sampleLstLst;
 	
-	for iN = 1 : getLnNCirc( runData )
+	Threads.@threads for iN = 1 : getLnNCirc( runData )
 		data = runData.randCircDataLst[iN];
 		for iR = 1 : getLnRCirc( runData )
 			setRCircNoRotUpdate!( data, rCircLst[iR] );
@@ -268,14 +270,16 @@ function runBaseInfo!( runData::RunRandCircData, rCircLst::Vector{Float64} )
 				refreshRotMatFull!( data );
 				refreshEqCoeff!( data );
 				refreshBndLstFull!( data );
-				calcZakArr!( data );
-				calcZakCorr!( data );
+				# calcZakArr!( data );
+				# calcZakCorr!( data );
 				
 				backupRotMat!( rotMatBackupLst[iR, iN][it], rotMat2dBackupLst[iR, iN][it], rotMat2dInvBackupLst[iR, iN][it], data );
 				# backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
 				
-				calcSampleLst!( data );
-				backupSampleLst!( sampleLstLst[iR, iN][it], data );
+				if isSample
+					calcSampleLst!( data );
+					backupSampleLst!( sampleLstLst[iR, iN][it], data );
+				end
 			end
 		end
 	end
@@ -286,7 +290,7 @@ function run1Pass!( runData::RunRandCircData )
 	rotMat2dBackupLst = runData.rotMat2dBackupLst;
 	rotMat2dInvBackupLst = runData.rotMat2dInvBackupLst;
 	
-	for iN = 1 : getLnNCirc( runData )
+	Threads.@threads for iN = 1 : getLnNCirc( runData )
 		data = runData.randCircDataLst[iN];
 		for iR = 1 : getLnRCirc( runData ), it = 1 : getItNum1Pass( runData )
 			restoreRotMat!( data, rotMatBackupLst[iR,iN][it], rotMat2dBackupLst[iR,iN][it], rotMat2dInvBackupLst[iR,iN][it] );
@@ -302,17 +306,18 @@ function run1Pass!( runData::RunRandCircData )
 	calcDivNumNxt!( runData );
 end
 
-function runFine!( runData::RunRandCircData; isCornerDetect = true )
-	setItNum!( runData, getItNumFine(runData) );
+function runFine!( runData::RunRandCircData; isCornerDetect = true, isFineSample = false )
+	setItNum!( runData, getItNumFine(runData); isFineSample = isFineSample );
 	iNChunks = chunks( 1 : getLnNCirc( runData ); n = Threads.nthreads() );
 	taskLst = Vector{Task}(undef, length( iNChunks ));
+	# @infiltrate
 	for (iChunk, ( iNChunk, zakTmpData ) ) in enumerate( zip( iNChunks, runData.zakTmpDataLst ) )
 	# for iN = 1 : getLnNCirc( runData )
 		taskLst[iChunk] = Threads.@spawn begin
 			for iN in iNChunk
 				data = runData.randCircDataLst[iN];
 				for iR = 1 : getLnRCirc( runData )
-					# GC.gc();
+					GC.gc();
 					divNum = runData.divNumNxtLst[iR,iN];
 					setDivNum!( data, divNum );
 					# setDivNum!( runData, divNum, runData.divNumNxtHalfLst[iR,iN] );
@@ -347,10 +352,13 @@ function runFine!( runData::RunRandCircData; isCornerDetect = true )
 			end
 		end
 	end
+	# @infiltrate
 	fetch.(taskLst);
 	
 	meanNumCornerLst!( runData );
 	meanZakAvgLst!( runData );
+	
+	GC.gc();
 end
 
 function exportData( runData::RunRandCircData )

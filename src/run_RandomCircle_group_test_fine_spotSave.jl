@@ -7,7 +7,7 @@ using Utils
 using LsqFit
 using Statistics
 
-using Infiltrator
+# using Infiltrator
 
 isRenewRand = false;
 
@@ -17,20 +17,24 @@ isFileNameOnly = false;
 isCornerDetect = false;
 # isCornerDetect = true;
 
-# isStoreCorrFull = false;
-isStoreCorrFull = true;
+# isStoreCorrFull = true;
+isStoreCorrFull = false;
 
 nCirc = 10;
 nDim3 = 3;
 
-itNum = 100;
+itNum = 10;
 
 itNum1Pass = 10;
 
-nCircStep = 1;
-rCircStep = 0.025;
+# nCircStep = 1;
+# rCircStep = 0.025;
+nCircStep = 5;
+rCircStep = 0.1;
+rCircMax = 0.5;
+# rCircMax = 1;
 nCircLst = [5:nCircStep:50;];
-rCircLst = [0.1:rCircStep:0.5;];
+rCircLst = [0.1:rCircStep:rCircMax;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
 
@@ -49,6 +53,9 @@ fMod = "";
 if !isCornerDetect
 	fMod = Utils.strAppendWith_( fMod, "noCorner" );
 end
+if !isStoreCorrFull
+	fMod = Utils.strAppendWith_( fMod, "noFull" );
+end
 
 attrLstBase = ["nCircLst", "rCircLst", "itNum1Pass", "itNum", "divNum1Pass"];
 valLstBase = [ FilenameManip.fAttr_arrSummary( nCircLst, nCircStep ), FilenameManip.fAttr_arrSummary( rCircLst, rCircStep ), itNum1Pass, itNum, divNum1Pass ];
@@ -64,10 +71,10 @@ fNameArr = [fNameRandCirc, fNameRandCircParams, fNameCorner, fNameCorrFull];
 fMainFNameArr = fMain * "FNameArr";
 fMainFNameLst = fMain * "FNameLst";
 
-fNameFNameArr = fNameFunc( fMainFNameArr, attrLstBase, valLstBase, jld2Type );
+fNameFNameArr = fNameFunc( fMainFNameArr, attrLstBase, valLstBase, jld2Type; fMod = fMod );
 jldsave( fNameFNameArr; fNameArr );
 
-fNameFNameLst = fNameFunc( fMainFNameLst, attrLstBase, valLstBase, txtType );
+fNameFNameLst = fNameFunc( fMainFNameLst, attrLstBase, valLstBase, txtType; fMod = fMod );
 writedlm( fNameFNameLst, fNameArr );
 
 open( SharedFNames.dirLog * SharedFNames.fNameFileLstJld2Lst, "w" ) do io
@@ -86,13 +93,14 @@ if !isFileNameOnly
 
 	@time RandomCircle.runBaseInfo!( runData, rCircLst );
 	@time RandomCircle.run1Pass!( runData );
-	@time RandomCircle.runFine!( runData );
+	@time RandomCircle.runFine!( runData; isCornerDetect = isCornerDetect );
 
 
 	corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakCorr1dLst, zakArrAvgLst, zakArrAvgMeanLst = RandomCircle.exportDataDetailed( runData );
 	nCircLst, rCircLst, itNum, divNum1Pass, divNumNxtLst = RandomCircle.exportParams( runData );
 
-	jldsave( fNameRandCirc; corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakCorr1dLst, zakArrAvgLst, zakArrAvgMeanLst );
+	jldsave( fNameRandCirc; corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakArrAvgLst, zakArrAvgMeanLst );
+	# , zakCorr1dLst
 	jldsave( fNameRandCircParams; nCircLst, rCircLst, divNum1Pass, itNum, divNumNxtLst );
 	
 	if runData.isStoreCorrFull
