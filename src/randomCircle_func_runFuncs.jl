@@ -270,11 +270,8 @@ function runBaseInfo!( runData::RunRandCircData, rCircLst::Vector{Float64}; isSa
 				refreshRotMatFull!( data );
 				refreshEqCoeff!( data );
 				refreshBndLstFull!( data );
-				# calcZakArr!( data );
-				# calcZakCorr!( data );
 				
 				backupRotMat!( rotMatBackupLst[iR, iN][it], rotMat2dBackupLst[iR, iN][it], rotMat2dInvBackupLst[iR, iN][it], data );
-				# backupZakArrCorr!( @view( runData.zakArrLst1Pass[:, :, it, iR, iN] ), @view( runData.zakCorrLst1Pass[:, :, it, iR, iN] ), data );
 				
 				if isSample
 					calcSampleLst!( data );
@@ -322,7 +319,9 @@ function runFine!( runData::RunRandCircData; isCornerDetect = true, isFineSample
 					setDivNum!( data, divNum );
 					# setDivNum!( runData, divNum, runData.divNumNxtHalfLst[iR,iN] );
 					setDivNum!( zakTmpData, divNum, runData.divNumNxtHalfLst[iR,iN], getItNumFine( runData ) );
-					cornerHelper = CornerDetector.JointFiltHelper( divNum );
+					if isCornerDetect
+						cornerHelper = CornerDetector.JointFiltHelper( divNum );
+					end
 					for it = 1 : getItNumFine( runData )
 						restoreRotMat!( data, runData.rotMatBackupLst[iR,iN][it], runData.rotMat2dBackupLst[iR,iN][it], runData.rotMat2dInvBackupLst[iR,iN][it] );
 						calcZakArr!( data );
