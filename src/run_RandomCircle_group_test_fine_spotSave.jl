@@ -17,6 +17,9 @@ isFileNameOnly = false;
 isCornerDetect = false;
 # isCornerDetect = true;
 
+isSample = false;
+# isSample = true;
+
 # isStoreCorrFull = true;
 isStoreCorrFull = false;
 
@@ -28,13 +31,15 @@ itNum = 10;
 
 itNum1Pass = 10;
 
-nCircStep = 1;
-rCircStep = 0.025;
-# nCircStep = 5;
-# rCircStep = 0.1;
-rCircMax = 0.5;
-# rCircMax = 1;
-nCircLst = [5:nCircStep:50;];
+# nCircStep = 1;
+# rCircStep = 0.025;
+nCircStep = 5;
+rCircStep = 0.1;
+# rCircMax = 0.5;
+rCircMax = 1;
+# nMax = 50;
+nMax = 100;
+nCircLst = [5:nCircStep:nMax;]; 
 rCircLst = [0.1:rCircStep:rCircMax;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
@@ -92,7 +97,7 @@ if !isFileNameOnly
 
 	runData = RandomCircle.RunRandCircData( nCircLst, rCircLst, itNum1Pass, itNum, nSample, divNum1Pass; isStoreCorrFull = isStoreCorrFull );
 
-	@time RandomCircle.runBaseInfo!( runData, rCircLst );
+	@time RandomCircle.runBaseInfo!( runData, rCircLst; isSample = isSample );
 	@time RandomCircle.run1Pass!( runData );
 	@time RandomCircle.runFine!( runData; isCornerDetect = isCornerDetect );
 
