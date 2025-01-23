@@ -14,8 +14,8 @@ isRenewRand = false;
 isFileNameOnly = false;
 # isFileNameOnly = true;
 
-isCornerDetect = false;
-# isCornerDetect = true;
+# isCornerDetect = false;
+isCornerDetect = true;
 
 isSample = false;
 # isSample = true;
@@ -41,8 +41,12 @@ rCircStep = 0.1;
 # nMax = 100;
 rCircMax = 0.7;
 nMax = 70;
-nCircLst = [5:nCircStep:nMax;]; 
-rCircLst = [0.1:rCircStep:rCircMax;];
+rCircMin = 0.1;
+nMin = 5;
+# rCircMin = 1;
+# nMin = 100;
+nCircLst = [nMin:nCircStep:nMax;]; 
+rCircLst = [rCircMin:rCircStep:rCircMax;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
 
@@ -52,12 +56,16 @@ nSample = 1000;
 
 divNum1Pass = 128;
 
+# nTh = 8;
+nTh = Threads.nthreads();
+
 fMain = "randCirc";
 fMainParams = fMain * "Params";
 fMainCorrFull = fMain * "CorrFull";
 fMainCorner = fMain * "Corner";
 
-fMod = "";
+# fMod = "";
+fMod = "test";
 if !isCornerDetect
 	fMod = Utils.strAppendWith_( fMod, "noCorner" );
 end
@@ -101,8 +109,7 @@ if !isFileNameOnly
 
 	@time RandomCircle.runBaseInfo!( runData, rCircLst; isSample = isSample );
 	@time RandomCircle.run1Pass!( runData );
-	@time RandomCircle.runFine!( runData; isCornerDetect = isCornerDetect );
-
+	@time RandomCircle.runFine!( runData; isCornerDetect = isCornerDetect, nTh = nTh );
 
 	corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakCorr1dLst, zakArrAvgLst, zakArrAvgMeanLst = RandomCircle.exportDataDetailed( runData );
 	nCircLst, rCircLst, itNum, divNum1Pass, divNumNxtLst = RandomCircle.exportParams( runData );

@@ -57,10 +57,11 @@ function convolute!( resultArr::AbstractArray{<:Number}, imgArr::AbstractArray{<
 	imfilter!(resultArr, imgArr, filtReflArr, "circular");
 end
 
-function nonMaxSuppress!( maxSuppressedArr::AbstractArray{<:Number}, imgArr::AbstractArray{<:Number}; ln::Int64 = 1 )
-	maxVal = 0;
+# function nonMaxSuppress!( maxSuppressedArr::AbstractArray{<:Number}, imgArr::AbstractArray{<:Number}; ln::Int64 = 1 )
+function nonMaxSuppress!( maxSuppressedArr::AbstractArray{T}, imgArr::AbstractArray{T}; ln::Int64 = 1 ) where {T<:Number}
 	sz1, sz2 = size(imgArr);
-	for jj = 1 : sz2
+	Threads.@threads for jj = 1 : sz2
+		maxVal = 0;
 		for ii = 1 : sz1
 			maxVal = imgArr[ii,jj];
 			for j2 = jj - ln : jj + ln, i2 = ii - ln : ii + ln

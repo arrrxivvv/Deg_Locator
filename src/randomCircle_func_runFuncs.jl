@@ -32,7 +32,8 @@ end
 function setDivNum!( data::ZakCorrArrTmpData, divNum::Int64, divNumHalf::Int64, itNum::Int64 )
 	# data.tmpArrRef[] = zeros( divNum, divNum, itNum );
 	data.itNumRef[] = itNum;
-	data.tmpArrRef[] = zeros( divNum, divNum );
+	# data.tmpArrRef[] = zeros( divNum, divNum );
+	data.tmpArrRef[] = zeros( 0, 0 );
 	data.meanArrRef[] = zeros( divNum, divNum );
 	data.mean1dLstRef[] = @view data.meanArrRef[][:,1];
 	data.mean1dHalfLstRef[] = @view data.mean1dLstRef[][1:divNumHalf];
@@ -98,6 +99,7 @@ struct RunRandCircData
 	idCornerLstLst::Array{Vector{MVector{nDim2,Float64}}};
 	numCornerMeanSingletonLst::Array{Float64};
 	numCornerMeanLst::AbstractArray{Float64};
+	cornerHelperLst::Vector{CornerDetector.JointFiltHelper};
 end
 
 function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, itNum1Pass::Int64, itNumFine::Int64, nSample::Int64, divNum1Pass::Int64; isStoreCorrFull::Bool = false )
@@ -151,8 +153,9 @@ function RunRandCircData( nCircLst::Vector{Int64}, rCircLst::Vector{Float64}, it
 	idCornerLstLst = Array{Array{Vector{MVector{nDim2,Float64}}}}( undef, itNumFine, lnRCirc, lnNCirc );
 	numCornerMeanSingletonLst = zeros( Float64, 1, lnRCirc, lnNCirc );
 	numCornerMeanLst = dropdims( numCornerMeanSingletonLst; dims = 1 );
+	cornerHelperLst = Vector{CornerDetector.JointFiltHelper}(undef,Threads.nthreads());
 	
-	return RunRandCircData( nCircLst, rCircLst, Ref(itNum1Pass), Ref(itNumFine), Ref(itNum1Pass), divNum1Pass,  isStoreCorrFull, randCircDataLst, rotMatBackupLst, rotMat2dBackupLst, rotMat2dInvBackupLst, sampleLstLst, zakCorr1dLst1Pass, zakCorr1dMeanLst1PassSingleton, zakCorr1dMeanLst1Pass, zakCorrMean1dHalf1Pass, fitModel1PassLst, xLst1Pass, xLstHalf1Pass, corrLenLst1Pass, corrLenInvLst1Pass, zakTmpDataLst, zakCorrMeanFullStoreLst, zakCorr1dStoreLst, zakCorrMean1dStoreLst, zakArrAvgLst, zakArrAvgMeanLstSingleton, zakArrAvgMeanLst, xLstFineLst, xHalfLstFineLst, corrLenFineLst, expScaleFineLst, expShFineLst, divNumNxtLst, divNumNxtHalfLst, numCornerLst, idCornerLstLst, numCornerMeanSingletonLst, numCornerMeanLst );
+	return RunRandCircData( nCircLst, rCircLst, Ref(itNum1Pass), Ref(itNumFine), Ref(itNum1Pass), divNum1Pass,  isStoreCorrFull, randCircDataLst, rotMatBackupLst, rotMat2dBackupLst, rotMat2dInvBackupLst, sampleLstLst, zakCorr1dLst1Pass, zakCorr1dMeanLst1PassSingleton, zakCorr1dMeanLst1Pass, zakCorrMean1dHalf1Pass, fitModel1PassLst, xLst1Pass, xLstHalf1Pass, corrLenLst1Pass, corrLenInvLst1Pass, zakTmpDataLst, zakCorrMeanFullStoreLst, zakCorr1dStoreLst, zakCorrMean1dStoreLst, zakArrAvgLst, zakArrAvgMeanLstSingleton, zakArrAvgMeanLst, xLstFineLst, xHalfLstFineLst, corrLenFineLst, expScaleFineLst, expShFineLst, divNumNxtLst, divNumNxtHalfLst, numCornerLst, idCornerLstLst, numCornerMeanSingletonLst, numCornerMeanLst, cornerHelperLst );
 end
 
 getItNum1Pass( runData::RunRandCircData ) = runData.itNum1PassRef[];
@@ -311,11 +314,11 @@ function run1Pass!( runData::RunRandCircData )
 	calcDivNumNxt!( runData );
 end
 
-function runFine!( runData::RunRandCircData; isCornerDetect = true, isFineSample = false )
+function runFine!( runData::RunRandCircData; isCornerDetect = true, isFineSample = false, nTh = Threads.nthreads() )
 	setItNum!( runData, getItNumFine(runData); isFineSample = isFineSample );
-	iNChunks = chunks( 1 : getLnNCirc( runData ); n = Threads.nthreads() );
+	# iNChunks = chunks( 1 : getLnNCirc( runData ); n = Threads.nthreads() );
+	iNChunks = chunks( 1 : getLnNCirc( runData ); n = nTh );
 	taskLst = Vector{Task}(undef, length( iNChunks ));
-	# @infiltrate
 	for (iChunk, ( iNChunk, zakTmpData ) ) in enumerate( zip( iNChunks, runData.zakTmpDataLst ) )
 	# for iN = 1 : getLnNCirc( runData )
 		taskLst[iChunk] = Threads.@spawn begin
@@ -328,7 +331,9 @@ function runFine!( runData::RunRandCircData; isCornerDetect = true, isFineSample
 					# setDivNum!( runData, divNum, runData.divNumNxtHalfLst[iR,iN] );
 					setDivNum!( zakTmpData, divNum, runData.divNumNxtHalfLst[iR,iN], getItNumFine( runData ) );
 					if isCornerDetect
-						cornerHelper = CornerDetector.JointFiltHelper( divNum );
+						runData.cornerHelperLst[iChunk] = CornerDetector.JointFiltHelper( divNum );
+						cornerHelper = runData.cornerHelperLst[iChunk];
+						# cornerHelper = CornerDetector.JointFiltHelper( divNum );
 					end
 					for it = 1 : getItNumFine( runData )
 						restoreRotMat!( data, runData.rotMatBackupLst[iR,iN][it], runData.rotMat2dBackupLst[iR,iN][it], runData.rotMat2dInvBackupLst[iR,iN][it] );

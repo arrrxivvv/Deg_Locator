@@ -62,16 +62,26 @@ struct SteerFiltHelperData <: AbstractFiltHelperData
 	maxedFiltArr::Matrix{Float64};
 	isMaxedArr::Matrix{Bool};
 	isVisitedArr::Matrix{Bool};
+end
 	
-	function SteerFiltHelperData( sz::Int64 )
-		steerFiltedArr = zeros( sz, sz );
-		steerFiltedXYLst = [ similar(steerFiltedArr) for iXY = 1 : 2 ];
-		maxedFiltArr = similar( steerFiltedArr );
-		isMaxedArr = similar( maxedFiltArr, Bool );
-		isVisitedArr = similar(isMaxedArr);
-		
-		new( steerFiltedArr, steerFiltedXYLst, maxedFiltArr, isMaxedArr, isVisitedArr );
-	end
+function SteerFiltHelperDataNoSave( sz::Int64 )
+	steerFiltedArr = zeros( sz, sz );
+	steerFiltedXYLst = [ similar(steerFiltedArr) for iXY = 1 : 2 ];
+	maxedFiltArr = similar( steerFiltedArr );
+	isMaxedArr = similar( maxedFiltArr, Bool );
+	isVisitedArr = similar(isMaxedArr);
+	
+	SteerFiltHelperData( steerFiltedArr, steerFiltedXYLst, maxedFiltArr, isMaxedArr, isVisitedArr );
+end
+
+function SteerFiltHelperData( sz::Int64 )
+	steerFiltedXYLst = [ zeros( sz, sz ) for iXY = 1 : 2 ];
+	steerFiltedArr = steerFiltedXYLst[1];
+	maxedFiltArr = steerFiltedXYLst[2];
+	isMaxedArr = similar( maxedFiltArr, Bool );
+	isVisitedArr = similar(isMaxedArr);
+	
+	SteerFiltHelperData( steerFiltedArr, steerFiltedXYLst, maxedFiltArr, isMaxedArr, isVisitedArr );
 end
 
 function getMaxedFiltArr( steerFiltData::SteerFiltHelperData )
@@ -101,20 +111,36 @@ struct HarrisFiltHelperData <: AbstractFiltHelperData
 	covArrMat::Matrix{Matrix{Float64}};
 	covFiltedArrMat::Matrix{Matrix{Float64}};
 	
-	function HarrisFiltHelperData( sz::Int64 )
-		filtedArr = zeros( sz, sz );
-		maxedFiltArr = similar( filtedArr );
-		isMaxedArr = similar( maxedFiltArr, Bool );
-		isVisitedArr = similar(isMaxedArr);
-		
-		diffArrLst = [ similar(filtedArr) for iXY = 1 : 2 ];
-		covArrMat = [ similar(filtedArr) for iX = 1 : 2, iY = 1:2 ];
-		covFiltedArrMat = deepcopy( covArrMat );
-		
-		new( filtedArr, maxedFiltArr, isMaxedArr, isVisitedArr, diffArrLst, covArrMat, covFiltedArrMat );
-	end
 end
 
+function HarrisFiltHelperDataNoSave( sz::Int64 )
+	filtedArr = zeros( sz, sz );
+	maxedFiltArr = similar( filtedArr );
+	isMaxedArr = similar( maxedFiltArr, Bool );
+	isVisitedArr = similar(isMaxedArr);
+	
+	diffArrLst = [ similar(filtedArr) for iXY = 1 : 2 ];
+	covArrMat = [ similar(filtedArr) for iX = 1 : 2, iY = 1:2 ];
+	covFiltedArrMat = deepcopy( covArrMat );
+	
+	HarrisFiltHelperData( filtedArr, maxedFiltArr, isMaxedArr, isVisitedArr, diffArrLst, covArrMat, covFiltedArrMat );
+end
+
+function HarrisFiltHelperData( sz::Int64 )
+	diffArrUnderHoodLst = [ zeros( sz, sz ) for iXY = 1 : 2 ];
+	diffArrLst = diffArrUnderHoodLst;
+	filtedArr = diffArrUnderHoodLst[1];
+	maxedFiltArr = diffArrUnderHoodLst[2];
+	isMaxedArr = similar( maxedFiltArr, Bool );
+	isVisitedArr = similar(isMaxedArr);
+	
+	covArrMat = [ similar(filtedArr) for iX = 1 : 2, iY = 1:2 ];
+	# covFiltedArrMat = deepcopy( covArrMat );
+	covFiltedArrMat = covArrMat;
+	
+	HarrisFiltHelperData( filtedArr, maxedFiltArr, isMaxedArr, isVisitedArr, diffArrLst, covArrMat, covFiltedArrMat );
+end
+	
 function getFiltedArr( harrisFiltData::HarrisFiltHelperData )
 	return harrisFiltData.filtedArr;
 end
@@ -129,6 +155,10 @@ end
 
 function getIsVisitedArr( harrisFiltData::HarrisFiltHelperData )
 	return harrisFiltData.isVisitedArr;
+end
+
+function getCovFiltTmp( harrisFiltData::HarrisFiltHelperData )
+	return harrisFiltData.diffArrLst[2];
 end
 
 
@@ -174,6 +204,7 @@ function genCovMat!( harrisFiltData::HarrisFiltHelperData, imgArr::AbstractArray
 end
 
 function genCovMat!( covMat::Matrix{<:AbstractArray{<:Number}}, diffLst::Vector{<:AbstractArray{<:Number}}, imgArr::AbstractArray{<:Number} )
+	# Threads.@threads 
 	for iDiff = 1 : 2
 		ImgProcessing.convolute!( diffLst[iDiff], imgArr, ImgProcessing.sobelFiltLst[iDiff] );
 	end
@@ -190,16 +221,31 @@ function genHarrisCornerFiltFromCovMat!( harrisFiltData::HarrisFiltHelperData, f
 	return genHarrisCornerFiltFromCovMat!( getFiltedArr( harrisFiltData ), harrisFiltData.covFiltedArrMat, harrisFiltData.covArrMat, filt );
 end
 
-function genHarrisCornerFiltFromCovMatBox!( harrisFiltData::HarrisFiltHelperData; filtLen::Int64 = 1 )
-	return genHarrisCornerFiltFromCovMatBox!( getFiltedArr( harrisFiltData ), harrisFiltData.covFiltedArrMat, harrisFiltData.covArrMat; filtLen = filtLen );
+function genHarrisCornerFiltFromCovMatBox!( harrisFiltData::HarrisFiltHelperData; filtLen::Int64 = 1, isTmpFilt = true )
+	if isTmpFilt
+		return genHarrisCornerFiltFromCovMatBox!( getFiltedArr( harrisFiltData ), getCovFiltTmp( harrisFiltData ), harrisFiltData.covArrMat; filtLen = filtLen );
+	else
+		return genHarrisCornerFiltFromCovMatBox!( getFiltedArr( harrisFiltData ), harrisFiltData.covFiltedArrMat, harrisFiltData.covArrMat; filtLen = filtLen );
+	end
 end
 
 function genHarrisCornerFiltFromCovMatGauss!( harrisFiltData::HarrisFiltHelperData; filtLen::Int64 = 1 )
 	return genHarrisCornerFiltFromCovMatGauss!( getFiltedArr( harrisFiltData ), harrisFiltData.covFiltedArrMat, harrisFiltData.covArrMat; filtLen = filtLen );
 end
 
-function genHarrisCornerFiltFromCovMat!( harrisArr::Matrix{<:Number}, covMatFilted::Matrix{<:AbstractMatrix{<:Number}}, covMat::Matrix{<:AbstractMatrix{<:Number}}, filt::AbstractMatrix{<:Number}; kappa::Real = 0.05 )
+function genHarrisCornerFiltFromCovMat!( harrisArr::Matrix{<:Number}, tmpFiltArr::Matrix{<:Number}, covMat::Matrix{<:AbstractMatrix{<:Number}}, filt::AbstractMatrix{<:Number}; kappa::Real = 0.05 ) 
 	for ii in eachindex(covMat)
+		ImgProcessing.convolute!( tmpFiltArr, covMat[ii], filt );
+		covMat[ii] .= tmpFiltArr;
+	end
+	
+	harrisArr .= ( covMat[1,1] .* covMat[2,2] .- covMat[1,2] .* covMat[2,1] ) .- kappa .* (covMat[1,1] .+ covMat[2,2]).^2;
+end
+
+function genHarrisCornerFiltFromCovMat!( harrisArr::Matrix{<:Number}, covMatFilted::Matrix{<:AbstractMatrix{<:Number}}, covMat::Matrix{<:AbstractMatrix{<:Number}}, filt::AbstractMatrix{<:Number}; kappa::Real = 0.05 )
+	# Threads.@threads 
+	for ii in eachindex(covMat)
+		
 		ImgProcessing.convolute!( covMatFilted[ii], covMat[ii], filt );
 	end
 	
@@ -212,6 +258,12 @@ function genHarrisCornerFiltFromCovMatBox!( harrisArr::Matrix{<:Number},covMatFi
 	genHarrisCornerFiltFromCovMat!( harrisArr, covMatFilted, covMat, boxFilt );
 end
 
+function genHarrisCornerFiltFromCovMatBox!( harrisArr::Matrix{<:Number}, tmpFiltArr::Matrix{<:Number}, covMat::Matrix{<:AbstractMatrix{<:Number}}; filtLen::Int64 = 1 )
+	boxFilt = ImgProcessing.boxFiltLst[filtLen];
+	
+	genHarrisCornerFiltFromCovMat!( harrisArr, tmpFiltArr, covMat, boxFilt );
+end
+
 function genHarrisCornerFiltFromCovMatGauss!( harrisArr::Matrix{<:Number},covMatFilted::Matrix{<:AbstractMatrix{<:Number}}, covMat::Matrix{<:AbstractMatrix{<:Number}}; filtLen::Int64 = 1 )
 	gaussFilt = ImgProcessing.gaussFiltLst[filtLen];
 	
@@ -221,6 +273,7 @@ end
 function genSteerCornerFilt!( steerArr::Matrix{<:Number}, steerFiltedLst::AbstractVector{<:AbstractMatrix{<:Number}}, imgArr::AbstractMatrix{<:Number}, lnFilt::Int64 )
 	steerFiltLst = CornerDetector.steerFiltLstLst[lnFilt];
 	
+	# Threads.@threads 
 	for ii = 1 : 2
 		ImgProcessing.convolute!( steerFiltedLst[ii], imgArr, steerFiltLst[ii] );
 		steerFiltedLst[ii] .= steerFiltedLst[ii].^2;
