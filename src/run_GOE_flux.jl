@@ -9,7 +9,10 @@ fNameFileLstLst = "fNameFileLstLst.txt";
 fNameFileLstJld2Lst = "fNameFileLstJld2Lst.txt";
 fNameSaveParamsLst = "fNameSaveParamsLst.txt";
 
-nlst = [10:5:60;];
+nMin = 10;
+# nMax = 60;
+nMax = 10;
+nlst = [nMin:5:nMax;];
 
 nDim = 3;
 

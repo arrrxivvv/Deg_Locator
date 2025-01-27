@@ -7,12 +7,12 @@ using Utils
 using LsqFit
 using Statistics
 
-# using Infiltrator
+using Infiltrator
 
 isRenewRand = false;
 
-isFileNameOnly = false;
-# isFileNameOnly = true;
+# isFileNameOnly = false;
+isFileNameOnly = true;
 
 # isCornerDetect = false;
 isCornerDetect = true;
@@ -33,14 +33,16 @@ itNum1Pass = 10;
 
 # nCircStep = 1;
 # rCircStep = 0.025;
+# nCircStep = 95;
+# rCircStep = 0.9;
 nCircStep = 5;
 rCircStep = 0.1;
 # rCircMax = 0.5;
-# rCircMax = 1;
 # nMax = 50;
-# nMax = 100;
-rCircMax = 0.7;
-nMax = 70;
+rCircMax = 1;
+nMax = 100;
+# rCircMax = 0.7;
+# nMax = 70;
 rCircMin = 0.1;
 nMin = 5;
 # rCircMin = 1;
@@ -50,22 +52,25 @@ rCircLst = [rCircMin:rCircStep:rCircMax;];
 lnNCirc = length( nCircLst );
 lnRCirc = length( rCircLst );
 
+divFact = 70;
+divNumNxtLst = [ Int64( floor( divFact * n * r ) ) for r in rCircLst, n in nCircLst ];
+
 rRaw = 1;
 
 nSample = 1000;
 
 divNum1Pass = 128;
 
-# nTh = 8;
-nTh = Threads.nthreads();
+nTh = 8;
+# nTh = Threads.nthreads();
 
 fMain = "randCirc";
 fMainParams = fMain * "Params";
 fMainCorrFull = fMain * "CorrFull";
 fMainCorner = fMain * "Corner";
 
-# fMod = "";
-fMod = "test";
+fMod = "";
+# fMod = "test";
 if !isCornerDetect
 	fMod = Utils.strAppendWith_( fMod, "noCorner" );
 end
@@ -108,7 +113,9 @@ if !isFileNameOnly
 	runData = RandomCircle.RunRandCircData( nCircLst, rCircLst, itNum1Pass, itNum, nSample, divNum1Pass; isStoreCorrFull = isStoreCorrFull );
 
 	@time RandomCircle.runBaseInfo!( runData, rCircLst; isSample = isSample );
-	@time RandomCircle.run1Pass!( runData );
+	# @time RandomCircle.run1Pass!( runData );
+	runData.divNumNxtLst .= divNumNxtLst;
+	RandomCircle.refreshDivNumNxtData!( runData );
 	@time RandomCircle.runFine!( runData; isCornerDetect = isCornerDetect, nTh = nTh );
 
 	corrLenLst, expScaleLst, expShLst, zakCorrMean1dLst, zakCorr1dLst, zakArrAvgLst, zakArrAvgMeanLst = RandomCircle.exportDataDetailed( runData );

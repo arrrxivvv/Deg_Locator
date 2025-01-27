@@ -227,7 +227,19 @@ function calcFitExp1Pass!( runData::RunRandCircData )
 end
 
 function calcDivNumNxt!( runData::RunRandCircData )
-	runData.divNumNxtLst .= ( x -> Int64( floor( ( x < runData.corrLenLst1Pass[1] ? runData.divNum1Pass * runData.corrLenLst1Pass[1] / x : runData.divNum1Pass ) ) ) ).( runData.corrLenLst1Pass );
+	# runData.divNumNxtLst .= ( x -> Int64( floor( ( x < runData.corrLenLst1Pass[1] ? runData.divNum1Pass * runData.corrLenLst1Pass[1] / x : runData.divNum1Pass ) ) ) ).( runData.corrLenLst1Pass );
+	# runData.divNumNxtHalfLst .= div.( runData.divNumNxtLst, 2 );
+	# for iN = 1 : getLnNCirc( runData ), iR = 1 : getLnRCirc( runData )
+		# runData.xLstFineLst[iR,iN] = [0:runData.divNumNxtLst[iR,iN]-1;];
+		# runData.xLstFineLst[iR,iN] ./= runData.divNumNxtLst[iR,iN];
+		# runData.xHalfLstFineLst[iR,iN] = runData.xLstFineLst[iR,iN][1:runData.divNumNxtHalfLst[iR,iN]];
+		# runData.zakCorr1dStoreLst[iR,iN] = zeros( runData.divNumNxtLst[iR,iN], getItNumFine( runData ) );
+		# runData.zakCorrMean1dStoreLst[iR,iN] = zeros( runData.divNumNxtLst[iR,iN] );
+	# end
+	refreshDivNumNxtData!( runData );
+end
+
+function refreshDivNumNxtData!( runData::RunRandCircData )
 	runData.divNumNxtHalfLst .= div.( runData.divNumNxtLst, 2 );
 	for iN = 1 : getLnNCirc( runData ), iR = 1 : getLnRCirc( runData )
 		runData.xLstFineLst[iR,iN] = [0:runData.divNumNxtLst[iR,iN]-1;];
