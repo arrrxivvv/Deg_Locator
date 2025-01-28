@@ -265,7 +265,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	minNum = 0;
 	maxNum = 2*pi;
 	
-	paramsFull = degParamsPeriodic( mSz, divLst, minNum, maxNum, nDim );
+	paramsFull = degParamsPeriodic( mSz, divLst, minNum, maxNum, nDim; isMesh = false );
 	paramsLayer = degParamsPeriodic( mSz, divLstLayer, minNum, maxNum, nDim-1 );
 	
 	degBerrysLayer, non0Lst = degTmpArrs( paramsLayer, memNone );
@@ -276,7 +276,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	assignArrOfArrs!( linkLstThrough, 1 );
 	zakLstLst = [ [ zeros(mSz) for pos in paramsLayer.posLst ] for it = 1 : itNum ];
 	
-	HLstLst = HLstRandomGen( mSz, itNum, nDim, seedFed; HRandFun = H_GOE );
+	HLstLst::Array{Matrix{Float64},3} = HLstRandomGen( mSz, itNum, nDim, seedFed; HRandFun = H_GOE );
 	
 	H3sum = zeros( Float64, mSz, mSz );
 	x3LstLst = [ [ paramsFull.gridLst[nDim][i3] ] for i3 = 1:div3 ];
@@ -293,7 +293,10 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 		assignArrOfArrs!(linkLstThrough,1);
 		for i3 = 1 : div3
 			Hmat_3comb!( H3sum, x3LstLst[i3], @view(HLstLst[:,nDim:nDim,it]) );
-			HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum );
+			HLstLstLayer::SubArray{Matrix{Float64},2,Array{Matrix{Float64},3}} = @view(HLstLst[:,1:nDimLayer,it]);
+			HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, @view(HLstLst[:,1:nDimLayer,it]), H3sum ); 
+			# HmatFunLayer = (H, xLst2) -> Hmat_3comb_offset!( H, xLst2, HLstLstLayer, H3sum ); 
+			# @infiltrate
 			NLst[:,i3,it], NLstPolLayer[2], locLstPolLayer[1], locLstPolLayer[2] = locateDiv( degBerrysLayer, non0Lst; HmatFun = HmatFunLayer, yesGC = false );
 			for iM = 1 : mSz
 				locLst[it, i3][iM] = hcat( locLstPolLayer[iPol2d][iM], fill(i3, NLst[iM,i3,it]) );
@@ -320,6 +323,7 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 			else
 				assignArrOfArrs!( vLstPrev, degBerrysLayer.degMats.vLst );
 			end
+			# @infiltrate
 		end
 		@info("GC: ")
 		Utils.@timeInfo GC.gc();
@@ -328,6 +332,8 @@ function divB_profile_GOE_layered( mSz, divLst, itNum, seedFed; fMod = "", fExt 
 	fMain = "deg_GOE3";
 	attrLst, valLst = fAttrOptLstFunc( mSz, divLst, itNum, seedFed; dim = nDim );
 	fName = fNameFunc( fMain, attrLst, valLst, fExt; fMod = fMod );
+	
+	# @infiltrate
 	
 	save( fName, "N", mSz, "seed", seedFed, "NLst", NLst, "locLst", locLst, "HLstLst", HLstLst, "zakLstLst", zakLstLst );
 end

@@ -16,8 +16,10 @@ nlst = [nMin:5:nMax;];
 
 nDim = 3;
 
-divLstBase = [64,64];
+# divLstBase = [64,64];
+# divLstBase = [64,64,64];
 divLstBase = 4 .* [128,128,16];
+# divLstBase = [128,128,16];
 divLst = copy( divLstBase );
 
 divLstLst = zeros(Int64, nDim, length(nlst));
@@ -25,7 +27,7 @@ divLstLst = zeros(Int64, nDim, length(nlst));
 resBase = 16;
 nBase = 10;
 
-itNum = 10;
+itNum = 2;
 
 seed = 1000;
 
@@ -62,7 +64,7 @@ for ii = 1 : length(nlst)
 	println( "n = $n, res = $(divLst)" );
 	with_logger( errLogger )do 
 		# @time divB_profile_flux( n, divLst, itNum, seed; enumSaveMem = memEig, nDim = nDim );
-		# @time divB_profile_GOE_layered( n, divLst, itNum, 1000; fMod = "" )
+		@time divB_profile_GOE_layered( n, divLst, itNum, 1000; fMod = "" )
 		
 		# @time zakArr_corr_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )
 		# @time DegLocatorDiv.zakArr_corr_FFT_GOE_from_file( n, divLst, itNum, seed; fMod = fMod, dim = nDim, itNumStop = itNumStop )

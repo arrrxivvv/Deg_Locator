@@ -1,18 +1,19 @@
 using ShiftedArrays
 using ThreadedArrays
 
-struct DegParams
+struct DegParams{Nd}
 	divLst::Vector{Int64};
 	nDim::Int64;
 	N::Int64;
 	nonPeriodicLst::Vector{Bool};
-	posLst::AbstractArray{CartesianIndex{N}, N} where N;
+	# posLst::AbstractArray{CartesianIndex{N}, N} where N;
+	posLst::CartesianIndices{Nd,NTuple{Nd,Base.OneTo{Int64}}};
 	
 	minLst::Vector{Float64};
 	maxLst::Vector{Float64};
 	stepLst::Vector{Float64};
 	gridLst::Vector{ Vector{Float64} };
-	mesh::Array{ Vector{Float64} };
+	mesh::Array{ Vector{Float64}, Nd };
 	
 	locItThr::ThrArray{Int64,1};
 	linIdThr::ThrStruct{Int64};
@@ -22,7 +23,7 @@ struct DegParams
 	posLstSh::Array{CircShiftedArray};
 end
 
-function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
+function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false, isMesh = true )
 	stepLst = ( maxLst .- minLst ) ./ divLst;
 	
 	if isa(isNonPeriodic, Bool)
@@ -37,7 +38,11 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 	posLst = CartesianIndices( Tuple(szLst) );
 	gridLst = [ collect( range( minLst[iDim], maxGridLst[iDim], length = szLst[iDim] ) ) for iDim = 1:nDim ];
 	
-	mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
+	if isMesh
+		mesh = [ [ gridLst[j][ind[j]] for j = 1:nDim ] for ind in posLst ];
+	else
+		mesh = Array{ Vector{Float64} }(undef,ntuple(x->0,nDim));
+	end
 	
 	locItThr = threaded_zeros( Int64, nDim );
 	linIdThr = thrStructFill( Int64, 0 );
@@ -51,7 +56,7 @@ function degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 		for iDim = 1 : nDim, iSgn = 1 : 2
 		 ];
 	
-	return DegParams( deepcopy(divLst), nDim, N, isNonPeriodic, posLst, deepcopy(minLst), deepcopy(maxLst), stepLst, gridLst, mesh,  locItThr, linIdThr, stepsItThr, divsItThr, posLstSh );
+	return DegParams{nDim}( deepcopy(divLst), nDim, N, isNonPeriodic, posLst, deepcopy(minLst), deepcopy(maxLst), stepLst, gridLst, mesh,  locItThr, linIdThr, stepsItThr, divsItThr, posLstSh );
 end
 
 function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )
@@ -61,7 +66,7 @@ function degParamsNonInit( N, divLst, nDim; isNonPeriodic = false )
 	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic );
 end
 
-function degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
+function degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false, isMesh = true )
 	if !isa(minLst, Array)
 		minLst = fill( minLst, nDim );
 	end
@@ -69,12 +74,12 @@ function degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = false )
 		maxLst = fill( maxLst, nDim );
 	end
 	
-	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic );
+	return degParamsBase( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic, isMesh = isMesh );
 end
 
-function degParamsPeriodic( N, divLst, minLst, maxLst, nDim )
+function degParamsPeriodic( N, divLst, minLst, maxLst, nDim; isMesh = true )
 	isNonPeriodic = false;
-	return degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic );
+	return degParamsInit( N, divLst, minLst, maxLst, nDim; isNonPeriodic = isNonPeriodic, isMesh = isMesh );
 end
 
 function makeArrOverGrid( type::DataType, params::DegParams )

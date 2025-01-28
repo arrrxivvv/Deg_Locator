@@ -5,7 +5,7 @@ end
 
 function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun, thresNon0 = 1e-6, yesGC = true )
 	# thresNon0 = 1e-6;
-	
+	# @infiltrate
 	divBOutput( degBerrys, HmatFun );
 	
 	if degBerrys.params.nDim >= 3
@@ -15,11 +15,14 @@ function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun, thres
 	elseif degBerrys.params.nDim == 2
 		non0ArrCmplx = degBerrys.BfieldLst[1];
 	end
-	Threads.@threads for pos in degBerrys.params.posLst
-		for n = 1:degBerrys.params.N
-			non0Arr[pos,n] = real( non0ArrCmplx[pos][n] );
-		end
-	end
+	# @infiltrate
+	# Threads.@threads for pos in degBerrys.params.posLst
+		# for n = 1:degBerrys.params.N
+			# non0Arr[pos,n] = real( non0ArrCmplx[pos][n] );
+		# end
+	# end
+	non0ToReal( non0Arr, non0ArrCmplx, degBerrys.params.posLst, degBerrys.params.N );
+	# @infiltrate
 	
 	@info("find Non0")
 	Utils.@timeInfo NLstPol, locLstPol = findNon0Locs( non0Arr, degBerrys, thresNon0 );
@@ -27,6 +30,7 @@ function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun, thres
 		@info("GC")
 		Utils.@timeInfo GC.gc();
 	end
+	# @infiltrate
 	
 	if degBerrys.params.nDim == 2
 		NLstPol[1] .+= NLstPol[2];
@@ -36,25 +40,47 @@ function locateDiv_detailedOutput( degBerrys::DegBerrys, non0Arr; HmatFun, thres
 	return NLstPol[1], NLstPol[2], locLstPol[1], locLstPol[2], degBerrys.BfieldLst, degBerrys.divBLst; 
 end
 
+function non0ToReal( non0Arr::Array{Float64,N1}, non0ArrCmplx::Array{Vector{ComplexF64},N}, posLst::CartesianIndices{N,NTuple{N,Base.OneTo{Int64}}}, mSz::Int64 ) where{N1,N}
+	Threads.@threads for pos in posLst
+		for n = 1:mSz
+			non0Arr[pos,n] = real( non0ArrCmplx[pos][n] );
+		end
+	end
+end
+
 function findNon0Locs( non0Arr, degBerrys::DegBerrys, thres )
-	isDegArr = [[zeros(Bool,degBerrys.params.divLst...)
-		for n = 1:degBerrys.params.N]
-		for iPol = 1:2];
+	# @infiltrate
+	# isDegArr = [[zeros(Bool,degBerrys.params.divLst...)
+		# for n = 1:degBerrys.params.N]
+		# for iPol = 1:2];
 	NLstPol = [ zeros(Int64, degBerrys.params.N) for iPol = 1:2 ];
 	
 	locLstPol = [
 		Vector{Array{Int64,2}}(undef,degBerrys.params.N)
 		for iPol = 1:2];
 	
+	# for iPol = 1:2, n = 1:degBerrys.params.N
+		# locLstPol[iPol][n] = 
+			# cartIndLstToArr( 
+				# findall( (x->(-1)^(iPol-1)*x>thres), 
+					# selectdim(non0Arr,degBerrys.params.nDim+1,n)), 
+				# degBerrys.params.nDim );
+		# NLstPol[iPol][n] = 
+			# size( locLstPol[iPol][n],1 );
+	# end
+	non0Slcs = [ selectdim(non0Arr,degBerrys.params.nDim+1,n) for n = 1 : degBerrys.params.N ];
 	for iPol = 1:2, n = 1:degBerrys.params.N
+		parity::Int64 = (-1)^(iPol-1);
 		locLstPol[iPol][n] = 
 			cartIndLstToArr( 
-				findall( (x->(-1)^(iPol-1)*x>thres), 
-					selectdim(non0Arr,degBerrys.params.nDim+1,n)), 
+				findall( (x->parity*x>thres), 
+					non0Slcs[n]), 
 				degBerrys.params.nDim );
 		NLstPol[iPol][n] = 
 			size( locLstPol[iPol][n],1 );
 	end
+	# @infiltrate
+	
 	
 	return NLstPol, locLstPol;
 end

@@ -1,12 +1,12 @@
 
 @enum HgridStoreOpt HgridFull=1 Hlayered HthreadedOnly
 
-struct DegMatsOnGrid{Telm<:Number}
-	params::DegParams
-	Elst::Array{Vector{Float64}};
-	vLst::Array{Matrix{Telm}};
+struct DegMatsOnGrid{Telm<:Number,Nd,T_HmatLst}
+	params::DegParams{Nd}
+	Elst::Array{Vector{Float64},Nd};
+	vLst::Array{Matrix{Telm},Nd};
 	
-	HmatLst; # ::Array{Matrix{Telm}};
+	HmatLst::T_HmatLst; # ::Array{Matrix{Telm}};
 	HgridOpt::HgridStoreOpt;
 	eigWorkTh::ThrStruct{EigCustom.EigWork{Telm}};
 	
@@ -17,7 +17,8 @@ struct DegMatsOnGrid{Telm<:Number}
 		eigenId = 0;
 		eigenIdGrid = makeArrOverGrid( Int64, params );
 		eigenIdGrid .= 0;
-		new( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh, Ref(eigenId), eigenIdGrid );
+		Nd = params.nDim;
+		new{Telm,Nd,typeof(HmatLst)}( params, Elst, vLst, HmatLst, HgridOpt, eigWorkTh, Ref(eigenId), eigenIdGrid );
 	end
 end
 
@@ -26,7 +27,7 @@ function matsGridBase( params::DegParams, HmatLst, HOpt::HgridStoreOpt; typeElm 
 	vLst = makeArrOverGrid( Matrix{typeElm}, params );
 	
 	eigWorkTh = thrStructCopy( eigWorkStructFromNum!( params.N; typeElm = typeElm ) );
-	
+	# @infiltrate
 	return DegMatsOnGrid{typeElm}( params, Elst, vLst, HmatLst, HOpt, eigWorkTh );
 end
 
@@ -56,7 +57,7 @@ function getHCurrent( matsGrid::DegMatsOnGrid )
 	return getHLoc( getThrInst( matsGrid.params.locItThr ), matsGrid );
 end
 
-function getHLoc( loc, matsGrid::DegMatsOnGrid )
+function getHLoc( loc, matsGrid::DegMatsOnGrid{T,N,T_HmatLst} ) where {T, N, T_HmatLst <: Array}
 	if matsGrid.HgridOpt == HgridFull
 		if isa(loc, Vector)
 			idLin = linIdFromIdVec(loc);
@@ -70,6 +71,10 @@ function getHLoc( loc, matsGrid::DegMatsOnGrid )
 	elseif matsGrid.HgridOpt == HthreadedOnly
 		return getThrInst( matsGrid.HmatLst );
 	end
+end
+
+function getHLoc( loc, matsGrid::DegMatsOnGrid{T,N,T_HmatLst} ) where {T, N, T_HmatLst <: ThrArray}
+	return getThrInst( matsGrid.HmatLst );
 end
 
 function startNextEigen( matsGrid::DegMatsOnGrid )
@@ -275,7 +280,8 @@ function eigenOnSurface( matsGrid::DegMatsOnGrid; HmatFun = nothing )
 	end
 end
 
-function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
+function eigenAll( matsGrid::DegMatsOnGrid{Telm,Nd}; HmatFun = nothing ) where {Telm,Nd}
+	# @infiltrate
 	Threads.@threads for pos in matsGrid.params.posLst
 		# if checkEigenDone( matsGrid, pos );
 			# continue;
@@ -284,9 +290,11 @@ function eigenAll( matsGrid::DegMatsOnGrid; HmatFun = nothing )
 		if !isnothing(HmatFun)
 			HmatFun( getHLoc( pos, matsGrid ), matsGrid.params.mesh[pos] );
 		end
+		# @infiltrate
 		# @time eigenAtLoc( pos, matsGrid );
-		eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInst(matsGrid.eigWorkTh) );
+		eigenZheevrStruct!( getHLoc( pos, matsGrid ), matsGrid.Elst[pos], matsGrid.vLst[pos], getThrInstNoTest(matsGrid.eigWorkTh) );
 	end
+	# @infiltrate
 end
 
 function eigenLayer( matsGrid::DegMatsOnGrid, iDim; HmatFun = nothing )

@@ -1,6 +1,6 @@
 module ThreadedArrays
 
-export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, broadcastAssign!;
+export ThrArray, ThrStruct, thrStructFill, thrStructCopy, thrStructCpyTheRest, threaded_zeros, threaded_ones, threaded_fill, thrArr_empty, getThrInst, getThrInstNoTest, broadcastAssign!;
 
 struct ThrStruct{Tstruct}
 	data::Vector{Tstruct};
@@ -40,6 +40,10 @@ function getThrInst( thrStruct::ThrStruct{T} ) where{T}
 	else
 		return thrStruct.data[Threads.threadid()];
 	end
+end
+
+function getThrInstNoTest( thrStruct::ThrStruct{T} ) where {T}
+	return thrStruct.data[Threads.threadid()];
 end
 
 ThrArray{T}( data::Vector{Array{T,N}} ) where{T,N} = ThrArray{T,ndims(data[1])}( data );
